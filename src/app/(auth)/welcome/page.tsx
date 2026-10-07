@@ -4,7 +4,7 @@ import { describePeriodRange } from "@/core/membership/quarters"
 import { COLLECTIONS, inviteSchema, parseDoc } from "@/server/model"
 import { WelcomeForm } from "@/components/auth/welcome-form"
 import { Button } from "@/components/ui/button"
-import { hashToken } from "@/lib/auth/tokens"
+import { hashToken } from "@/server/tokens"
 import { adminDb } from "@/lib/firebase/admin"
 
 export const metadata: Metadata = { title: "Welcome", robots: { index: false } }
@@ -46,7 +46,16 @@ export default async function WelcomePage({ searchParams }: PageProps<"/welcome"
   const token = typeof tokenParam === "string" ? tokenParam : null
   const found = token ? await findInvite(token) : null
   const invite = found?.invite ?? null
-  const problem: InviteProblem | null = !token || !invite ? "invalid" : invite.status === "accepted" ? "accepted" : invite.status === "revoked" ? "revoked" : found?.expired ? "expired" : null
+  const problem: InviteProblem | null =
+    !token || !invite
+      ? "invalid"
+      : invite.status === "accepted"
+        ? "accepted"
+        : invite.status === "revoked"
+          ? "revoked"
+          : found?.expired
+            ? "expired"
+            : null
 
   if (problem || !invite || !token) {
     const copy = PROBLEMS[problem ?? "invalid"]
@@ -75,7 +84,9 @@ export default async function WelcomePage({ searchParams }: PageProps<"/welcome"
         </p>
         {first && last && (
           <p className="text-sm text-muted-foreground">
-            Membership: <span className="font-medium text-foreground">{invite.periods.map((p) => p.label).join(", ")}</span> ({describePeriodRange(first.start, last.end)})
+            Membership:{" "}
+            <span className="font-medium text-foreground">{invite.periods.map((p) => p.label).join(", ")}</span> (
+            {describePeriodRange(first.start, last.end)})
           </p>
         )}
       </div>

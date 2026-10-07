@@ -1,7 +1,7 @@
 "use server"
 
 import { COLLECTIONS, inviteSchema, parseDoc } from "@/server/model"
-import { hashToken } from "@/lib/auth/tokens"
+import { hashToken } from "@/server/tokens"
 import { adminAuth, adminDb } from "@/lib/firebase/admin"
 
 /**
@@ -11,7 +11,12 @@ import { adminAuth, adminDb } from "@/lib/firebase/admin"
  */
 export async function clearOrphanedInviteLogin(inviteToken: string): Promise<{ ok: boolean }> {
   if (typeof inviteToken !== "string" || inviteToken.length < 10) return { ok: false }
-  const snap = await adminDb().collection(COLLECTIONS.invites).where("tokenHash", "==", hashToken(inviteToken)).where("status", "==", "pending").limit(1).get()
+  const snap = await adminDb()
+    .collection(COLLECTIONS.invites)
+    .where("tokenHash", "==", hashToken(inviteToken))
+    .where("status", "==", "pending")
+    .limit(1)
+    .get()
   const doc = snap.docs[0]
   const invite = doc ? parseDoc(inviteSchema, doc.id, doc.data()) : null
   if (!invite || invite.expiresAt.getTime() < Date.now()) return { ok: false }

@@ -1,4 +1,3 @@
-import "server-only"
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto"
 
 /** A URL-safe random token for invite links; only its SHA-256 hash is stored. */
