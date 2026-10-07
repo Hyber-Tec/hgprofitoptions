@@ -3,11 +3,22 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "tsx --env-file-if-exists=.env.local scripts/build-sw.ts && next dev",
+    "build": "tsx --env-file-if-exists=.env.local scripts/build-sw.ts && next build",
     "start": "next start",
     "lint": "eslint",
-    "icons:swap": "tsx scripts/swap-icons.ts"
+    "typecheck": "next typegen && tsc --noEmit",
+    "test": "vitest run --project unit --project golden",
+    "test:rules": "firebase emulators:exec --only firestore,storage --project demo-hgprofitoptions \"vitest run --project rules\"",
+    "test:e2e": "playwright test",
+    "emulators": "firebase emulators:start --only auth,firestore,storage --project hgprofitoptions-hybertec",
+    "seed": "tsx --env-file=.env.local scripts/seed.ts",
+    "seed:demo": "tsx --env-file=.env.local scripts/seed-demo.ts",
+    "import:source": "tsx --env-file=.env.local scripts/import-source-files.ts",
+    "icons:swap": "tsx scripts/swap-icons.ts",
+    "build:sw": "tsx --env-file-if-exists=.env.local scripts/build-sw.ts",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
@@ -24,6 +35,7 @@
     "lightweight-charts": "^5.2.1",
     "next": "16.4.0",
     "next-themes": "^0.4.6",
+    "pdf-lib": "^1.17.1",
     "qrcode": "^1.5.4",
     "react": "19.3.0",
     "react-day-picker": "^10.0.2",

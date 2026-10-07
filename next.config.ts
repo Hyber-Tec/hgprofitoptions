@@ -15,6 +15,8 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Keep the dev-only indicator clear of the sidebar footer.
+  devIndicators: { position: "bottom-right" },
   typedRoutes: true,
   images: {
     remotePatterns: [

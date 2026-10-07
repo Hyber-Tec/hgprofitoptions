@@ -20,6 +20,19 @@ export const serverEnv = schema.parse(process.env)
 
 export const integrations = {
   email: serverEnv.RESEND_API_KEY !== null,
-  brokerage: serverEnv.SNAPTRADE_CLIENT_ID !== null && serverEnv.SNAPTRADE_CONSUMER_KEY !== null && serverEnv.SNAPTRADE_ENCRYPTION_KEY !== null,
+  brokerage:
+    serverEnv.SNAPTRADE_CLIENT_ID !== null &&
+    serverEnv.SNAPTRADE_CONSUMER_KEY !== null &&
+    serverEnv.SNAPTRADE_ENCRYPTION_KEY !== null,
   marketData: serverEnv.MARKET_DATA_API_KEY !== null,
+}
+
+/** SnapTrade settings, or null when brokerage linking is not configured. */
+export function brokerageConfig(): { clientId: string; consumerKey: string; encryptionKey: string } | null {
+  const {
+    SNAPTRADE_CLIENT_ID: clientId,
+    SNAPTRADE_CONSUMER_KEY: consumerKey,
+    SNAPTRADE_ENCRYPTION_KEY: encryptionKey,
+  } = serverEnv
+  return clientId && consumerKey && encryptionKey ? { clientId, consumerKey, encryptionKey } : null
 }

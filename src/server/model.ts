@@ -37,14 +37,27 @@ export const MEMBER_SUBCOLLECTIONS = {
   journalDays: "journalDays",
   connections: "connections",
   accounts: "accounts",
+  adminNotes: "adminNotes",
 } as const
+
+export const ACCOUNT_SUBCOLLECTIONS = {
+  holdings: "holdings",
+  snapshots: "snapshots",
+  fills: "fills",
+} as const
+
+/** Subcollections of alerts/{id} and targetUpdates/{id} that keep earlier published versions. */
+export const REVISIONS = "revisions"
 
 const timestampLike = z.custom<{ toDate: () => Date }>(
   (v) => typeof v === "object" && v !== null && "toDate" in v && typeof v.toDate === "function",
   "Expected a Firestore Timestamp",
 )
 export const timestamp = timestampLike.transform((v) => v.toDate())
-export const optionalTimestamp = timestamp.nullable().optional().transform((v) => v ?? null)
+export const optionalTimestamp = timestamp
+  .nullable()
+  .optional()
+  .transform((v) => v ?? null)
 export const isoDate = z.string().refine(isIsoDate, "Expected YYYY-MM-DD")
 
 // ---- Membership -------------------------------------------------------------------------------
@@ -53,7 +66,9 @@ export const roleSchema = z.enum(["admin", "member"])
 export const memberStatusSchema = z.enum(["active", "suspended"])
 
 export const notificationPrefsSchema = z.object({
-  pushKinds: z.array(z.enum(["buy", "sell", "update", "watch", "info"])).default(["buy", "sell", "update", "watch", "info"]),
+  pushKinds: z
+    .array(z.enum(["buy", "sell", "update", "watch", "info"]))
+    .default(["buy", "sell", "update", "watch", "info"]),
   emailKinds: z.array(z.enum(["buy", "sell", "update", "watch", "info"])).default([]),
   mutedSymbols: z.array(z.string()).default([]),
   targetsPublished: z.boolean().default(true),
@@ -80,7 +95,11 @@ export const memberSchema = z.object({
   termsAcceptedAt: optionalTimestamp,
   prefs: notificationPrefsSchema.default(DEFAULT_PREFS),
   brokerage: z
-    .object({ linked: z.boolean(), status: z.enum(["active", "needs_reauth", "disabled", "none"]), lastSyncedAt: optionalTimestamp })
+    .object({
+      linked: z.boolean(),
+      status: z.enum(["active", "needs_reauth", "disabled", "none"]),
+      lastSyncedAt: optionalTimestamp,
+    })
     .default({ linked: false, status: "none", lastSyncedAt: null }),
   stats: z
     .object({
@@ -101,8 +120,13 @@ export const memberSchema = z.object({
   createdAt: timestamp,
   createdBy: z.string().nullable().default(null),
   lastLoginAt: optionalTimestamp,
+  /** Set when the member asks HG to delete their account. */
+  deletionRequestedAt: optionalTimestamp,
+  deletionReason: z.string().nullable().default(null),
+  brokerageConsent: z.object({ version: z.string(), text: z.string(), at: timestamp }).nullable().default(null),
 })
 export type Member = z.infer<typeof memberSchema> & { uid: string }
+export type MemberStats = NonNullable<Member["stats"]>
 
 export const periodSchema = z.object({
   start: isoDate,
@@ -188,6 +212,18 @@ export const tickerSchema = z.object({
 })
 export type Ticker = z.infer<typeof tickerSchema>
 
+export const barSchema = z.object({
+  date: isoDate,
+  open: z.number().nullable(),
+  high: z.number(),
+  low: z.number(),
+  close: z.number(),
+  volume: z.number().nullable(),
+})
+/** tickerBars/{SYMBOL}: about 18 months of daily bars in one document (one read per chart). */
+export const tickerBarsSchema = z.object({ symbol: z.string(), bars: z.array(barSchema), updatedAt: timestamp })
+export type TickerBars = z.infer<typeof tickerBarsSchema>
+
 export const weekRowSchema = z.object({
   pfcp: z.number(),
   high: z.number(),
@@ -225,6 +261,8 @@ export const targetUpdateSchema = z.object({
   sourceText: z.string().nullable().default(null),
   changeNote: z.string().nullable().default(null),
   revisionOf: z.string().nullable().default(null),
+  /** 1 for the first publish; corrections increase it and archive the previous version. */
+  revision: z.number().int().default(1),
   publishedAt: optionalTimestamp,
   publishedBy: z.string().nullable().default(null),
   createdAt: timestamp,
@@ -233,13 +271,30 @@ export const targetUpdateSchema = z.object({
 export type TargetUpdate = z.infer<typeof targetUpdateSchema> & { id: string }
 
 export const targetGroupsSchema = z.object({
-  groups: z.array(z.object({ slug: z.string(), name: z.string(), shortName: z.string(), description: z.string().nullable(), order: z.number(), aliases: z.array(z.string()).default([]) })),
+  groups: z.array(
+    z.object({
+      slug: z.string(),
+      name: z.string(),
+      shortName: z.string(),
+      description: z.string().nullable(),
+      order: z.number(),
+      aliases: z.array(z.string()).default([]),
+    }),
+  ),
 })
 export type TargetGroupConfig = z.infer<typeof targetGroupsSchema>["groups"][number]
 
 export const etfConfigSchema = z.object({
   guidance: z.array(z.string()),
-  pairs: z.array(z.object({ underlying: z.string(), etf: z.string(), leverage: z.number().default(2), direction: z.enum(["bull", "bear"]).default("bull"), issuer: z.string().nullable().default(null) })),
+  pairs: z.array(
+    z.object({
+      underlying: z.string(),
+      etf: z.string(),
+      leverage: z.number().default(2),
+      direction: z.enum(["bull", "bear"]).default("bull"),
+      issuer: z.string().nullable().default(null),
+    }),
+  ),
 })
 export type EtfConfig = z.infer<typeof etfConfigSchema>
 
@@ -275,10 +330,28 @@ export const alertSchema = z.object({
     .default(null),
   tookCount: z.number().default(0),
   edited: z.boolean().default(false),
+  editedAt: optionalTimestamp,
+  revision: z.number().int().default(1),
   createdBy: z.string(),
   createdAt: timestamp,
 })
 export type AlertDoc = z.infer<typeof alertSchema> & { id: string }
+
+export const alertReadSchema = z.object({
+  readAt: timestamp,
+  took: z.boolean().default(false),
+  /** Set by "I took this trade" so a later brokerage sync can link the matching trade. */
+  tookInstrumentKey: z.string().nullable().default(null),
+})
+
+export const fcmTokenSchema = z.object({
+  token: z.string(),
+  userAgent: z.string().nullable().default(null),
+  sessionId: z.string().nullable().default(null),
+  createdAt: timestamp,
+  lastSeenAt: timestamp,
+})
+export type FcmTokenDoc = z.infer<typeof fcmTokenSchema> & { id: string }
 
 // ---- Journal and brokerage ----------------------------------------------------------------------
 
@@ -312,14 +385,28 @@ export const tradeSchema = z.object({
   rating: z.number().int().min(1).max(5).nullable().default(null),
   screenshots: z.array(z.string()).default([]),
   fills: z
-    .array(z.object({ id: z.string(), side: z.enum(["buy", "sell"]), quantity: z.number(), price: z.number(), fees: z.number(), executedAt: z.string() }))
+    .array(
+      z.object({
+        id: z.string(),
+        side: z.enum(["buy", "sell"]),
+        quantity: z.number(),
+        price: z.number(),
+        fees: z.number(),
+        executedAt: z.string(),
+      }),
+    )
     .default([]),
   createdAt: timestamp,
   updatedAt: timestamp,
 })
 export type TradeDoc = z.infer<typeof tradeSchema> & { id: string }
 
-export const journalDaySchema = z.object({ body: z.string(), mood: z.number().int().min(1).max(5).nullable().default(null), updatedAt: timestamp })
+export const journalDaySchema = z.object({
+  date: isoDate,
+  body: z.string(),
+  mood: z.number().int().min(1).max(5).nullable().default(null),
+  updatedAt: timestamp,
+})
 
 export const connectionSchema = z.object({
   provider: z.literal("snaptrade"),
@@ -359,14 +446,27 @@ export const holdingSchema = z.object({
   lastPrice: z.number().nullable(),
   marketValue: z.number().nullable(),
   asOf: timestamp,
+  /** When the position first appeared, for the HG portfolio display delay. */
+  firstSeenAt: optionalTimestamp,
 })
-export type HoldingDoc = z.infer<typeof holdingSchema>
+export type HoldingDoc = z.infer<typeof holdingSchema> & { id: string }
 
-export const snapshotSchema = z.object({ date: isoDate, value: z.number(), cash: z.number().nullable().default(null), netFlow: z.number().default(0) })
+export const snapshotSchema = z.object({
+  date: isoDate,
+  value: z.number(),
+  cash: z.number().nullable().default(null),
+  netFlow: z.number().default(0),
+})
 
 // ---- Standing ---------------------------------------------------------------------------------
 
-const returnsBlock = z.object({ week: z.number().nullable(), month: z.number().nullable(), qtd: z.number().nullable(), ytd: z.number().nullable(), all: z.number().nullable() })
+const returnsBlock = z.object({
+  week: z.number().nullable(),
+  month: z.number().nullable(),
+  qtd: z.number().nullable(),
+  ytd: z.number().nullable(),
+  all: z.number().nullable(),
+})
 export const standingSchema = z.object({
   computedAt: timestamp,
   hgPortfolio: z
@@ -374,8 +474,27 @@ export const standingSchema = z.object({
       returns: returnsBlock,
       curve: z.array(z.object({ date: isoDate, index: z.number() })),
       value: z.number().nullable(),
-      positions: z.array(z.object({ instrumentKey: z.string(), symbol: z.string(), quantity: z.number(), marketValue: z.number().nullable(), weight: z.number().nullable() })).nullable(),
-      closedTrades: z.array(z.object({ instrumentKey: z.string(), closedAt: z.string(), returnPct: z.number().nullable(), realizedPnl: z.number().nullable() })).nullable(),
+      positions: z
+        .array(
+          z.object({
+            instrumentKey: z.string(),
+            symbol: z.string(),
+            quantity: z.number().nullable(),
+            marketValue: z.number().nullable(),
+            weight: z.number().nullable(),
+          }),
+        )
+        .nullable(),
+      closedTrades: z
+        .array(
+          z.object({
+            instrumentKey: z.string(),
+            closedAt: z.string(),
+            returnPct: z.number().nullable(),
+            realizedPnl: z.number().nullable(),
+          }),
+        )
+        .nullable(),
     })
     .nullable(),
   alertsTrackRecord: z.object({
@@ -387,7 +506,14 @@ export const standingSchema = z.object({
     byMonth: z.array(z.object({ month: z.string(), closed: z.number(), averageReturn: z.number().nullable() })),
   }),
   community: z
-    .object({ members: z.number(), pctGreen: z.number(), medianReturn: z.number(), averageReturn: z.number(), averageWinRate: z.number().nullable(), totalTrades: z.number() })
+    .object({
+      members: z.number(),
+      pctGreen: z.number(),
+      medianReturn: z.number(),
+      averageReturn: z.number(),
+      averageWinRate: z.number().nullable(),
+      totalTrades: z.number(),
+    })
     .nullable(),
 })
 export type StandingDoc = z.infer<typeof standingSchema>
@@ -456,7 +582,15 @@ export const siteSettingsSchema = z.object({
   youtubeUrl: z.url().nullable().default(null),
   xUrl: z.url().nullable().default(null),
   classSchedule: z
-    .array(z.object({ day: z.number().int().min(0).max(6), start: z.string(), end: z.string(), title: z.string(), audience: z.string() }))
+    .array(
+      z.object({
+        day: z.number().int().min(0).max(6),
+        start: z.string(),
+        end: z.string(),
+        title: z.string(),
+        audience: z.string(),
+      }),
+    )
     .default([]),
 })
 export type SiteSettings = z.infer<typeof siteSettingsSchema>
@@ -469,7 +603,12 @@ export const memberSettingsSchema = z.object({
   expiringSoonDays: z.number().int().min(1).max(60).default(14),
   sessionLimit: z.number().int().min(1).max(10).default(2),
   hgPortfolio: z
-    .object({ showDollars: z.boolean(), showPositions: z.boolean(), showClosedTrades: z.boolean(), positionDelayHours: z.number().int().min(0).max(168) })
+    .object({
+      showDollars: z.boolean(),
+      showPositions: z.boolean(),
+      showClosedTrades: z.boolean(),
+      positionDelayHours: z.number().int().min(0).max(168),
+    })
     .default({ showDollars: false, showPositions: false, showClosedTrades: true, positionDelayHours: 0 }),
 })
 export type MemberSettings = z.infer<typeof memberSettingsSchema>
@@ -485,6 +624,21 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   ],
 }
 
+export const adminNotesSchema = z.object({
+  body: z.string(),
+  updatedAt: timestamp,
+  updatedBy: z.string().nullable().default(null),
+})
+
+export const jobRunSchema = z.object({
+  job: z.string(),
+  status: z.enum(["running", "succeeded", "failed", "skipped"]),
+  startedAt: timestamp,
+  finishedAt: optionalTimestamp,
+  detail: z.string().nullable().default(null),
+})
+export type JobRun = z.infer<typeof jobRunSchema> & { id: string }
+
 export const auditSchema = z.object({
   actorUid: z.string().nullable(),
   actorEmail: z.string().nullable(),
@@ -497,7 +651,11 @@ export const auditSchema = z.object({
 export type AuditEntry = z.infer<typeof auditSchema> & { id: string }
 
 /** Parses a document, attaching its id; returns null (and logs) when the data does not match. */
-export function parseDoc<S extends z.ZodType>(schema: S, id: string, data: unknown): (z.output<S> & { id: string }) | null {
+export function parseDoc<S extends z.ZodType>(
+  schema: S,
+  id: string,
+  data: unknown,
+): (z.output<S> & { id: string }) | null {
   const result = schema.safeParse(data)
   if (!result.success) {
     console.error(`Invalid document ${id}:`, z.prettifyError(result.error))

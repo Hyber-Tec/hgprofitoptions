@@ -120,7 +120,7 @@
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.922 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-primary-foreground: oklch(0.205 0 0);
   --sidebar-accent: oklch(0.269 0 0);
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
@@ -167,5 +167,20 @@
   }
   .text-balance {
     text-wrap: balance;
+  }
+}
+/* Printing a member page: drop the app frame and keep the content. */
+@media print {
+  [data-slot="sidebar"],
+  [data-slot="sidebar-gap"],
+  [data-slot="sidebar-container"],
+  [data-slot="sidebar-wrapper"] > a[href="#main"],
+  [data-slot="sidebar-inset"] > header {
+    display: none !important;
+  }
+  [data-slot="sidebar-inset"] {
+    margin: 0 !important;
+    border: 0 !important;
+    box-shadow: none !important;
   }
 }

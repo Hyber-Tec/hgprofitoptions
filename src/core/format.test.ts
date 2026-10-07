@@ -1,6 +1,17 @@
 import { describe, expect, it } from "vitest"
 import type { IsoDate } from "./domain/types"
-import { formatDate, formatExpiry, formatInstrument, formatLevel, formatPercent, formatPrice, formatRelative, formatSigned, formatSignedMoney, formatTimeET } from "./format"
+import {
+  formatDate,
+  formatExpiry,
+  formatInstrument,
+  formatLevel,
+  formatPercent,
+  formatPrice,
+  formatRelative,
+  formatSigned,
+  formatSignedMoney,
+  formatTimeET,
+} from "./format"
 
 describe("formatters", () => {
   it("formats prices", () => {
@@ -35,10 +46,20 @@ describe("formatters", () => {
     const now = new Date("2026-10-07T14:00:00Z")
     expect(formatRelative(new Date("2026-10-07T13:57:00Z"), now)).toBe("3 min ago")
     expect(formatRelative(new Date("2026-10-07T11:00:00Z"), now)).toBe("3 h ago")
+    expect(formatRelative(new Date("2026-10-07T16:00:00Z"), now)).toBe("in 2 h")
+    expect(formatRelative(new Date("2026-10-07T14:00:20Z"), now)).toBe("just now")
   })
 
   it("formats instruments", () => {
-    expect(formatInstrument({ assetType: "option", symbol: "ABC", right: "call", strike: 472.5, expiry: "2026-10-23" as IsoDate })).toBe("ABC $472.50 Call · Exp Oct 23")
+    expect(
+      formatInstrument({
+        assetType: "option",
+        symbol: "ABC",
+        right: "call",
+        strike: 472.5,
+        expiry: "2026-10-23" as IsoDate,
+      }),
+    ).toBe("ABC $472.50 Call · Exp Oct 23")
     expect(formatInstrument({ assetType: "stock", symbol: "ABC" })).toBe("ABC")
   })
 })

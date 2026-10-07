@@ -1,8 +1,8 @@
 rules_version = '2';
 
-// Files are served to browsers through short-lived signed URLs created by the server after it
-// checks membership, so clients never read objects directly. Clients may only upload:
-// members their own journal screenshots, admins alert images and member content.
+// Browsers never read objects directly: the Next.js server streams files after it checks access
+// (and watermarks PDFs). Clients may only upload: members their own journal screenshots, admins
+// alert images and member content.
 service firebase.storage {
   match /b/{bucket}/o {
 
@@ -18,7 +18,7 @@ service firebase.storage {
       return request.resource.contentType.matches('image/(png|jpeg|webp|gif)');
     }
 
-    match /journal/{uid}/{file} {
+    match /journal/{uid}/{tradeId}/{file} {
       allow read: if false;
       allow create: if signedIn() && request.auth.uid == uid && isImage() && request.resource.size < 10 * 1024 * 1024;
       allow delete: if signedIn() && request.auth.uid == uid;

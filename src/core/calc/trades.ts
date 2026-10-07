@@ -12,6 +12,30 @@ export function instrumentKey(instrument: Instrument): string {
   return `${instrument.symbol} ${instrument.expiry} ${instrument.right === "call" ? "C" : "P"} ${instrument.strike}`
 }
 
+/** The inverse of instrumentKey(); null when the key is not in that format. */
+export function parseInstrumentKey(key: string): Instrument | null {
+  const parts = key.trim().split(/\s+/)
+  const [symbol, expiry, right, strike] = parts
+  if (!symbol) return null
+  if (parts.length === 1) return { assetType: "stock", symbol }
+  if (
+    parts.length !== 4 ||
+    !expiry ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(expiry) ||
+    (right !== "C" && right !== "P") ||
+    !strike ||
+    !Number.isFinite(Number(strike))
+  )
+    return null
+  return {
+    assetType: "option",
+    symbol,
+    right: right === "C" ? "call" : "put",
+    strike: Number(strike),
+    expiry: expiry as IsoDate,
+  }
+}
+
 const round2 = (n: number) => Math.round(n * 100) / 100
 
 interface Lot {
@@ -155,7 +179,10 @@ export function buildTrades(fills: readonly Fill[]): { closed: ClosedTrade[]; op
 }
 
 /** A synthetic $0 closing fill for an option that expired worthless. */
-export function expirationFill(position: Pick<OpenPosition, "accountId" | "instrument" | "direction" | "quantity">, expiry: IsoDate): Fill {
+export function expirationFill(
+  position: Pick<OpenPosition, "accountId" | "instrument" | "direction" | "quantity">,
+  expiry: IsoDate,
+): Fill {
   return {
     id: `expire:${instrumentKey(position.instrument)}:${expiry}`,
     accountId: position.accountId,

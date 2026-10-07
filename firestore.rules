@@ -102,20 +102,16 @@ service cloud.firestore {
         allow write: if false;
       }
 
-      // Browser notification tokens for this member's devices.
+      // Browser notification tokens for this member's devices (written by the server).
       match /fcmTokens/{tokenId} {
-        allow read, delete: if isSelf(uid);
-        allow create, update: if isSelf(uid)
-          && request.resource.data.keys().hasOnly(['token', 'userAgent', 'createdAt', 'lastSeenAt'])
-          && request.resource.data.token is string
-          && request.resource.data.token.size() < 4096;
+        allow read: if isSelf(uid);
+        allow write: if false;
       }
 
+      // Read receipts for alerts (written by the server when an alert is opened).
       match /alertReads/{alertId} {
         allow read: if isSelf(uid);
-        allow create: if isSelf(uid) && hasAccess()
-          && request.resource.data.keys().hasOnly(['readAt'])
-          && request.resource.data.readAt == request.time;
+        allow write: if false;
       }
 
       // Owner only. Admins can never read private notes, and no server code reads them either.

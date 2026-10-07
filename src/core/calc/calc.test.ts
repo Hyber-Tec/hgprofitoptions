@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import type { DailyBar, Fill, IsoDate } from "../domain/types"
+import type { DailyBar, Fill, Instrument, IsoDate } from "../domain/types"
 import { channelLadder, nearestLevel, nearestLevels } from "./channels"
 import { journalStats } from "./journal-stats"
 import { positionInRange, signedRange, svi, weeklyStats } from "./kmd"
@@ -9,7 +9,14 @@ import { alertReturn, communityStanding, median, trackRecord } from "./standing"
 import { buildTrades, expirationFill, instrumentKey } from "./trades"
 
 const d = (s: string) => s as IsoDate
-const bar = (date: string, high: number, low: number, close: number): DailyBar => ({ date: d(date), open: null, high, low, close, volume: null })
+const bar = (date: string, high: number, low: number, close: number): DailyBar => ({
+  date: d(date),
+  open: null,
+  high,
+  low,
+  close,
+  volume: null,
+})
 
 describe("key market data", () => {
   it("signs the range by the week's direction", () => {
@@ -33,7 +40,16 @@ describe("key market data", () => {
       bar("2026-10-02", 99, 96, 97),
     ]
     const stats = weeklyStats(bars, { start: d("2026-09-28"), end: d("2026-10-02") })
-    expect(stats).toEqual({ weekStart: "2026-09-28", weekEnd: "2026-10-02", pfcp: 101, high: 107, low: 96, close: 97, range: -11, svi: -11 / 97 })
+    expect(stats).toEqual({
+      weekStart: "2026-09-28",
+      weekEnd: "2026-10-02",
+      pfcp: 101,
+      high: 107,
+      low: 96,
+      close: 97,
+      range: -11,
+      svi: -11 / 97,
+    })
   })
 
   it("returns null without enough data", () => {
@@ -52,9 +68,22 @@ describe("medians", () => {
   })
 
   it("computes 5D, 30D and 90D windows", () => {
-    const bars = [bar("2026-07-10", 300, 200, 250), bar("2026-09-10", 280, 240, 260), bar("2026-09-29", 270, 250, 265), bar("2026-10-02", 275, 255, 270)]
+    const bars = [
+      bar("2026-07-10", 300, 200, 250),
+      bar("2026-09-10", 280, 240, 260),
+      bar("2026-09-29", 270, 250, 265),
+      bar("2026-10-02", 275, 255, 270),
+    ]
     const m = tickerMetrics(bars, d("2026-10-02"), { start: d("2026-09-28"), end: d("2026-10-02") })
-    expect(m).toMatchObject({ lastClose: 270, high5d: 275, low5d: 250, high30d: 280, low30d: 240, high90d: 300, low90d: 200 })
+    expect(m).toMatchObject({
+      lastClose: 270,
+      high5d: 275,
+      low5d: 250,
+      high30d: 280,
+      low30d: 240,
+      high90d: 300,
+      low90d: 200,
+    })
     expect(m && medians(m)).toEqual({ m5: 262.5, m30: 260, m90: 250 })
   })
 })
@@ -87,7 +116,13 @@ describe("channel ladder", () => {
 })
 
 describe("trades (FIFO)", () => {
-  const call = { assetType: "option" as const, symbol: "ABC", right: "call" as const, strike: 50, expiry: d("2026-10-23") }
+  const call = {
+    assetType: "option" as const,
+    symbol: "ABC",
+    right: "call" as const,
+    strike: 50,
+    expiry: d("2026-10-23"),
+  }
   const fill = (id: string, side: "buy" | "sell", quantity: number, price: number, at: string, fees = 0): Fill => ({
     id,
     accountId: "acct",
@@ -132,15 +167,36 @@ describe("trades (FIFO)", () => {
     const { open } = buildTrades([fill("1", "buy", 3, 1.5, "2026-10-01T14:00:00Z")])
     const position = open[0]
     if (!position) throw new Error("expected an open position")
-    const { closed } = buildTrades([fill("1", "buy", 3, 1.5, "2026-10-01T14:00:00Z"), expirationFill(position, d("2026-10-23"))])
+    const { closed } = buildTrades([
+      fill("1", "buy", 3, 1.5, "2026-10-01T14:00:00Z"),
+      expirationFill(position, d("2026-10-23")),
+    ])
     expect(closed[0]).toMatchObject({ realizedPnl: -450, returnPct: -1 })
   })
 
   it("subtracts fees for stock trades", () => {
     const stock = { assetType: "stock" as const, symbol: "XYZ" }
     const { closed } = buildTrades([
-      { id: "a", accountId: "acct", instrument: stock, side: "buy", quantity: 100, price: 330, fees: 1, executedAt: "2026-10-01T14:00:00Z" },
-      { id: "b", accountId: "acct", instrument: stock, side: "sell", quantity: 100, price: 340, fees: 1, executedAt: "2026-10-02T14:00:00Z" },
+      {
+        id: "a",
+        accountId: "acct",
+        instrument: stock,
+        side: "buy",
+        quantity: 100,
+        price: 330,
+        fees: 1,
+        executedAt: "2026-10-01T14:00:00Z",
+      },
+      {
+        id: "b",
+        accountId: "acct",
+        instrument: stock,
+        side: "sell",
+        quantity: 100,
+        price: 340,
+        fees: 1,
+        executedAt: "2026-10-02T14:00:00Z",
+      },
     ])
     expect(closed[0]?.realizedPnl).toBe(998)
   })
@@ -148,8 +204,26 @@ describe("trades (FIFO)", () => {
   it("splits a fill that flips the position", () => {
     const stock = { assetType: "stock" as const, symbol: "XYZ" }
     const { closed, open } = buildTrades([
-      { id: "a", accountId: "acct", instrument: stock, side: "buy", quantity: 10, price: 10, fees: 0, executedAt: "2026-10-01T14:00:00Z" },
-      { id: "b", accountId: "acct", instrument: stock, side: "sell", quantity: 15, price: 12, fees: 3, executedAt: "2026-10-02T14:00:00Z" },
+      {
+        id: "a",
+        accountId: "acct",
+        instrument: stock,
+        side: "buy",
+        quantity: 10,
+        price: 10,
+        fees: 0,
+        executedAt: "2026-10-01T14:00:00Z",
+      },
+      {
+        id: "b",
+        accountId: "acct",
+        instrument: stock,
+        side: "sell",
+        quantity: 15,
+        price: 12,
+        fees: 3,
+        executedAt: "2026-10-02T14:00:00Z",
+      },
     ])
     expect(closed[0]).toMatchObject({ direction: "long", realizedPnl: 18 })
     expect(open[0]).toMatchObject({ direction: "short", quantity: 5, avgEntry: 12 })
@@ -177,7 +251,10 @@ describe("returns", () => {
   })
 
   it("measures drawdowns", () => {
-    expect(maxDrawdown([...snaps, { date: d("2026-10-06"), value: 14310, netFlow: 0 }])).toBeCloseTo(14310 / 15600 - 1, 10)
+    expect(maxDrawdown([...snaps, { date: d("2026-10-06"), value: 14310, netFlow: 0 }])).toBeCloseTo(
+      14310 / 15600 - 1,
+      10,
+    )
     expect(maxDrawdown(snaps)).toBe(0)
   })
 
@@ -206,7 +283,18 @@ describe("journal statistics", () => {
       { realizedPnl: 0, closedAt: at(4) },
       { realizedPnl: 200, closedAt: at(5) },
     ])
-    expect(stats).toMatchObject({ trades: 5, wins: 3, losses: 1, winRate: 0.75, avgWin: 486, avgLoss: -450, best: 998, worst: -450, maxWinStreak: 1, maxLossStreak: 1 })
+    expect(stats).toMatchObject({
+      trades: 5,
+      wins: 3,
+      losses: 1,
+      winRate: 0.75,
+      avgWin: 486,
+      avgLoss: -450,
+      best: 998,
+      worst: -450,
+      maxWinStreak: 1,
+      maxLossStreak: 1,
+    })
     expect(stats.profitFactor).toBeCloseTo(3.24)
     expect(stats.expectancy).toBeCloseTo(201.6)
   })
@@ -218,7 +306,12 @@ describe("journal statistics", () => {
 
 describe("standing", () => {
   it("computes an alert's return from the buy point midpoint and weighted exits", () => {
-    expect(alertReturn(3.2, 3.4, [{ price: 5, portion: 0.5 }, { price: 4.2, portion: 0.5 }])).toBeCloseTo(0.393939, 5)
+    expect(
+      alertReturn(3.2, 3.4, [
+        { price: 5, portion: 0.5 },
+        { price: 4.2, portion: 0.5 },
+      ]),
+    ).toBeCloseTo(0.393939, 5)
     expect(alertReturn(0, 0, [])).toBeNull()
   })
 
@@ -229,6 +322,26 @@ describe("standing", () => {
 
   it("hides community numbers below five members", () => {
     expect(communityStanding([0.1, 0.2, -0.1, 0.05])).toBeNull()
-    expect(communityStanding([0.1, 0.2, -0.1, 0.05, 0])).toMatchObject({ members: 5, pctGreen: 0.6, medianReturn: 0.05 })
+    expect(communityStanding([0.1, 0.2, -0.1, 0.05, 0])).toMatchObject({
+      members: 5,
+      pctGreen: 0.6,
+      medianReturn: 0.05,
+    })
+  })
+})
+
+describe("parseInstrumentKey", () => {
+  it("round-trips stock and option keys", async () => {
+    const { instrumentKey, parseInstrumentKey } = await import("./trades")
+    const option: Instrument = {
+      assetType: "option",
+      symbol: "TSM",
+      right: "call",
+      strike: 472.5,
+      expiry: "2026-10-23" as IsoDate,
+    }
+    expect(parseInstrumentKey(instrumentKey(option))).toEqual(option)
+    expect(parseInstrumentKey("AAPL")).toEqual({ assetType: "stock", symbol: "AAPL" })
+    expect(parseInstrumentKey("AAPL 10/23 C 200")).toBeNull()
   })
 })
