@@ -21,7 +21,9 @@ export const FAQS: (Omit<FaqDoc, "id"> & { id: string })[] = [
     group: "Getting started",
     question: "Can I do this while working?",
     subtitle: null,
-    answer: ["Yes. We have many members with various full-time jobs. In fact, the majority of our members are in this situation."],
+    answer: [
+      "Yes. We have many members with various full-time jobs. In fact, the majority of our members are in this situation.",
+    ],
     published: true,
     order: 2,
   },
@@ -109,7 +111,9 @@ export const FAQS: (Omit<FaqDoc, "id"> & { id: string })[] = [
     group: "The program",
     question: "At what times can I trade options?",
     subtitle: null,
-    answer: ["The options market is open from 9:30 AM until 4 PM ET, Monday through Friday, excluding stock market holidays."],
+    answer: [
+      "The options market is open from 9:30 AM until 4 PM ET, Monday through Friday, excluding stock market holidays.",
+    ],
     published: true,
     order: 9,
   },
@@ -129,7 +133,8 @@ export const FAQS: (Omit<FaqDoc, "id"> & { id: string })[] = [
     id: "sharing",
     group: "Results and policies",
     question: "Can I share the course?",
-    subtitle: "With my best friend, wife, life partner, child, grandmother, uncle, sister of my mother's father's daughter?",
+    subtitle:
+      "With my best friend, wife, life partner, child, grandmother, uncle, sister of my mother's father's daughter?",
     answer: [
       "You can share with your husband, wife or life partner (someone at the same address). Beyond that, our content may not be shared or distributed in any way, shape or form.",
       "This is trademarked intellectual property, which prohibits the release of course data by any and all members.",

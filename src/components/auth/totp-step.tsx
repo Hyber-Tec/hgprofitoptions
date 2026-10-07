@@ -10,7 +10,15 @@ import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui
 import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
 
-export function TotpStep({ resolver, onDone, onCancel }: { resolver: MultiFactorResolver; onDone: (result: SignInResult) => void; onCancel: () => void }) {
+export function TotpStep({
+  resolver,
+  onDone,
+  onCancel,
+}: {
+  resolver: MultiFactorResolver
+  onDone: (result: SignInResult) => void
+  onCancel: () => void
+}) {
   const [code, setCode] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
@@ -40,7 +48,18 @@ export function TotpStep({ resolver, onDone, onCancel }: { resolver: MultiFactor
       <FieldGroup>
         <Field>
           <FieldLabel htmlFor="totp">Verification code</FieldLabel>
-          <Input id="totp" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9 ]{6,7}" maxLength={7} required autoFocus value={code} onChange={(e) => setCode(e.target.value)} className="num text-lg tracking-[0.3em]" />
+          <Input
+            id="totp"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            pattern="[0-9 ]{6,7}"
+            maxLength={7}
+            required
+            autoFocus
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            className="num text-lg tracking-[0.3em]"
+          />
           <FieldDescription>Codes change every 30 seconds.</FieldDescription>
         </Field>
       </FieldGroup>

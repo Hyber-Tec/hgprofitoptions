@@ -72,16 +72,32 @@ export function LoginForm({ next }: { next: string | null }) {
         <FieldGroup>
           <Field>
             <FieldLabel htmlFor="email">Email</FieldLabel>
-            <Input id="email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+            <Input
+              id="email"
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
           </Field>
           <Field>
             <div className="flex items-center justify-between">
               <FieldLabel htmlFor="password">Password</FieldLabel>
-              <Link href="/forgot-password" className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+              <Link
+                href="/forgot-password"
+                className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+              >
                 Forgot password?
               </Link>
             </div>
-            <PasswordInput id="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+            <PasswordInput
+              id="password"
+              autoComplete="current-password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
           </Field>
         </FieldGroup>
         <Button type="submit" size="lg" disabled={pending !== null}>
@@ -91,7 +107,12 @@ export function LoginForm({ next }: { next: string | null }) {
       </form>
       <p className="text-center text-sm text-muted-foreground">
         Not a member yet?{" "}
-        <Link href="/book" target="_blank" rel="noopener" className="font-medium text-foreground underline-offset-4 hover:underline">
+        <Link
+          href="/book"
+          target="_blank"
+          rel="noopener"
+          className="font-medium text-foreground underline-offset-4 hover:underline"
+        >
           Book a free intro call
         </Link>
       </p>

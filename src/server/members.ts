@@ -8,7 +8,12 @@ import { accessWindow, findOverlap } from "@/core/membership/quarters"
 import { COLLECTIONS, MEMBER_SUBCOLLECTIONS, parseDoc, periodSchema, type PeriodDoc } from "./model"
 
 export async function readPeriods(db: Firestore, uid: string): Promise<PeriodDoc[]> {
-  const snap = await db.collection(COLLECTIONS.members).doc(uid).collection(MEMBER_SUBCOLLECTIONS.periods).orderBy("start").get()
+  const snap = await db
+    .collection(COLLECTIONS.members)
+    .doc(uid)
+    .collection(MEMBER_SUBCOLLECTIONS.periods)
+    .orderBy("start")
+    .get()
   return snap.docs.map((d) => parseDoc(periodSchema, d.id, d.data())).filter((p): p is PeriodDoc => p !== null)
 }
 
@@ -57,7 +62,9 @@ export async function addPeriod(
   const periodsRef = db.collection(COLLECTIONS.members).doc(uid).collection(MEMBER_SUBCOLLECTIONS.periods)
   const id = await db.runTransaction(async (tx) => {
     const snap = await tx.get(periodsRef)
-    const existing = snap.docs.map((d) => parseDoc(periodSchema, d.id, d.data())).filter((p): p is PeriodDoc => p !== null)
+    const existing = snap.docs
+      .map((d) => parseDoc(periodSchema, d.id, d.data()))
+      .filter((p): p is PeriodDoc => p !== null)
     const overlap = findOverlap(period, existing)
     if (overlap) throw new OverlapError(overlap)
     const ref = periodsRef.doc()
@@ -70,7 +77,14 @@ export async function addPeriod(
 
 export async function writeAudit(
   db: Firestore,
-  entry: { actorUid: string | null; actorEmail: string | null; action: string; targetType: string; targetId: string | null; detail?: Record<string, unknown> },
+  entry: {
+    actorUid: string | null
+    actorEmail: string | null
+    action: string
+    targetType: string
+    targetId: string | null
+    detail?: Record<string, unknown>
+  },
 ): Promise<void> {
   await db.collection(COLLECTIONS.auditLog).add({ ...entry, detail: entry.detail ?? null, createdAt: Timestamp.now() })
 }

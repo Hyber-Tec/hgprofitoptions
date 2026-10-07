@@ -10,7 +10,11 @@ export function PasswordInput(props: Omit<ComponentProps<typeof InputGroupInput>
     <InputGroup>
       <InputGroupInput type={visible ? "text" : "password"} {...props} />
       <InputGroupAddon align="inline-end">
-        <InputGroupButton size="icon-xs" aria-label={visible ? "Hide password" : "Show password"} onClick={() => setVisible((v) => !v)}>
+        <InputGroupButton
+          size="icon-xs"
+          aria-label={visible ? "Hide password" : "Show password"}
+          onClick={() => setVisible((v) => !v)}
+        >
           {visible ? <LuEyeOff /> : <LuEye />}
         </InputGroupButton>
       </InputGroupAddon>

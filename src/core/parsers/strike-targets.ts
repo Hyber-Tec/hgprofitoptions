@@ -81,13 +81,26 @@ export function slugify(name: string): string {
 }
 
 function normalizeName(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
 }
 
 /** First date on or after the effective date with that month and day. */
 export function resolveExpiry(monthDay: string, effectiveDate: IsoDate): IsoDate | null {
   const [m, d] = monthDay.split("/").map(Number)
-  if (m === undefined || d === undefined || !Number.isInteger(m) || !Number.isInteger(d) || m < 1 || m > 12 || d < 1 || d > 31) return null
+  if (
+    m === undefined ||
+    d === undefined ||
+    !Number.isInteger(m) ||
+    !Number.isInteger(d) ||
+    m < 1 ||
+    m > 12 ||
+    d < 1 ||
+    d > 31
+  )
+    return null
   const year = Number(effectiveDate.slice(0, 4))
   for (const y of [year, year + 1]) {
     const candidate = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}` as IsoDate
@@ -126,14 +139,22 @@ function normalizeLine(raw: string): Normalized {
   // "127,50" is a decimal comma; "1,725" is a thousands separator.
   if (/\d,\d{1,2}(?!\d)/.test(text)) {
     text = text.replace(/(\d),(\d{1,2})(?!\d)/g, "$1.$2")
-    issues.push({ severity: "warning", code: "comma-decimal", message: "A comma was used as the decimal point and was read as a period." })
+    issues.push({
+      severity: "warning",
+      code: "comma-decimal",
+      message: "A comma was used as the decimal point and was read as a period.",
+    })
   }
   text = text.replace(/(\d),(\d{3})(?!\d)/g, "$1$2")
 
   // "6.5010/23": a two-decimal price glued to the expiry date.
   if (/\d\.\d{2}\d{1,2}\/\d{1,2}\b/.test(text)) {
     text = text.replace(/(\d\.\d{2})(\d{1,2}\/\d{1,2})\b/g, "$1 $2")
-    issues.push({ severity: "warning", code: "missing-space", message: "The put strike and expiry were stuck together and have been split." })
+    issues.push({
+      severity: "warning",
+      code: "missing-space",
+      message: "The put strike and expiry were stuck together and have been split.",
+    })
   }
   return { text, issues }
 }
@@ -184,7 +205,13 @@ export function parseStrikeTargets(text: string, options: ParseOptions): ParsedU
       } else {
         def = { slug: slugify(normalized), name: normalized }
         knownGroups.push(def)
-        issues.push({ line, raw, severity: "warning", code: "new-group", message: `"${normalized}" is not a known category and was added as a new one.` })
+        issues.push({
+          line,
+          raw,
+          severity: "warning",
+          code: "new-group",
+          message: `"${normalized}" is not a known category and was added as a new one.`,
+        })
       }
       const existing = groups.find((g) => g.slug === def.slug)
       current = existing ?? { slug: def.slug, name: def.name, entries: [] }
@@ -192,7 +219,12 @@ export function parseStrikeTargets(text: string, options: ParseOptions): ParsedU
       continue
     }
 
-    const report = (severity: ParseIssue["severity"], code: ParseIssueCode, message: string, suggestion?: StrikeTarget) => {
+    const report = (
+      severity: ParseIssue["severity"],
+      code: ParseIssueCode,
+      message: string,
+      suggestion?: StrikeTarget,
+    ) => {
       issues.push({ line, raw, severity, code, message, ...(suggestion ? { suggestion } : {}) })
     }
     for (const issue of lineIssues) report(issue.severity, issue.code, issue.message)
@@ -214,19 +246,28 @@ export function parseStrikeTargets(text: string, options: ParseOptions): ParsedU
       const putStrike = toNumber(lastToken)
       const expiry = stray?.groups?.exp ? resolveExpiry(stray.groups.exp, effectiveDate) : null
       if (stray && symbol && target !== null && breakLevel !== null && putStrike !== null && expiry) {
-        report("error", "stray-token", `Extra number(s) after PUT: "${tokens.slice(0, -1).join(" ")}". Suggested put strike: ${putStrike}.`, {
-          group: group.slug,
-          position: nextPosition(group.slug),
-          symbol,
-          target,
-          breakLevel,
-          putStrike,
-          expiry,
-          dowWeight: toNumber(stray.groups?.w),
-          note: null,
-        })
+        report(
+          "error",
+          "stray-token",
+          `Extra number(s) after PUT: "${tokens.slice(0, -1).join(" ")}". Suggested put strike: ${putStrike}.`,
+          {
+            group: group.slug,
+            position: nextPosition(group.slug),
+            symbol,
+            target,
+            breakLevel,
+            putStrike,
+            expiry,
+            dowWeight: toNumber(stray.groups?.w),
+            note: null,
+          },
+        )
       } else {
-        report("error", "unparseable", "This line does not match the expected format: TICKER- target or break of level PUT strike M/DD.")
+        report(
+          "error",
+          "unparseable",
+          "This line does not match the expected format: TICKER- target or break of level PUT strike M/DD.",
+        )
       }
       continue
     }
@@ -245,7 +286,8 @@ export function parseStrikeTargets(text: string, options: ParseOptions): ParsedU
     if (!g.or) report("warning", "missing-or", 'The word "or" is missing before "break".')
     if (!g.of) report("warning", "missing-of", 'The word "of" is missing after "break".')
     const numbers = [g.target, g.brk, g.put, g.w].filter((v): v is string => v !== undefined)
-    if (numbers.some((n) => n.startsWith("."))) report("warning", "number-format", "A number starts with a decimal point (for example .50).")
+    if (numbers.some((n) => n.startsWith(".")))
+      report("warning", "number-format", "A number starts with a decimal point (for example .50).")
     const note = g.note?.trim() ?? null
     if (note) report("warning", "has-note", `Extra note text: "${note}".`)
 
@@ -256,8 +298,10 @@ export function parseStrikeTargets(text: string, options: ParseOptions): ParsedU
       if (target <= breakLevel) report("warning", "target-not-above-break", "The target is not above the break level.")
     }
     if (dayOfWeek(expiry) !== 5) report("warning", "expiry-not-friday", `The expiry ${expiry} is not a Friday.`)
-    if (daysBetween(effectiveDate, expiry) > maxExpiryDays) report("warning", "expiry-too-far", `The expiry ${expiry} is more than ${maxExpiryDays} days out.`)
-    if (knownTickers && !knownTickers.has(symbol)) report("warning", "unknown-ticker", `${symbol} is not in the ticker universe yet.`)
+    if (daysBetween(effectiveDate, expiry) > maxExpiryDays)
+      report("warning", "expiry-too-far", `The expiry ${expiry} is more than ${maxExpiryDays} days out.`)
+    if (knownTickers && !knownTickers.has(symbol))
+      report("warning", "unknown-ticker", `${symbol} is not in the ticker universe yet.`)
     const previous = seen.get(symbol)
     if (previous !== undefined) report("warning", "duplicate-ticker", `${symbol} already appears on line ${previous}.`)
     seen.set(symbol, line)
@@ -292,14 +336,22 @@ export function applySuggestions(parsed: ParsedUpdate): ParsedUpdate {
     g.entries.sort((a, b) => a.position - b.position)
     g.entries.forEach((e, i) => (e.position = i + 1))
   }
-  return { ...parsed, groups, issues: parsed.issues.filter((i) => i.severity !== "error" || i.suggestion === undefined) }
+  return {
+    ...parsed,
+    groups,
+    issues: parsed.issues.filter((i) => i.severity !== "error" || i.suggestion === undefined),
+  }
 }
 
 /** Old vs new targets for the "changes since last update" view. */
 export interface TargetDiff {
   added: StrikeTarget[]
   removed: StrikeTarget[]
-  changed: { before: StrikeTarget; after: StrikeTarget; fields: ("target" | "breakLevel" | "putStrike" | "expiry" | "group")[] }[]
+  changed: {
+    before: StrikeTarget
+    after: StrikeTarget
+    fields: ("target" | "breakLevel" | "putStrike" | "expiry" | "group")[]
+  }[]
 }
 
 export function diffTargets(before: readonly StrikeTarget[], after: readonly StrikeTarget[]): TargetDiff {
@@ -325,4 +377,3 @@ export function targetStatus(lastClose: number, entry: Pick<StrikeTarget, "targe
   if (lastClose <= entry.breakLevel) return "below-break"
   return "between"
 }
-

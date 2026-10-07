@@ -19,7 +19,9 @@ export function ForgotForm() {
     event.preventDefault()
     setPending(true)
     // The answer is the same whether or not the account exists, so emails cannot be probed.
-    await sendPasswordResetEmail(clientAuth(), email.trim(), { url: `${window.location.origin}/login` }).catch(() => undefined)
+    await sendPasswordResetEmail(clientAuth(), email.trim(), { url: `${window.location.origin}/login` }).catch(
+      () => undefined,
+    )
     setPending(false)
     setSent(true)
   }
@@ -29,7 +31,9 @@ export function ForgotForm() {
       <div className="flex flex-col gap-4">
         <LuMail className="size-6" />
         <h1 className="text-2xl font-semibold tracking-tight">Check your email</h1>
-        <p className="text-sm text-muted-foreground">If an account exists for {email}, we sent a link to reset your password. The link expires in one hour.</p>
+        <p className="text-sm text-muted-foreground">
+          If an account exists for {email}, we sent a link to reset your password. The link expires in one hour.
+        </p>
         <Button variant="outline" render={<Link href="/login" />} nativeButton={false}>
           Back to login
         </Button>
@@ -46,14 +50,24 @@ export function ForgotForm() {
       <FieldGroup>
         <Field>
           <FieldLabel htmlFor="email">Email</FieldLabel>
-          <Input id="email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+          <Input
+            id="email"
+            type="email"
+            autoComplete="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
         </Field>
       </FieldGroup>
       <Button type="submit" size="lg" disabled={pending}>
         {pending && <Spinner data-icon="inline-start" />}
         Send reset link
       </Button>
-      <Link href="/login" className="text-center text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+      <Link
+        href="/login"
+        className="text-center text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+      >
         Back to login
       </Link>
     </form>

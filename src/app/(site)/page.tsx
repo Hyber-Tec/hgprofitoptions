@@ -10,14 +10,17 @@ import { getFaqs, getTestimonials } from "@/lib/data/public"
 
 export const metadata: Metadata = {
   title: { absolute: "HG Profit Options · Options trading education" },
-  description: "Unlock the keys to profitable options trading. Live Saturday classes, monthly one-on-ones, real-time alerts and exclusive member tools.",
+  description:
+    "Unlock the keys to profitable options trading. Live Saturday classes, monthly one-on-ones, real-time alerts and exclusive member tools.",
 }
 
 const PREVIEW_FAQ_IDS = ["what-do-i-need", "while-working", "what-will-i-learn"]
 
 export default async function HomePage() {
   const [testimonials, faqs] = await Promise.all([getTestimonials(), getFaqs()])
-  const preview = PREVIEW_FAQ_IDS.map((id) => faqs.find((f) => f.id === id)).filter((f): f is NonNullable<typeof f> => f !== undefined)
+  const preview = PREVIEW_FAQ_IDS.map((id) => faqs.find((f) => f.id === id)).filter(
+    (f): f is NonNullable<typeof f> => f !== undefined,
+  )
   return (
     <>
       <Hero />

@@ -26,7 +26,9 @@ export function channelLadder(anchor: number, { ch, boc }: ChannelSettings, step
 }
 
 export function ladderLevels(ladder: ChannelLadder): number[] {
-  return [...ladder.lines, ...ladder.bocAbove, ...ladder.bocBelow].filter((v): v is number => v !== null).sort((a, b) => a - b)
+  return [...ladder.lines, ...ladder.bocAbove, ...ladder.bocBelow]
+    .filter((v): v is number => v !== null)
+    .sort((a, b) => a - b)
 }
 
 /** Closest channel or BOC level strictly above and strictly below the price. */

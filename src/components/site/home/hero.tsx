@@ -7,23 +7,40 @@ export function Hero() {
   return (
     <section className="relative overflow-hidden border-b">
       <div aria-hidden className="bg-grid mask-radial pointer-events-none absolute inset-0" />
-      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-foreground/20 to-transparent" />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-foreground/20 to-transparent"
+      />
       <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-4 py-20 *:min-w-0 sm:px-6 sm:py-28 lg:grid-cols-[1.15fr_0.85fr] lg:px-8">
         <div className="flex flex-col items-start gap-6">
           <Badge variant="outline" className="h-7 gap-2 rounded-full px-3 text-xs font-normal text-muted-foreground">
             <span className="size-1.5 rounded-full bg-positive" aria-hidden />
             Live options classroom · Every Saturday
           </Badge>
-          <h1 className="text-4xl font-semibold tracking-tight text-balance sm:text-5xl lg:text-6xl">Your journey toward trading excellence begins now</h1>
+          <h1 className="text-4xl font-semibold tracking-tight text-balance sm:text-5xl lg:text-6xl">
+            Your journey toward trading excellence begins now
+          </h1>
           <p className="max-w-xl text-lg text-pretty text-muted-foreground">
-            Develop a sophisticated trading portfolio. Trade with discipline, protect your capital, and get personalized strategies from experienced traders.
+            Develop a sophisticated trading portfolio. Trade with discipline, protect your capital, and get personalized
+            strategies from experienced traders.
           </p>
           <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
-            <Button size="lg" className="h-11 px-5 text-base" render={<Link href="/book" target="_blank" rel="noopener" />} nativeButton={false}>
+            <Button
+              size="lg"
+              className="h-11 px-5 text-base"
+              render={<Link href="/book" target="_blank" rel="noopener" />}
+              nativeButton={false}
+            >
               <LuCalendarCheck data-icon="inline-start" />
               Book my free 15-min intro call
             </Button>
-            <Button size="lg" variant="outline" className="h-11 px-5 text-base" render={<Link href="/login" />} nativeButton={false}>
+            <Button
+              size="lg"
+              variant="outline"
+              className="h-11 px-5 text-base"
+              render={<Link href="/login" />}
+              nativeButton={false}
+            >
               <LuLogIn data-icon="inline-start" />
               Member login
             </Button>
@@ -88,8 +105,16 @@ function HeroPreview() {
             {[112, 106, 100, 94, 88].map((level, i) => (
               <div key={level} className="flex items-center gap-3 text-xs">
                 <span className="num w-12 text-right text-muted-foreground">{level.toFixed(2)}</span>
-                <span className={i === 2 ? "h-px flex-1 bg-foreground" : "h-px flex-1 border-t border-dashed border-foreground/25"} />
-                {i === 2 && <span className="rounded bg-foreground px-1.5 py-0.5 text-[10px] font-medium text-background">Last 101.20</span>}
+                <span
+                  className={
+                    i === 2 ? "h-px flex-1 bg-foreground" : "h-px flex-1 border-t border-dashed border-foreground/25"
+                  }
+                />
+                {i === 2 && (
+                  <span className="rounded bg-foreground px-1.5 py-0.5 text-[10px] font-medium text-background">
+                    Last 101.20
+                  </span>
+                )}
               </div>
             ))}
           </div>

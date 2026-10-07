@@ -56,7 +56,10 @@ export function journalStats(closed: readonly Pick<ClosedTrade, "realizedPnl" | 
 }
 
 /** Realized P&L summed per calendar day (keyed "YYYY-MM-DD" in the given zone), for the heatmap. */
-export function dailyPnl(closed: readonly Pick<ClosedTrade, "realizedPnl" | "closedAt">[], toDay: (iso: string) => string): Map<string, number> {
+export function dailyPnl(
+  closed: readonly Pick<ClosedTrade, "realizedPnl" | "closedAt">[],
+  toDay: (iso: string) => string,
+): Map<string, number> {
   const out = new Map<string, number>()
   for (const t of closed) {
     const day = toDay(t.closedAt)

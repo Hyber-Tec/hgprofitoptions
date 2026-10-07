@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest"
 import type { IsoDate, StrikeTarget } from "../domain/types"
-import { applySuggestions, diffTargets, parseStrikeTargets, resolveExpiry, slugify, targetStatus } from "./strike-targets"
+import {
+  applySuggestions,
+  diffTargets,
+  parseStrikeTargets,
+  resolveExpiry,
+  slugify,
+  targetStatus,
+} from "./strike-targets"
 
 const effectiveDate = "2026-10-07" as IsoDate
 const groups = [
@@ -95,11 +102,14 @@ describe("strike target parser", () => {
   })
 
   it("reports unknown lines, unknown tickers and unknown groups", () => {
-    const result = parseStrikeTargets("Brand New List\nZZZ- 10 or break of nine PUT 8 10/23\nYYY- 10 or break of 9 PUT 8 10/23", {
-      effectiveDate,
-      groups,
-      knownTickers: new Set(["AAA"]),
-    })
+    const result = parseStrikeTargets(
+      "Brand New List\nZZZ- 10 or break of nine PUT 8 10/23\nYYY- 10 or break of 9 PUT 8 10/23",
+      {
+        effectiveDate,
+        groups,
+        knownTickers: new Set(["AAA"]),
+      },
+    )
     expect(result.issues.map((i) => i.code)).toEqual(["new-group", "unparseable", "unknown-ticker"])
     expect(result.groups[0]?.slug).toBe("brand-new-list")
   })

@@ -15,7 +15,13 @@ interface TextItem {
 }
 
 function isTextItem(item: unknown): item is TextItem {
-  return typeof item === "object" && item !== null && "str" in item && "transform" in item && Array.isArray((item as { transform: unknown }).transform)
+  return (
+    typeof item === "object" &&
+    item !== null &&
+    "str" in item &&
+    "transform" in item &&
+    Array.isArray((item as { transform: unknown }).transform)
+  )
 }
 
 /**

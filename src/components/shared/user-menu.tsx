@@ -7,14 +7,28 @@ import { LuLayoutDashboard, LuLogOut, LuSettings, LuShield } from "react-icons/l
 import { signOut } from "@/lib/auth/client"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 export function initials(name: string): string {
   const parts = name.trim().split(/\s+/)
   return ((parts[0]?.[0] ?? "") + (parts.length > 1 ? (parts.at(-1)?.[0] ?? "") : "")).toUpperCase() || "?"
 }
 
-export function UserMenu({ viewer, compact = false }: { viewer: { fullName: string; email: string; role: "admin" | "member" }; compact?: boolean }) {
+export function UserMenu({
+  viewer,
+  compact = false,
+}: {
+  viewer: { fullName: string; email: string; role: "admin" | "member" }
+  compact?: boolean
+}) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const handleSignOut = () => {
@@ -27,11 +41,21 @@ export function UserMenu({ viewer, compact = false }: { viewer: { fullName: stri
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger render={<Button variant="ghost" className={compact ? "size-8 rounded-full p-0" : "gap-2 px-1.5"} aria-label="Account menu" />}>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            variant="ghost"
+            className={compact ? "size-8 rounded-full p-0" : "gap-2 px-1.5"}
+            aria-label="Account menu"
+          />
+        }
+      >
         <Avatar className="size-7">
           <AvatarFallback className="text-xs">{initials(viewer.fullName)}</AvatarFallback>
         </Avatar>
-        {!compact && <span className="hidden max-w-32 truncate text-sm lg:inline">{viewer.fullName.split(" ")[0]}</span>}
+        {!compact && (
+          <span className="hidden max-w-32 truncate text-sm lg:inline">{viewer.fullName.split(" ")[0]}</span>
+        )}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuGroup>

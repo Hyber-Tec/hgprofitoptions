@@ -61,7 +61,12 @@ export function WelcomeForm({ token, email }: { token: string; email: string }) 
       try {
         user = await create()
       } catch (err) {
-        if (err instanceof FirebaseError && err.code === "auth/email-already-in-use" && (await clearOrphanedInviteLogin(token)).ok) user = await create()
+        if (
+          err instanceof FirebaseError &&
+          err.code === "auth/email-already-in-use" &&
+          (await clearOrphanedInviteLogin(token)).ok
+        )
+          user = await create()
         else throw err
       }
       finish(await establishSession(user, { inviteToken: token, acceptTerms: true }))
@@ -94,18 +99,37 @@ export function WelcomeForm({ token, email }: { token: string; email: string }) 
           </span>
         </FieldLabel>
       </Field>
-      <GoogleButton onClick={onGoogle} pending={pending === "google"} disabled={!accepted || pending !== null} label={`Continue with Google`} />
+      <GoogleButton
+        onClick={onGoogle}
+        pending={pending === "google"}
+        disabled={!accepted || pending !== null}
+        label={`Continue with Google`}
+      />
       <FieldSeparator>or create a password</FieldSeparator>
       <form onSubmit={onPassword} className="flex flex-col gap-6">
         <FieldGroup>
           <Field>
             <FieldLabel htmlFor="new-password">Password</FieldLabel>
-            <PasswordInput id="new-password" autoComplete="new-password" minLength={8} required value={password} onChange={(e) => setPassword(e.target.value)} />
+            <PasswordInput
+              id="new-password"
+              autoComplete="new-password"
+              minLength={8}
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
             <FieldDescription>At least 8 characters.</FieldDescription>
           </Field>
           <Field>
             <FieldLabel htmlFor="confirm-password">Confirm password</FieldLabel>
-            <PasswordInput id="confirm-password" autoComplete="new-password" minLength={8} required value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+            <PasswordInput
+              id="confirm-password"
+              autoComplete="new-password"
+              minLength={8}
+              required
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+            />
           </Field>
         </FieldGroup>
         <Button type="submit" size="lg" disabled={!accepted || pending !== null}>

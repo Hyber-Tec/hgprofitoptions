@@ -9,7 +9,14 @@ import { signedRange, svi } from "@/core/calc/kmd"
 import { midRange } from "@/core/calc/medians"
 import type { IsoDate } from "@/core/domain/types"
 import { applySuggestions, parseStrikeTargets } from "@/core/parsers/strike-targets"
-import { readChannelSheet, readEtfGuide, readKeyMarketData, readStrikeTargetsText, sourceFile, sourceFilesPresent } from "../../scripts/lib/source-files"
+import {
+  readChannelSheet,
+  readEtfGuide,
+  readKeyMarketData,
+  readStrikeTargetsText,
+  sourceFile,
+  sourceFilesPresent,
+} from "../../scripts/lib/source-files"
 
 const present = sourceFilesPresent()
 const file = (prefix: string): string => {
@@ -40,9 +47,12 @@ describe.skipIf(!present)("golden: Median & Channel Chart spreadsheet", () => {
     expect(sheet.blocks).toHaveLength(125)
     for (const b of sheet.blocks) {
       const near = (v: number | null): unknown => (v === null ? null : expect.closeTo(v, 2))
-      if (b.high5d !== null && b.low5d !== null) expect(midRange(b.high5d, b.low5d), `${b.symbol} 5D`).toBeCloseTo(b.sheetMedians.m5 ?? NaN, 4)
-      if (b.high30d !== null && b.low30d !== null) expect(midRange(b.high30d, b.low30d), `${b.symbol} 30D`).toBeCloseTo(b.sheetMedians.m30 ?? NaN, 4)
-      if (b.high90d !== null && b.low90d !== null) expect(midRange(b.high90d, b.low90d), `${b.symbol} 90D`).toBeCloseTo(b.sheetMedians.m90 ?? NaN, 4)
+      if (b.high5d !== null && b.low5d !== null)
+        expect(midRange(b.high5d, b.low5d), `${b.symbol} 5D`).toBeCloseTo(b.sheetMedians.m5 ?? NaN, 4)
+      if (b.high30d !== null && b.low30d !== null)
+        expect(midRange(b.high30d, b.low30d), `${b.symbol} 30D`).toBeCloseTo(b.sheetMedians.m30 ?? NaN, 4)
+      if (b.high90d !== null && b.low90d !== null)
+        expect(midRange(b.high90d, b.low90d), `${b.symbol} 90D`).toBeCloseTo(b.sheetMedians.m90 ?? NaN, 4)
       const ladder = channelLadder(b.anchor, { ch: b.ch, boc: b.boc })
       expect(ladder.lines, `${b.symbol} lines`).toEqual(b.sheetLines.map(near))
       expect(ladder.bocAbove, `${b.symbol} BOC above`).toEqual(b.sheetBocAbove.map(near))

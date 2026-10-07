@@ -16,7 +16,14 @@ import type { TestimonialDoc } from "@/server/model"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
-import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious, type CarouselApi } from "@/components/ui/carousel"
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+  type CarouselApi,
+} from "@/components/ui/carousel"
 
 const FLAGS: Record<string, FlagComponent> = { BG, CA, GB, IE, RW, SG, US }
 
@@ -46,7 +53,9 @@ function TradeCard({ trade }: { trade: NonNullable<TestimonialDoc["trade"]> }) {
         <div className="flex items-center gap-2">
           <span className="num text-lg font-semibold text-positive">
             {formatSignedMoney(trade.realizedProfit, trade.currency)}
-            {trade.currency !== "USD" && <span className="ml-1 text-xs font-normal text-muted-foreground">{trade.currency}</span>}
+            {trade.currency !== "USD" && (
+              <span className="ml-1 text-xs font-normal text-muted-foreground">{trade.currency}</span>
+            )}
           </span>
           <Badge variant="outline" className="num border-positive/30 text-positive">
             {formatPercent(trade.percentGain, { digits: 0 })}
@@ -73,7 +82,12 @@ export function Testimonials({ items }: { items: TestimonialDoc[] }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <Carousel setApi={setApi} opts={{ align: "start", loop: true }} className="w-full" aria-label="Member testimonials">
+      <Carousel
+        setApi={setApi}
+        opts={{ align: "start", loop: true }}
+        className="w-full"
+        aria-label="Member testimonials"
+      >
         <CarouselContent>
           {items.map((t) => (
             <CarouselItem key={t.id} className="basis-full md:basis-1/2 lg:basis-1/3">
@@ -104,7 +118,10 @@ export function Testimonials({ items }: { items: TestimonialDoc[] }) {
           <CarouselNext className="static translate-y-0" />
         </div>
       </Carousel>
-      <p className="text-center text-xs text-muted-foreground">Testimonials reflect individual members&apos; experiences. Results are not typical and do not guarantee future results.</p>
+      <p className="text-center text-xs text-muted-foreground">
+        Testimonials reflect individual members&apos; experiences. Results are not typical and do not guarantee future
+        results.
+      </p>
     </div>
   )
 }

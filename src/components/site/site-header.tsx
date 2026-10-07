@@ -39,7 +39,12 @@ export function SiteHeader({ viewer }: { viewer: HeaderViewer | null }) {
   const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href))
 
   return (
-    <header className={cn("sticky top-0 z-40 border-b bg-background/80 backdrop-blur-md transition-colors supports-[backdrop-filter]:bg-background/60", scrolled ? "border-border" : "border-transparent")}>
+    <header
+      className={cn(
+        "sticky top-0 z-40 border-b bg-background/80 backdrop-blur-md transition-colors supports-[backdrop-filter]:bg-background/60",
+        scrolled ? "border-border" : "border-transparent",
+      )}
+    >
       <div className="mx-auto flex h-16 max-w-6xl items-center gap-6 px-4 sm:px-6 lg:px-8">
         <Logo />
         <nav aria-label="Main" className="hidden items-center gap-1 md:flex">
@@ -50,7 +55,8 @@ export function SiteHeader({ viewer }: { viewer: HeaderViewer | null }) {
               aria-current={isActive(item.href) ? "page" : undefined}
               className={cn(
                 "relative rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50",
-                isActive(item.href) && "text-foreground after:absolute after:inset-x-3 after:-bottom-px after:h-px after:bg-foreground",
+                isActive(item.href) &&
+                  "text-foreground after:absolute after:inset-x-3 after:-bottom-px after:h-px after:bg-foreground",
               )}
             >
               {item.label}
@@ -63,12 +69,21 @@ export function SiteHeader({ viewer }: { viewer: HeaderViewer | null }) {
           {viewer ? (
             <UserMenu viewer={viewer} />
           ) : (
-            <Button variant="ghost" className="hidden sm:inline-flex" render={<Link href="/login" />} nativeButton={false}>
+            <Button
+              variant="ghost"
+              className="hidden sm:inline-flex"
+              render={<Link href="/login" />}
+              nativeButton={false}
+            >
               <LuLogIn data-icon="inline-start" />
               Member login
             </Button>
           )}
-          <Button className="hidden sm:inline-flex" render={<Link href="/book" target="_blank" rel="noopener" />} nativeButton={false}>
+          <Button
+            className="hidden sm:inline-flex"
+            render={<Link href="/book" target="_blank" rel="noopener" />}
+            nativeButton={false}
+          >
             <LuCalendarCheck data-icon="inline-start" />
             Book intro call
           </Button>
@@ -88,7 +103,12 @@ export function SiteHeader({ viewer }: { viewer: HeaderViewer | null }) {
                     href={item.href}
                     onClick={() => setOpen(false)}
                     aria-current={isActive(item.href) ? "page" : undefined}
-                    className={cn("rounded-md px-3 py-2.5 text-base font-medium", isActive(item.href) ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground")}
+                    className={cn(
+                      "rounded-md px-3 py-2.5 text-base font-medium",
+                      isActive(item.href)
+                        ? "bg-muted text-foreground"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                    )}
                   >
                     {item.label}
                   </Link>
@@ -98,19 +118,34 @@ export function SiteHeader({ viewer }: { viewer: HeaderViewer | null }) {
               <div className="flex flex-col gap-2 px-4">
                 {viewer ? (
                   <>
-                    <Button variant="outline" size="lg" render={<Link href="/members" onClick={() => setOpen(false)} />} nativeButton={false}>
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      render={<Link href="/members" onClick={() => setOpen(false)} />}
+                      nativeButton={false}
+                    >
                       <LuLayoutDashboard data-icon="inline-start" />
                       Member area
                     </Button>
                     {viewer.role === "admin" && (
-                      <Button variant="outline" size="lg" render={<Link href="/admin" onClick={() => setOpen(false)} />} nativeButton={false}>
+                      <Button
+                        variant="outline"
+                        size="lg"
+                        render={<Link href="/admin" onClick={() => setOpen(false)} />}
+                        nativeButton={false}
+                      >
                         <LuShield data-icon="inline-start" />
                         Admin
                       </Button>
                     )}
                   </>
                 ) : (
-                  <Button variant="outline" size="lg" render={<Link href="/login" onClick={() => setOpen(false)} />} nativeButton={false}>
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    render={<Link href="/login" onClick={() => setOpen(false)} />}
+                    nativeButton={false}
+                  >
                     <LuLogIn data-icon="inline-start" />
                     Member login
                   </Button>

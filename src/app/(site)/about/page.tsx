@@ -7,12 +7,25 @@ import { Badge } from "@/components/ui/badge"
 
 export const metadata: Metadata = {
   title: "About HG",
-  description: "Hubert Gaffney (HG) is an entrepreneur, market strategist and full-time options trader, and the founder of HG Profit Options.",
+  description:
+    "Hubert Gaffney (HG) is an entrepreneur, market strategist and full-time options trader, and the founder of HG Profit Options.",
 }
 
-const FACTS = ["Entrepreneur since 1999", "Stakes-winning thoroughbred trainer, 2003 to 2021", "Full-time options trader since 2016", "Founded HG Profit Options in 2023", "Top 100 NHC handicapper"]
+const FACTS = [
+  "Entrepreneur since 1999",
+  "Stakes-winning thoroughbred trainer, 2003 to 2021",
+  "Full-time options trader since 2016",
+  "Founded HG Profit Options in 2023",
+  "Top 100 NHC handicapper",
+]
 
-const TIMELINE: { period: string; title: string; body: string; image?: { src: string; alt: string }; Icon: IconType }[] = [
+const TIMELINE: {
+  period: string
+  title: string
+  body: string
+  image?: { src: string; alt: string }
+  Icon: IconType
+}[] = [
   {
     period: "2003 to 2021",
     title: "Early career",
@@ -48,7 +61,14 @@ export default function AboutPage() {
         <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 py-16 *:min-w-0 sm:px-6 sm:py-24 lg:grid-cols-[0.9fr_1.1fr] lg:px-8">
           <div className="relative mx-auto w-full max-w-sm">
             <div className="overflow-hidden rounded-2xl border bg-muted shadow-sm">
-              <Image src="/media/about/hg-portrait.webp" alt="Hubert Gaffney (HG) with one of his horses" width={960} height={1200} priority className="aspect-[4/5] h-auto w-full object-cover" />
+              <Image
+                src="/media/about/hg-portrait.webp"
+                alt="Hubert Gaffney (HG) with one of his horses"
+                width={960}
+                height={1200}
+                priority
+                className="aspect-[4/5] h-auto w-full object-cover"
+              />
             </div>
           </div>
           <div className="flex flex-col gap-6">
@@ -58,7 +78,9 @@ export default function AboutPage() {
               <p className="text-lg text-muted-foreground">Founder of HG Profit Options</p>
             </div>
             <p className="text-base leading-relaxed text-pretty sm:text-lg">
-              HG is a seasoned entrepreneur and market strategist with over two decades of entrepreneurial success and more than 10 years of trading experience. Since 1999, he has carved out a dynamic career path that spans high-performance sports and high-stakes finance.
+              HG is a seasoned entrepreneur and market strategist with over two decades of entrepreneurial success and
+              more than 10 years of trading experience. Since 1999, he has carved out a dynamic career path that spans
+              high-performance sports and high-stakes finance.
             </p>
             <ul className="flex flex-wrap gap-2" aria-label="Quick facts">
               {FACTS.map((fact) => (
@@ -89,7 +111,13 @@ export default function AboutPage() {
                 </div>
                 {image && (
                   <div className="w-full max-w-[220px] overflow-hidden rounded-xl border bg-muted">
-                    <Image src={image.src} alt={image.alt} width={960} height={1200} className="aspect-[4/5] h-auto w-full object-cover" />
+                    <Image
+                      src={image.src}
+                      alt={image.alt}
+                      width={960}
+                      height={1200}
+                      className="aspect-[4/5] h-auto w-full object-cover"
+                    />
                   </div>
                 )}
               </li>
@@ -103,11 +131,20 @@ export default function AboutPage() {
           <div className="flex flex-col gap-4">
             <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">Personal life</h2>
             <p className="text-base leading-relaxed text-pretty text-muted-foreground sm:text-lg">
-              HG is deeply committed to his family and takes immense pride in being a life partner to his beloved Sheri, with whom he has shared his life since October 2013. Together they are raising their daughter, Gianna. His dedication to her future fuels his passion for building sustainable success and sharing knowledge with others.
+              HG is deeply committed to his family and takes immense pride in being a life partner to his beloved Sheri,
+              with whom he has shared his life since October 2013. Together they are raising their daughter, Gianna. His
+              dedication to her future fuels his passion for building sustainable success and sharing knowledge with
+              others.
             </p>
           </div>
           <div className="mx-auto w-full max-w-sm overflow-hidden rounded-2xl border bg-muted">
-            <Image src="/media/about/hg-family.webp" alt="HG's daughter with one of the family's horses" width={960} height={1200} className="aspect-[4/5] h-auto w-full object-cover" />
+            <Image
+              src="/media/about/hg-family.webp"
+              alt="HG's daughter with one of the family's horses"
+              width={960}
+              height={1200}
+              className="aspect-[4/5] h-auto w-full object-cover"
+            />
           </div>
         </div>
       </section>
@@ -119,12 +156,16 @@ export default function AboutPage() {
             &ldquo;To help traders navigate the markets with clarity, confidence, and consistency.&rdquo;
           </blockquote>
           <figcaption className="max-w-2xl leading-relaxed text-pretty text-muted-foreground">
-            Whether through mentorship, market analysis, or innovative tools, HG continues to shape the future of trading, one student at a time.
+            Whether through mentorship, market analysis, or innovative tools, HG continues to shape the future of
+            trading, one student at a time.
           </figcaption>
         </figure>
       </section>
 
-      <CtaBand title="Learn directly from HG" lead="Book a free 15-minute call to talk about your experience and goals." />
+      <CtaBand
+        title="Learn directly from HG"
+        lead="Book a free 15-minute call to talk about your experience and goals."
+      />
     </>
   )
 }

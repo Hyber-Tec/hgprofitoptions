@@ -20,10 +20,16 @@ export default defineConfig([
       "@typescript-eslint/switch-exhaustiveness-check": "error",
       "@typescript-eslint/no-floating-promises": "error",
       "@typescript-eslint/consistent-type-imports": ["error", { fixStyle: "inline-type-imports" }],
-      "@typescript-eslint/ban-ts-comment": ["error", { "ts-ignore": true, "ts-expect-error": "allow-with-description" }],
+      "@typescript-eslint/ban-ts-comment": [
+        "error",
+        { "ts-ignore": true, "ts-expect-error": "allow-with-description" },
+      ],
       "@typescript-eslint/restrict-template-expressions": ["error", { allowNumber: true }],
       "@typescript-eslint/no-misused-promises": ["error", { checksVoidReturn: { attributes: false } }],
-      "@typescript-eslint/no-confusing-void-expression": ["error", { ignoreArrowShorthand: true, ignoreVoidReturningFunctions: true }],
+      "@typescript-eslint/no-confusing-void-expression": [
+        "error",
+        { ignoreArrowShorthand: true, ignoreVoidReturningFunctions: true },
+      ],
       "no-restricted-imports": [
         "error",
         {
@@ -52,5 +58,14 @@ export default defineConfig([
     files: ["**/*.config.ts", "eslint.config.ts"],
     extends: [tseslint.configs.disableTypeChecked],
   },
-  globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts", "functions/**", "docs/**", "public/**", "emulator-data/**"]),
+  globalIgnores([
+    ".next/**",
+    "out/**",
+    "build/**",
+    "next-env.d.ts",
+    "functions/**",
+    "docs/**",
+    "public/**",
+    "emulator-data/**",
+  ]),
 ])

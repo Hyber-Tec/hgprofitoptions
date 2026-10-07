@@ -2,13 +2,23 @@ import { LuArrowDownRight, LuArrowUpRight, LuCheck } from "react-icons/lu"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Section, SectionHeading } from "../section"
 
-const INCLUDED = ["Live classroom, 24/7", "Breakout sessions as needed", "Monthly one-on-one with HG", "Weekly Saturday presentations on Zoom", "A global team of experienced traders"]
+const INCLUDED = [
+  "Live classroom, 24/7",
+  "Breakout sessions as needed",
+  "Monthly one-on-one with HG",
+  "Weekly Saturday presentations on Zoom",
+  "A global team of experienced traders",
+]
 
 /** A preview of the member area with obviously fake demo data. */
 export function MemberPreview() {
   return (
     <Section id="member-area">
-      <SectionHeading eyebrow="Inside the member area" title="Your tools, alerts and journal in one place" lead="A quick look at the member area, shown with demo data." />
+      <SectionHeading
+        eyebrow="Inside the member area"
+        title="Your tools, alerts and journal in one place"
+        lead="A quick look at the member area, shown with demo data."
+      />
       <div className="grid gap-8 *:min-w-0 lg:grid-cols-[1fr_0.8fr] lg:items-start">
         <Tabs defaultValue="alerts" className="gap-4">
           <TabsList className="w-full sm:w-auto">
@@ -19,11 +29,28 @@ export function MemberPreview() {
           <TabsContent value="alerts">
             <DemoFrame>
               {[
-                { kind: "Buy", up: true, line: "DEMO $120.00 Call · Exp Oct 23", detail: "Buy point $3.20 to $3.40 · T1 $5.00 · Stop $2.40", time: "9:42 AM ET" },
-                { kind: "Sell", up: false, line: "SAMPLE $48.00 Call · Exp Oct 16", detail: "Sold half at T1 $2.10 · +38%", time: "Yesterday" },
+                {
+                  kind: "Buy",
+                  up: true,
+                  line: "DEMO $120.00 Call · Exp Oct 23",
+                  detail: "Buy point $3.20 to $3.40 · T1 $5.00 · Stop $2.40",
+                  time: "9:42 AM ET",
+                },
+                {
+                  kind: "Sell",
+                  up: false,
+                  line: "SAMPLE $48.00 Call · Exp Oct 16",
+                  detail: "Sold half at T1 $2.10 · +38%",
+                  time: "Yesterday",
+                },
               ].map((a) => (
-                <div key={a.line} className="flex flex-wrap items-start gap-x-3 gap-y-2 rounded-lg border bg-background p-3 sm:flex-nowrap">
-                  <span className={`inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium ${a.up ? "bg-positive/12 text-positive" : "bg-negative/12 text-negative"}`}>
+                <div
+                  key={a.line}
+                  className="flex flex-wrap items-start gap-x-3 gap-y-2 rounded-lg border bg-background p-3 sm:flex-nowrap"
+                >
+                  <span
+                    className={`inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium ${a.up ? "bg-positive/12 text-positive" : "bg-negative/12 text-negative"}`}
+                  >
                     {a.up ? <LuArrowUpRight className="size-3.5" /> : <LuArrowDownRight className="size-3.5" />}
                     {a.kind}
                   </span>
@@ -105,7 +132,9 @@ export function MemberPreview() {
 function DemoFrame({ children }: { children: React.ReactNode }) {
   return (
     <div className="relative flex flex-col gap-3 rounded-xl border bg-muted/30 p-4">
-      <span className="absolute top-3 right-3 rounded-full border bg-background px-2 py-0.5 text-[10px] font-medium tracking-wide text-muted-foreground uppercase">Demo data</span>
+      <span className="absolute top-3 right-3 rounded-full border bg-background px-2 py-0.5 text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
+        Demo data
+      </span>
       <div className="mt-6 flex flex-col gap-3">{children}</div>
     </div>
   )

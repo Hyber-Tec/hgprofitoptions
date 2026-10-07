@@ -21,7 +21,13 @@ export function FaqSearch({ faqs, groups }: { faqs: FaqDoc[]; groups: string[] }
         <InputGroupAddon>
           <LuSearch />
         </InputGroupAddon>
-        <InputGroupInput type="search" placeholder="Search questions" aria-label="Search questions" value={query} onChange={(e) => setQuery(e.target.value)} />
+        <InputGroupInput
+          type="search"
+          placeholder="Search questions"
+          aria-label="Search questions"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
       </InputGroup>
       {filtered.length === 0 ? (
         <Empty className="border">

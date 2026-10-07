@@ -1,7 +1,17 @@
 import "server-only"
 import { FAQS } from "@/content/faqs"
 import { TESTIMONIALS } from "@/content/testimonials"
-import { COLLECTIONS, DEFAULT_SITE_SETTINGS, faqSchema, parseDoc, siteSettingsSchema, testimonialSchema, type FaqDoc, type SiteSettings, type TestimonialDoc } from "@/server/model"
+import {
+  COLLECTIONS,
+  DEFAULT_SITE_SETTINGS,
+  faqSchema,
+  parseDoc,
+  siteSettingsSchema,
+  testimonialSchema,
+  type FaqDoc,
+  type SiteSettings,
+  type TestimonialDoc,
+} from "@/server/model"
 import { adminDb } from "@/lib/firebase/admin"
 
 const TTL_MS = 5 * 60 * 1000
@@ -44,9 +54,15 @@ export function getTestimonials(): Promise<TestimonialDoc[]> {
   const fallback = TESTIMONIALS.filter((t) => t.published)
   return cached("testimonials", () =>
     safely(async () => {
-      const snap = await adminDb().collection(COLLECTIONS.testimonials).where("published", "==", true).orderBy("order").get()
+      const snap = await adminDb()
+        .collection(COLLECTIONS.testimonials)
+        .where("published", "==", true)
+        .orderBy("order")
+        .get()
       if (snap.empty) return fallback
-      return snap.docs.map((d) => parseDoc(testimonialSchema, d.id, d.data())).filter((t): t is TestimonialDoc => t !== null)
+      return snap.docs
+        .map((d) => parseDoc(testimonialSchema, d.id, d.data()))
+        .filter((t): t is TestimonialDoc => t !== null)
     }, fallback),
   )
 }

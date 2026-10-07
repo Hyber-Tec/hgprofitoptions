@@ -33,9 +33,13 @@ export async function POST(request: Request) {
     })
     return response
   } catch (error) {
-    if (error instanceof AccessError) return NextResponse.json({ error: error.code, message: error.message }, { status: 403 })
+    if (error instanceof AccessError)
+      return NextResponse.json({ error: error.code, message: error.message }, { status: 403 })
     console.error("session creation failed", error)
-    return NextResponse.json({ error: "sign-in-failed", message: "We could not sign you in. Please try again." }, { status: 401 })
+    return NextResponse.json(
+      { error: "sign-in-failed", message: "We could not sign you in. Please try again." },
+      { status: 401 },
+    )
   }
 }
 
@@ -43,6 +47,12 @@ export async function DELETE(request: Request) {
   if (!isSameOrigin(request)) return NextResponse.json({ error: "forbidden" }, { status: 403 })
   await destroySession()
   const response = NextResponse.json({ ok: true })
-  response.cookies.set(SESSION_COOKIE, "", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: 0 })
+  response.cookies.set(SESSION_COOKIE, "", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 0,
+  })
   return response
 }

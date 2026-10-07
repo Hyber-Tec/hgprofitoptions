@@ -1,9 +1,25 @@
 import { describe, expect, it } from "vitest"
 import type { IsoDate, MembershipPeriod } from "../domain/types"
-import { accessWindow, addQuarters, describePeriodRange, findOverlap, membershipStatus, nextRenewalQuarter, periodFromQuarters, quarterOf, quarterRange } from "./quarters"
+import {
+  accessWindow,
+  addQuarters,
+  describePeriodRange,
+  findOverlap,
+  membershipStatus,
+  nextRenewalQuarter,
+  periodFromQuarters,
+  quarterOf,
+  quarterRange,
+} from "./quarters"
 
 const d = (s: string) => s as IsoDate
-const period = (id: string, start: string, end: string): MembershipPeriod => ({ id, start: d(start), end: d(end), kind: "quarterly", label: id })
+const period = (id: string, start: string, end: string): MembershipPeriod => ({
+  id,
+  start: d(start),
+  end: d(end),
+  kind: "quarterly",
+  label: id,
+})
 
 describe("quarters", () => {
   it("returns calendar quarter ranges", () => {
@@ -19,9 +35,23 @@ describe("quarters", () => {
   })
 
   it("builds periods from quarters", () => {
-    expect(periodFromQuarters(2026, 4, 1)).toEqual({ start: "2026-10-01", end: "2026-12-31", label: "Q4 2026", kind: "quarterly" })
-    expect(periodFromQuarters(2026, 4, 2)).toEqual({ start: "2026-10-01", end: "2027-03-31", label: "Q4 2026 to Q1 2027", kind: "quarterly" })
-    expect(periodFromQuarters(2026, 4, 1, d("2026-11-15"))).toMatchObject({ start: "2026-11-15", end: "2026-12-31", kind: "custom" })
+    expect(periodFromQuarters(2026, 4, 1)).toEqual({
+      start: "2026-10-01",
+      end: "2026-12-31",
+      label: "Q4 2026",
+      kind: "quarterly",
+    })
+    expect(periodFromQuarters(2026, 4, 2)).toEqual({
+      start: "2026-10-01",
+      end: "2027-03-31",
+      label: "Q4 2026 to Q1 2027",
+      kind: "quarterly",
+    })
+    expect(periodFromQuarters(2026, 4, 1, d("2026-11-15"))).toMatchObject({
+      start: "2026-11-15",
+      end: "2026-12-31",
+      kind: "custom",
+    })
   })
 
   it("rejects invalid period input", () => {
@@ -68,7 +98,11 @@ describe("membership status", () => {
   })
 
   it("flags expiring soon within 14 days", () => {
-    expect(membershipStatus({ ...base, periods: [q4], today: d("2026-12-20") })).toMatchObject({ kind: "active", expiringSoon: true, daysLeft: 11 })
+    expect(membershipStatus({ ...base, periods: [q4], today: d("2026-12-20") })).toMatchObject({
+      kind: "active",
+      expiringSoon: true,
+      daysLeft: 11,
+    })
   })
 
   it("is active on the last day and expired the next day", () => {
@@ -81,8 +115,12 @@ describe("membership status", () => {
   })
 
   it("handles admins, suspension and no periods", () => {
-    expect(membershipStatus({ role: "admin", status: "active", periods: [], today: d("2026-10-07") }).kind).toBe("admin")
-    expect(membershipStatus({ ...base, status: "suspended", periods: [q4], today: d("2026-10-07") }).kind).toBe("suspended")
+    expect(membershipStatus({ role: "admin", status: "active", periods: [], today: d("2026-10-07") }).kind).toBe(
+      "admin",
+    )
+    expect(membershipStatus({ ...base, status: "suspended", periods: [q4], today: d("2026-10-07") }).kind).toBe(
+      "suspended",
+    )
     expect(membershipStatus({ ...base, periods: [], today: d("2026-10-07") }).kind).toBe("none")
   })
 })

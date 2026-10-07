@@ -11,7 +11,8 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
         <figure className="relative flex max-w-md flex-col gap-4">
           <LogoMark className="size-10 text-muted-foreground" />
           <blockquote className="text-xl leading-snug font-medium text-balance">
-            &ldquo;HG helped me focus on trading a few powerful stocks with the best due diligence available. His options class has put me on the path to financial freedom.&rdquo;
+            &ldquo;HG helped me focus on trading a few powerful stocks with the best due diligence available. His
+            options class has put me on the path to financial freedom.&rdquo;
           </blockquote>
           <figcaption className="text-sm text-muted-foreground">Joey D., Texas</figcaption>
         </figure>

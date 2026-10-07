@@ -13,5 +13,9 @@ function subscribe(onChange: () => void): () => void {
 
 /** True below the md breakpoint. Server renders assume desktop. */
 export function useIsMobile(): boolean {
-  return useSyncExternalStore(subscribe, () => window.matchMedia(QUERY).matches, () => false)
+  return useSyncExternalStore(
+    subscribe,
+    () => window.matchMedia(QUERY).matches,
+    () => false,
+  )
 }

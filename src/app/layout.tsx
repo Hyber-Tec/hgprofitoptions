@@ -10,7 +10,8 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 export const metadata: Metadata = {
   metadataBase: new URL(publicEnv.NEXT_PUBLIC_SITE_URL),
   title: { default: "HG Profit Options", template: "%s · HG Profit Options" },
-  description: "Unlock the keys to profitable options trading. Live classes, personalized strategies and exclusive member tools from HG Profit Options.",
+  description:
+    "Unlock the keys to profitable options trading. Live classes, personalized strategies and exclusive member tools from HG Profit Options.",
   applicationName: "HG Profit Options",
   openGraph: { type: "website", siteName: "HG Profit Options" },
 }
@@ -24,7 +25,11 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+    >
       <body className="flex min-h-full flex-col">
         <Providers>{children}</Providers>
       </body>

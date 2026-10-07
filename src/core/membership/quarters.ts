@@ -66,17 +66,26 @@ export function periodFromQuarters(year: number, q: Quarter, count: number, cust
 }
 
 /** The next whole quarter after the member's latest period ends. Used by "Renew next quarter". */
-export function nextRenewalQuarter(periods: readonly Pick<MembershipPeriod, "end">[], today: IsoDate): { year: number; q: Quarter } {
+export function nextRenewalQuarter(
+  periods: readonly Pick<MembershipPeriod, "end">[],
+  today: IsoDate,
+): { year: number; q: Quarter } {
   const latestEnd = periods.reduce<IsoDate | null>((max, p) => (max === null || p.end > max ? p.end : max), null)
   if (latestEnd === null || latestEnd < today) return quarterOf(today)
   return quarterOf(addDays(latestEnd, 1))
 }
 
-export function periodsOverlap(a: Pick<MembershipPeriod, "start" | "end">, b: Pick<MembershipPeriod, "start" | "end">): boolean {
+export function periodsOverlap(
+  a: Pick<MembershipPeriod, "start" | "end">,
+  b: Pick<MembershipPeriod, "start" | "end">,
+): boolean {
   return a.start <= b.end && b.start <= a.end
 }
 
-export function findOverlap<T extends Pick<MembershipPeriod, "start" | "end">>(candidate: Pick<MembershipPeriod, "start" | "end">, existing: readonly T[]): T | null {
+export function findOverlap<T extends Pick<MembershipPeriod, "start" | "end">>(
+  candidate: Pick<MembershipPeriod, "start" | "end">,
+  existing: readonly T[],
+): T | null {
   return existing.find((p) => periodsOverlap(candidate, p)) ?? null
 }
 
@@ -85,7 +94,10 @@ function sortByStart<T extends Pick<MembershipPeriod, "start">>(periods: readonl
 }
 
 /** Follows back-to-back renewals, so Q4 2026 + Q1 2027 counts down to Mar 31, 2027. */
-function contiguousEnd(sorted: readonly Pick<MembershipPeriod, "start" | "end">[], from: Pick<MembershipPeriod, "end">): IsoDate {
+function contiguousEnd(
+  sorted: readonly Pick<MembershipPeriod, "start" | "end">[],
+  from: Pick<MembershipPeriod, "end">,
+): IsoDate {
   let end = from.end
   for (const p of sorted) if (p.start <= addDays(end, 1) && p.end > end) end = p.end
   return end

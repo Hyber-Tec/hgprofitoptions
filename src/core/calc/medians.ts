@@ -6,7 +6,11 @@ export function midRange(high: number, low: number): number {
   return (high + low) / 2
 }
 
-export function windowHighLow(bars: readonly DailyBar[], from: IsoDate, to: IsoDate): { high: number; low: number } | null {
+export function windowHighLow(
+  bars: readonly DailyBar[],
+  from: IsoDate,
+  to: IsoDate,
+): { high: number; low: number } | null {
   const inWindow = bars.filter((b) => b.date >= from && b.date <= to)
   if (inWindow.length === 0) return null
   return { high: Math.max(...inWindow.map((b) => b.high)), low: Math.min(...inWindow.map((b) => b.low)) }
@@ -28,7 +32,11 @@ export interface TickerMetrics {
  * 5D = the previous completed Monday to Friday, 30D and 90D = the N calendar days ending on asOf.
  * The source sheet uses [today - N, today - 1], which is identical when asOf is yesterday's close.
  */
-export function tickerMetrics(bars: readonly DailyBar[], asOf: IsoDate, week: { start: IsoDate; end: IsoDate }): TickerMetrics | null {
+export function tickerMetrics(
+  bars: readonly DailyBar[],
+  asOf: IsoDate,
+  week: { start: IsoDate; end: IsoDate },
+): TickerMetrics | null {
   const upTo = bars.filter((b) => b.date <= asOf)
   const last = upTo.at(-1)
   if (!last) return null

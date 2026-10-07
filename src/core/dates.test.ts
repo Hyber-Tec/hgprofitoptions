@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest"
-import { addDays, asIsoDate, dayOfWeek, daysBetween, isIsoDate, isoDateInZone, lastCompletedWeek, nextFriday, zonedStartOfDay } from "./dates"
+import {
+  addDays,
+  asIsoDate,
+  dayOfWeek,
+  daysBetween,
+  isIsoDate,
+  isoDateInZone,
+  lastCompletedWeek,
+  nextFriday,
+  zonedStartOfDay,
+} from "./dates"
 
 const d = asIsoDate
 

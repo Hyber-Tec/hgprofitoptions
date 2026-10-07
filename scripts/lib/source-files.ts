@@ -18,7 +18,9 @@ export function sourceFile(prefix: string): string | null {
 }
 
 export function sourceFilesPresent(): boolean {
-  return ["Key Market Data", "MEDIAN and CHANNEL", "Strike Price Targets", "Profit Option"].every((p) => sourceFile(p) !== null)
+  return ["Key Market Data", "MEDIAN and CHANNEL", "Strike Price Targets", "Profit Option"].every(
+    (p) => sourceFile(p) !== null,
+  )
 }
 
 type CellValue = ExcelJS.CellValue
@@ -107,13 +109,31 @@ export async function readKeyMarketData(path: string): Promise<KeyMarketDataFile
     const close = num(sheet.getCell(r, 5))
     const sheetRange = num(sheet.getCell(r, 6))
     const sheetSvi = num(sheet.getCell(r, 7))
-    if (!symbol || pfcp === null || high === null || low === null || close === null || sheetRange === null || sheetSvi === null) continue
+    if (
+      !symbol ||
+      pfcp === null ||
+      high === null ||
+      low === null ||
+      close === null ||
+      sheetRange === null ||
+      sheetSvi === null
+    )
+      continue
     if (seen.has(symbol)) {
       duplicates.push(symbol)
       continue
     }
     seen.add(symbol)
-    rows.push({ symbol, kind: INDEX_SYMBOLS.has(symbol) ? "index" : "stock", pfcp, high, low, close, sheetRange, sheetSvi })
+    rows.push({
+      symbol,
+      kind: INDEX_SYMBOLS.has(symbol) ? "index" : "stock",
+      pfcp,
+      high,
+      low,
+      close,
+      sheetRange,
+      sheetSvi,
+    })
   }
   return { weekStart, weekEnd, previousFriday: isoDate(sheet.getCell("K2")), rows, duplicates }
 }
@@ -145,7 +165,11 @@ export interface ChannelBlock {
 }
 
 export interface ChannelFile {
-  windows: { w5: [IsoDate | null, IsoDate | null]; w30: [IsoDate | null, IsoDate | null]; w90: [IsoDate | null, IsoDate | null] }
+  windows: {
+    w5: [IsoDate | null, IsoDate | null]
+    w30: [IsoDate | null, IsoDate | null]
+    w90: [IsoDate | null, IsoDate | null]
+  }
   blocks: ChannelBlock[]
 }
 
@@ -167,8 +191,10 @@ export async function readChannelSheet(path: string): Promise<ChannelFile> {
     const ch = num(cell(r, 2))
     const boc = num(cell(r + 1, 2))
     const anchor = num(cell(r + 1, 17))
-    if (ch === null || boc === null || anchor === null) throw new Error(`Channel sheet: incomplete block for ${symbol} at row ${r}`)
-    const columns = (row: number, from: number, to: number) => Array.from({ length: to - from + 1 }, (_, i) => num(cell(row, from + i)))
+    if (ch === null || boc === null || anchor === null)
+      throw new Error(`Channel sheet: incomplete block for ${symbol} at row ${r}`)
+    const columns = (row: number, from: number, to: number) =>
+      Array.from({ length: to - from + 1 }, (_, i) => num(cell(row, from + i)))
     blocks.push({
       symbol,
       ch,
@@ -187,7 +213,9 @@ export async function readChannelSheet(path: string): Promise<ChannelFile> {
       sheetBocAbove: columns(r, 18, 21),
       fsLevels: levels(text(cell(r + 2, 3)), "FS"),
       ssLevels: levels(text(cell(r + 2, 5)), "SS"),
-      earningsText: text(cell(r + 2, 13)).replace(/^EARNINGS:\s*/i, "").trim(),
+      earningsText: text(cell(r + 2, 13))
+        .replace(/^EARNINGS:\s*/i, "")
+        .trim(),
     })
   }
   const date = (ref: string) => isoDate(sheet.getCell(ref))
@@ -201,9 +229,13 @@ export async function readChannelSheet(path: string): Promise<ChannelFile> {
  * Interprets the sheet's free-text earnings window ("10/25-11/02", "7/15", "X").
  * Only windows that end on or after `asOf` become dates; older ones are kept as a note.
  */
-export function parseEarningsWindow(textValue: string, asOf: IsoDate): { start: IsoDate | null; end: IsoDate | null; note: string | null } {
+export function parseEarningsWindow(
+  textValue: string,
+  asOf: IsoDate,
+): { start: IsoDate | null; end: IsoDate | null; note: string | null } {
   const cleaned = textValue.replace(/\s+/g, "")
-  if (!cleaned || cleaned.toUpperCase() === "X") return { start: null, end: null, note: cleaned ? "Not applicable" : null }
+  if (!cleaned || cleaned.toUpperCase() === "X")
+    return { start: null, end: null, note: cleaned ? "Not applicable" : null }
   const match = /^(\d{1,2})\/(\d{1,2})(?:-(\d{1,2})\/(\d{1,2}))?$/.exec(cleaned)
   if (!match) return { start: null, end: null, note: textValue }
   const year = Number(asOf.slice(0, 4))
@@ -237,7 +269,9 @@ export async function readEtfGuide(path: string): Promise<EtfGuide> {
   const lines = await pdfLines(path)
   const tableStart = lines.findIndex((l) => /^STOCK\s+BULL/i.test(l))
   if (tableStart < 0) throw new Error("ETF guide: table header not found")
-  const guidanceLines = lines.slice(0, tableStart).filter((l) => !/^Profit Option and corresponding|^Leveraged ETF/i.test(l))
+  const guidanceLines = lines
+    .slice(0, tableStart)
+    .filter((l) => !/^Profit Option and corresponding|^Leveraged ETF/i.test(l))
   const paragraphs: string[] = []
   let current = ""
   for (const line of guidanceLines) {
@@ -251,7 +285,9 @@ export async function readEtfGuide(path: string): Promise<EtfGuide> {
   const pairs = lines
     .slice(tableStart + 1)
     .map((l) => l.trim().split(/\s+/))
-    .filter((parts): parts is [string, string] => parts.length === 2 && parts.every((p) => /^[A-Z][A-Z.]{0,5}$/.test(p)))
+    .filter(
+      (parts): parts is [string, string] => parts.length === 2 && parts.every((p) => /^[A-Z][A-Z.]{0,5}$/.test(p)),
+    )
     .map(([underlying, etf]) => ({ underlying, etf }))
   return { guidance: paragraphs, pairs }
 }

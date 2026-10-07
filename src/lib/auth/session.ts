@@ -31,12 +31,22 @@ export async function sessionLimit(): Promise<number> {
  * Exchanges a fresh Firebase ID token for a server session cookie.
  * Each session also gets a Firestore record so the per-member session limit can sign out the oldest one.
  */
-export async function createSession(input: { idToken: string; inviteToken?: string; acceptTerms?: boolean; userAgent: string | null; ip: string | null }): Promise<{ cookieValue: string; maxAgeSeconds: number; member: Member }> {
+export async function createSession(input: {
+  idToken: string
+  inviteToken?: string
+  acceptTerms?: boolean
+  userAgent: string | null
+  ip: string | null
+}): Promise<{ cookieValue: string; maxAgeSeconds: number; member: Member }> {
   const auth = adminAuth()
   const decoded = await auth.verifyIdToken(input.idToken, true)
-  if (Date.now() / 1000 - decoded.auth_time > RECENT_SIGN_IN_SECONDS) throw new Error("Sign-in is too old. Please sign in again.")
+  if (Date.now() / 1000 - decoded.auth_time > RECENT_SIGN_IN_SECONDS)
+    throw new Error("Sign-in is too old. Please sign in again.")
 
-  const member = await ensureMember(decoded, { ...(input.inviteToken ? { inviteToken: input.inviteToken } : {}), ...(input.acceptTerms ? { acceptTerms: true } : {}) })
+  const member = await ensureMember(decoded, {
+    ...(input.inviteToken ? { inviteToken: input.inviteToken } : {}),
+    ...(input.acceptTerms ? { acceptTerms: true } : {}),
+  })
   const sessionCookie = await auth.createSessionCookie(input.idToken, { expiresIn: SESSION_MS })
 
   const db = adminDb()
@@ -51,7 +61,9 @@ export async function createSession(input: { idToken: string; inviteToken?: stri
     userAgent: input.userAgent,
     ip: input.ip,
   })
-  await memberRef.collection(MEMBER_SUBCOLLECTIONS.logins).add({ at: now, ip: input.ip, userAgent: input.userAgent, provider: decoded.firebase.sign_in_provider })
+  await memberRef
+    .collection(MEMBER_SUBCOLLECTIONS.logins)
+    .add({ at: now, ip: input.ip, userAgent: input.userAgent, provider: decoded.firebase.sign_in_provider })
   await memberRef.update({ lastLoginAt: now })
 
   // Enforce the session limit: keep the newest N sessions.
@@ -76,12 +88,22 @@ export const readSession = cache(async (): Promise<SessionInfo | null> => {
   if (!parsed) return null
   try {
     const decoded = await adminAuth().verifySessionCookie(parsed.jwt, true)
-    const ref = adminDb().collection(COLLECTIONS.members).doc(decoded.uid).collection(MEMBER_SUBCOLLECTIONS.sessions).doc(parsed.sid)
+    const ref = adminDb()
+      .collection(COLLECTIONS.members)
+      .doc(decoded.uid)
+      .collection(MEMBER_SUBCOLLECTIONS.sessions)
+      .doc(parsed.sid)
     const session = await ref.get()
     if (!session.exists) return null
     const lastSeen = session.get("lastSeenAt") as Timestamp | undefined
-    if (!lastSeen || Date.now() - lastSeen.toMillis() > 10 * 60 * 1000) await ref.update({ lastSeenAt: Timestamp.now() })
-    return { uid: decoded.uid, sid: parsed.sid, email: decoded.email ?? null, mfa: Boolean(decoded.firebase.sign_in_second_factor) }
+    if (!lastSeen || Date.now() - lastSeen.toMillis() > 10 * 60 * 1000)
+      await ref.update({ lastSeenAt: Timestamp.now() })
+    return {
+      uid: decoded.uid,
+      sid: parsed.sid,
+      email: decoded.email ?? null,
+      mfa: Boolean(decoded.firebase.sign_in_second_factor),
+    }
   } catch {
     return null
   }
@@ -94,7 +116,12 @@ export async function destroySession(): Promise<void> {
   if (!parsed) return
   try {
     const decoded = await adminAuth().verifySessionCookie(parsed.jwt, false)
-    await adminDb().collection(COLLECTIONS.members).doc(decoded.uid).collection(MEMBER_SUBCOLLECTIONS.sessions).doc(parsed.sid).delete()
+    await adminDb()
+      .collection(COLLECTIONS.members)
+      .doc(decoded.uid)
+      .collection(MEMBER_SUBCOLLECTIONS.sessions)
+      .doc(parsed.sid)
+      .delete()
   } catch {
     // An invalid or expired cookie has no session to remove.
   }
@@ -103,6 +130,10 @@ export async function destroySession(): Promise<void> {
 /** Signs a member out everywhere: revokes Firebase refresh tokens and deletes every session record. */
 export async function revokeAllSessions(uid: string): Promise<void> {
   await adminAuth().revokeRefreshTokens(uid)
-  const sessions = await adminDb().collection(COLLECTIONS.members).doc(uid).collection(MEMBER_SUBCOLLECTIONS.sessions).get()
+  const sessions = await adminDb()
+    .collection(COLLECTIONS.members)
+    .doc(uid)
+    .collection(MEMBER_SUBCOLLECTIONS.sessions)
+    .get()
   await Promise.all(sessions.docs.map((d) => d.ref.delete()))
 }
