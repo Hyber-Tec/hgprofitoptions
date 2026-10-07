@@ -1,0 +1,41 @@
+rules_version = '2';
+
+// Files are served to browsers through short-lived signed URLs created by the server after it
+// checks membership, so clients never read objects directly. Clients may only upload:
+// members their own journal screenshots, admins alert images and member content.
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return signedIn() && request.auth.token.role == 'admin';
+    }
+
+    function isImage() {
+      return request.resource.contentType.matches('image/(png|jpeg|webp|gif)');
+    }
+
+    match /journal/{uid}/{file} {
+      allow read: if false;
+      allow create: if signedIn() && request.auth.uid == uid && isImage() && request.resource.size < 10 * 1024 * 1024;
+      allow delete: if signedIn() && request.auth.uid == uid;
+    }
+
+    match /alerts/{file} {
+      allow read: if false;
+      allow create: if isAdmin() && isImage() && request.resource.size < 10 * 1024 * 1024;
+    }
+
+    match /content/{path=**} {
+      allow read: if false;
+      allow create: if isAdmin() && request.resource.size < 100 * 1024 * 1024;
+    }
+
+    match /{path=**} {
+      allow read, write: if false;
+    }
+  }
+}
