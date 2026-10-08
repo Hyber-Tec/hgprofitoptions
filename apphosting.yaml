@@ -1,7 +1,7 @@
 # Firebase App Hosting: builds and serves the Next.js app (backend "hgprofitoptions", us-central1).
-# Rollouts start when main changes. Plain values below are not secret; secrets live in Cloud Secret
-# Manager and are referenced by name (see docs/deploy.md). An optional integration whose secret is
-# set to "none" stays off.
+# Deployed with `firebase deploy --only apphosting` (see docs/deploy.md). Plain values below are not
+# secret; secrets live in Cloud Secret Manager and are referenced by name. An optional integration
+# whose secret is set to "none" stays off.
 runConfig:
   cpu: 1
   memoryMiB: 1024

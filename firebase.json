@@ -12,14 +12,36 @@
     "site": "hgprofitoptions",
     "public": "hosting",
     "ignore": ["**/.*"],
-    "rewrites": [
+    "redirects": [
       {
-        "source": "**",
-        "run": {
-          "serviceId": "hgprofitoptions",
-          "region": "us-central1"
-        }
+        "source": "/",
+        "destination": "https://hgprofitoptions--hgprofitoptions-hybertec.us-central1.hosted.app/",
+        "type": 302
+      },
+      {
+        "source": "/:path*",
+        "destination": "https://hgprofitoptions--hgprofitoptions-hybertec.us-central1.hosted.app/:path*",
+        "type": 302
       }
+    ]
+  },
+  "apphosting": {
+    "backendId": "hgprofitoptions",
+    "rootDir": "/",
+    "ignore": [
+      "node_modules",
+      ".git",
+      ".next",
+      "functions",
+      "tests",
+      "docs/private",
+      "emulator-data",
+      "test-results",
+      "playwright-report",
+      ".env.local",
+      ".env.*.local",
+      "*.log",
+      "tsconfig.tsbuildinfo"
     ]
   },
   "functions": [
