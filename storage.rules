@@ -11,7 +11,7 @@ service firebase.storage {
     }
 
     function isAdmin() {
-      return signedIn() && request.auth.token.role == 'admin';
+      return signedIn() && request.auth.token.get('role', '') == 'admin';
     }
 
     function isImage() {
