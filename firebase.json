@@ -12,16 +12,13 @@
     "site": "hgprofitoptions",
     "public": "hosting",
     "ignore": ["**/.*"],
-    "redirects": [
+    "rewrites": [
       {
-        "source": "/",
-        "destination": "https://hgprofitoptions--hgprofitoptions-hybertec.us-central1.hosted.app/",
-        "type": 302
-      },
-      {
-        "source": "/:path*",
-        "destination": "https://hgprofitoptions--hgprofitoptions-hybertec.us-central1.hosted.app/:path*",
-        "type": 302
+        "source": "**",
+        "run": {
+          "serviceId": "hgprofitoptions-web",
+          "region": "us-central1"
+        }
       }
     ]
   },

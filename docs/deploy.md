@@ -5,8 +5,9 @@ Google Cloud organization):
 
 - **App Hosting** backend `hgprofitoptions` (us-central1) builds and serves the Next.js app at
   https://hgprofitoptions--hgprofitoptions-hybertec.us-central1.hosted.app.
-- **Hosting** site `hgprofitoptions` (https://hgprofitoptions.web.app) redirects every path to that
-  address for now (see [Serving the app at hgprofitoptions.web.app](#serving-the-app-at-hgprofitoptionswebapp)).
+- **Hosting** site `hgprofitoptions` (https://hgprofitoptions.web.app) serves the app through the
+  Cloud Run service `hgprofitoptions-web` (see
+  [Serving the app at hgprofitoptions.web.app](#serving-the-app-at-hgprofitoptionswebapp)).
 - **Firestore** (nam5), **Cloud Storage**, **Cloud Functions** (us-central1) and **Authentication**
   with Identity Platform (email/password and Google sign-in, authenticator-app two-step verification).
 
@@ -32,7 +33,7 @@ The hybertec.com organization changes two Google defaults, and the steps below a
   - The invite-only sign-up function. `firebase deploy` reports an error for `allowInvitedSignUps`;
     run `pnpm auth:guard` after every functions deploy. It makes the function reachable without an
     `allUsers` grant and registers it with Authentication.
-  - Serving the app through hgprofitoptions.web.app (below).
+  - Serving the app through hgprofitoptions.web.app (below), which `pnpm deploy:web` handles.
 
 ## One-time setup (done)
 
@@ -82,12 +83,12 @@ The hybertec.com organization changes two Google defaults, and the steps below a
 
 Deploy from an up-to-date `main` after the pull request is merged.
 
-| What changed        | Command                                                                                       |
-| ------------------- | --------------------------------------------------------------------------------------------- |
-| App                 | `firebase deploy --only apphosting --project hgprofitoptions-hybertec`                        |
-| Rules or indexes    | `firebase deploy --only firestore,storage --project hgprofitoptions-hybertec`                 |
-| Functions           | `firebase deploy --only functions --project hgprofitoptions-hybertec`, then `pnpm auth:guard` |
-| Redirect at web.app | `firebase deploy --only hosting --project hgprofitoptions-hybertec`                           |
+| What changed     | Command                                                                                       |
+| ---------------- | --------------------------------------------------------------------------------------------- |
+| App              | `pnpm deploy:web`                                                                             |
+| Rules or indexes | `firebase deploy --only firestore,storage --project hgprofitoptions-hybertec`                 |
+| Functions        | `firebase deploy --only functions --project hgprofitoptions-hybertec`, then `pnpm auth:guard` |
+| Hosting rewrite  | `firebase deploy --only hosting --project hgprofitoptions-hybertec`                           |
 
 Turning on an integration: set its secret (and `EMAIL_FROM` or `SNAPTRADE_CLIENT_ID` in both
 `apphosting.yaml` and the functions settings), then deploy the app and the functions. Admin > Settings
@@ -96,20 +97,24 @@ Turning on an integration: set its secret (and `EMAIL_FROM` or `SNAPTRADE_CLIENT
 
 ## Serving the app at hgprofitoptions.web.app
 
-Firebase Hosting can serve the app directly with a rewrite to the backend's Cloud Run service, but
-that service must accept public calls, which needs an `allUsers` grant the organization forbids. So
-the site redirects to the App Hosting address for now. To serve the app at hgprofitoptions.web.app
-itself:
+Firebase Hosting forwards requests only to a Cloud Run service that accepts public calls, and the
+organization forbids the usual `allUsers` grant. App Hosting's own service cannot stay public through
+Cloud Run's "no invoker check" setting either, because each rollout resets it. So:
 
-1. An organization admin allows `allUsers` for this project in
-   `constraints/iam.managed.allowedPolicyMembers` (IAM > Organization policies).
-2. `gcloud run services add-iam-policy-binding hgprofitoptions --region us-central1 --member allUsers --role roles/run.invoker --project hgprofitoptions-hybertec`
-3. In `firebase.json`, replace the hosting `redirects` with
-   `"rewrites": [{ "source": "**", "run": { "serviceId": "hgprofitoptions", "region": "us-central1" } }]`
-   and deploy hosting. Hosting passes only the `__session` cookie to the app, which is the session
-   cookie it uses.
+- `pnpm deploy:web` builds and rolls out App Hosting, then `scripts/sync-web-service.ts` copies that
+  service's configuration (image, environment, secrets, service account, sizing) to a second service,
+  `hgprofitoptions-web`, with the invoker check off.
+- `firebase.json` rewrites every hgprofitoptions.web.app request to `hgprofitoptions-web`. Hosting
+  passes only the `__session` cookie to the app, which is the session cookie it uses.
+- The App Hosting address keeps working too. If App Hosting is ever connected to GitHub for automatic
+  rollouts, run `pnpm exec tsx scripts/sync-web-service.ts` after each one, or hgprofitoptions.web.app
+  keeps serving the previous version.
 
-The same exception would let `firebase deploy` set up the sign-up function without `pnpm auth:guard`.
+If an organization admin later allows `allUsers` for this project
+(`constraints/iam.managed.allowedPolicyMembers`), the copy is no longer needed: grant
+`roles/run.invoker` to `allUsers` on the `hgprofitoptions` service, point the rewrite at
+`hgprofitoptions`, delete `hgprofitoptions-web`, and `firebase deploy` will also set up the sign-up
+function without `pnpm auth:guard`.
 
 ## Checks after a deploy
 
