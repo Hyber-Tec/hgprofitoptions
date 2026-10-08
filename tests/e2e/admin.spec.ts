@@ -43,3 +43,16 @@ test("an alert HG publishes reaches members' feeds", async ({ page, browser }) =
   await expect(feed.getByText(title)).toBeVisible()
   await member.close()
 })
+
+test("HG sees every stock in a published update and can edit it", async ({ page }) => {
+  await signIn(page, ACCOUNTS.admin)
+  await expect(page).toHaveURL(/\/admin$/)
+  await page.goto("/admin/targets")
+  await page.locator("table tbody tr").first().getByRole("link").click()
+  await expect(page).toHaveURL(/\/admin\/targets\/\d{4}-\d{2}-\d{2}$/)
+  await expect(page.locator('a[href^="/members/stocks/"]:visible').first()).toBeVisible()
+  await page.getByRole("link", { name: "Edit targets" }).click()
+  await expect(page).toHaveURL(/\?edit=1$/)
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Edit the")
+  await expect(page.getByRole("button", { name: "Add ticker" }).first()).toBeVisible()
+})

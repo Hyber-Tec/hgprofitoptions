@@ -1,9 +1,10 @@
 import type { Metadata } from "next"
-import Link from "next/link"
 import { notFound } from "next/navigation"
 import { LuArrowUpRight, LuPencil } from "react-icons/lu"
 import { formatDateTimeET, formatDateWithWeekday } from "@/core/format"
 import { requireAdmin } from "@/lib/auth/guards"
+import { listTargetUpdates } from "@/lib/data/tools"
+import { buildTargetRows } from "@/lib/tools/targets"
 import {
   editorContext,
   groupsFor,
@@ -15,8 +16,9 @@ import {
 import { TargetsEditor } from "@/components/admin/targets-editor"
 import { ToneBadge } from "@/components/portal/display"
 import { PageHeader } from "@/components/portal/page-header"
-import { Button } from "@/components/ui/button"
+import { TargetsTable } from "@/components/portal/tools/targets-table"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { ButtonLink } from "@/components/shared/button-link"
 
 export const metadata: Metadata = { title: "Strike target update" }
 
@@ -58,8 +60,8 @@ export default async function AdminTargetUpdatePage({ params, searchParams }: Pa
     return (
       <>
         <PageHeader
-          title={`Correct the ${formatDateWithWeekday(doc.effectiveDate)} update`}
-          description="Members see that it was corrected and your note. The current version is kept in the history."
+          title={`Edit the ${formatDateWithWeekday(doc.effectiveDate)} update`}
+          description="Publishing saves a corrected version. Members see that it was corrected, what changed and your note; the current version stays in the history."
         />
         <TargetsEditor
           initial={{
@@ -78,11 +80,9 @@ export default async function AdminTargetUpdatePage({ params, searchParams }: Pa
     )
   }
 
-  const revisions = await listRevisions(doc.effectiveDate)
-  const counts = groupsFor(doc.entries, configGroups).map((g) => ({
-    ...g,
-    count: doc.entries.filter((e) => e.group === g.slug).length,
-  }))
+  const [revisions, published] = await Promise.all([listRevisions(doc.effectiveDate), listTargetUpdates()])
+  const prior = published.find((u) => u.effectiveDate < doc.effectiveDate) ?? null
+  const { rows, removed, groups } = await buildTargetRows(doc, prior)
   return (
     <>
       <PageHeader
@@ -101,62 +101,41 @@ export default async function AdminTargetUpdatePage({ params, searchParams }: Pa
         }
         actions={
           <>
-            <Button
-              size="sm"
-              variant="outline"
-              render={<Link href={`/members/targets/${doc.effectiveDate}`} />}
-              nativeButton={false}
-            >
+            <ButtonLink size="sm" variant="outline" href={`/members/targets/${doc.effectiveDate}`}>
               Member view
               <LuArrowUpRight />
-            </Button>
-            <Button
-              size="sm"
-              render={<Link href={`/admin/targets/${doc.effectiveDate}?edit=1`} />}
-              nativeButton={false}
-            >
+            </ButtonLink>
+            <ButtonLink size="sm" href={`/admin/targets/${doc.effectiveDate}?edit=1`}>
               <LuPencil />
-              Correct this update
-            </Button>
+              Edit targets
+            </ButtonLink>
           </>
         }
       />
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Categories</CardTitle>
-            <CardDescription>{doc.entries.length} tickers</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-wrap gap-2">
-            {counts.map((g) => (
-              <span key={g.slug} className="rounded-lg border px-3 py-1.5 text-sm">
-                {g.name} <span className="text-muted-foreground tabular-nums">{g.count}</span>
-              </span>
+      <TargetsTable rows={rows} removed={removed} groups={groups} />
+      <Card className="max-w-2xl">
+        <CardHeader>
+          <CardTitle>History</CardTitle>
+          <CardDescription>
+            {revisions.length === 0
+              ? "Never corrected. Edit targets publishes a corrected version, and members see what changed."
+              : `${revisions.length} earlier ${revisions.length === 1 ? "version" : "versions"}`}
+          </CardDescription>
+        </CardHeader>
+        {revisions.length > 0 && (
+          <CardContent className="flex flex-col gap-2 text-sm">
+            {revisions.map((r) => (
+              <p key={r.revision}>
+                Version {r.revision} · {r.entries} tickers
+                <span className="block text-xs text-muted-foreground">
+                  {r.replacedAt ? `Replaced ${formatDateTimeET(r.replacedAt)}` : ""}
+                  {r.changeNote ? ` · ${r.changeNote}` : ""}
+                </span>
+              </p>
             ))}
           </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>History</CardTitle>
-            <CardDescription>
-              {revisions.length === 0 ? "Never corrected." : `${revisions.length} earlier versions`}
-            </CardDescription>
-          </CardHeader>
-          {revisions.length > 0 && (
-            <CardContent className="flex flex-col gap-2 text-sm">
-              {revisions.map((r) => (
-                <p key={r.revision}>
-                  Version {r.revision} · {r.entries} tickers
-                  <span className="block text-xs text-muted-foreground">
-                    {r.replacedAt ? `Replaced ${formatDateTimeET(r.replacedAt)}` : ""}
-                    {r.changeNote ? ` · ${r.changeNote}` : ""}
-                  </span>
-                </p>
-              ))}
-            </CardContent>
-          )}
-        </Card>
-      </div>
+        )}
+      </Card>
     </>
   )
 }
