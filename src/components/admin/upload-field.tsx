@@ -3,7 +3,7 @@
 import { ref, uploadBytesResumable } from "firebase/storage"
 import { useRef, useState } from "react"
 import { LuFileUp, LuX } from "react-icons/lu"
-import { clientStorage } from "@/lib/firebase/client"
+import { clientStorage } from "@/lib/firebase/client-storage"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { toast } from "@/components/ui/toast"

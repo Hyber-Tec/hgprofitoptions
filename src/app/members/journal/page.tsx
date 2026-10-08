@@ -13,6 +13,7 @@ import { PageHeader } from "@/components/portal/page-header"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { cn } from "@/lib/utils"
 import { ButtonAnchor, ButtonLink } from "@/components/shared/button-link"
+import { LinkPendingBar } from "@/components/shared/link-pending"
 
 export const metadata: Metadata = { title: "Journal" }
 
@@ -99,13 +100,14 @@ export default async function JournalPage({ searchParams }: PageProps<"/members/
             href={v.value === "trades" ? "/members/journal" : `/members/journal?view=${v.value}`}
             aria-current={view === v.value ? "page" : undefined}
             className={cn(
-              "-mb-px border-b-2 px-3 py-2 text-sm whitespace-nowrap transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+              "relative -mb-px border-b-2 px-3 py-2 text-sm whitespace-nowrap transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
               view === v.value
                 ? "border-foreground font-medium text-foreground"
                 : "border-transparent text-muted-foreground hover:text-foreground",
             )}
           >
             {v.label}
+            <LinkPendingBar />
           </Link>
         ))}
       </nav>

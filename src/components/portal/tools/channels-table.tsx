@@ -6,6 +6,7 @@ import { LuSearch, LuTriangle } from "react-icons/lu"
 import { formatLevel, formatPercent, formatPrice, formatShortDate } from "@/core/format"
 import type { ChannelRow } from "@/lib/tools/channels"
 import { cn } from "@/lib/utils"
+import { useResponsiveRows } from "@/hooks/use-responsive-rows"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -121,6 +122,7 @@ export function ChannelsTable({ rows, groups }: { rows: ChannelRow[]; groups: { 
     }
     return [...list].sort((a, b) => compareValues(value(a), value(b), sort.dir))
   }, [rows, query, group, earnings, near, median, sort])
+  const { table, cards } = useResponsiveRows(filtered, "md")
 
   const onSort = (key: SortKey) => setSort((s) => toggleSort(s, key))
 
@@ -199,7 +201,7 @@ export function ChannelsTable({ rows, groups }: { rows: ChannelRow[]; groups: { 
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((r) => (
+                {table.map((r) => (
                   <TableRow key={r.symbol}>
                     <TableCell>
                       <Link
@@ -258,7 +260,7 @@ export function ChannelsTable({ rows, groups }: { rows: ChannelRow[]; groups: { 
             </Table>
           </div>
           <ul className="flex flex-col gap-3 md:hidden">
-            {filtered.map((r) => (
+            {cards.map((r) => (
               <li key={r.symbol} className="flex flex-col gap-3 rounded-xl border bg-card p-4">
                 <div className="flex items-center justify-between gap-2">
                   <Link
@@ -269,7 +271,14 @@ export function ChannelsTable({ rows, groups }: { rows: ChannelRow[]; groups: { 
                   </Link>
                   <span className="font-medium tabular-nums">{formatPrice(r.price)}</span>
                 </div>
-                <MiniLadder price={r.price} lines={r.lines} bocLevels={r.bocLevels} median={r.m30} className="w-full" />
+                <MiniLadder
+                  price={r.price}
+                  lines={r.lines}
+                  bocLevels={r.bocLevels}
+                  median={r.m30}
+                  width={300}
+                  className="self-center"
+                />
                 <dl className="grid grid-cols-3 gap-2 text-sm">
                   {(
                     [

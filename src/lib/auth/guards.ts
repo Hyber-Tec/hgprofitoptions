@@ -8,7 +8,7 @@ import { readPeriods, toMembershipPeriods } from "@/server/members"
 import { COLLECTIONS, memberSchema, memberSettingsSchema, parseDoc, type Member, type PeriodDoc } from "@/server/model"
 import { adminDb } from "@/lib/firebase/admin"
 import { useEmulators } from "@/lib/env.public"
-import { readSession } from "./session"
+import { cookieUid, readSession } from "./session"
 
 export interface Viewer {
   uid: string
@@ -28,14 +28,17 @@ export const adminMfaRequired = process.env.REQUIRE_ADMIN_MFA !== "false" && !us
 
 /** The signed-in member for this request, or null. Cached per request. */
 export const getViewer = cache(async (): Promise<Viewer | null> => {
-  const session = await readSession()
-  if (!session) return null
+  const uid = await cookieUid()
+  if (!uid) return null
   const db = adminDb()
-  const [memberSnap, periods, settingsSnap] = await Promise.all([
-    db.collection(COLLECTIONS.members).doc(session.uid).get(),
-    readPeriods(db, session.uid),
+  // The member's records load alongside the session checks and are used only if those pass.
+  const [session, memberSnap, periods, settingsSnap] = await Promise.all([
+    readSession(),
+    db.collection(COLLECTIONS.members).doc(uid).get(),
+    readPeriods(db, uid),
     db.collection(COLLECTIONS.settings).doc("members").get(),
   ])
+  if (!session) return null
   const parsed = memberSnap.exists ? parseDoc(memberSchema, session.uid, memberSnap.data()) : null
   if (!parsed) return null
   const member: Member = { ...parsed, uid: session.uid }

@@ -5,7 +5,6 @@ import { formatDateWithWeekday } from "@/core/format"
 import { isMarketOpen } from "@/core/schedule"
 import { requireActiveMember } from "@/lib/auth/guards"
 import {
-  CardSkeleton,
   ClassroomCard,
   EarningsCard,
   LatestAlertsCard,
@@ -18,6 +17,7 @@ import {
   TargetsCard,
 } from "@/components/portal/dashboard/cards"
 import { PageHeader } from "@/components/portal/page-header"
+import { CardSkeleton } from "@/components/portal/page-skeleton"
 import { PushPromptCard } from "@/components/portal/push-controls"
 
 export const metadata: Metadata = { title: "Dashboard" }

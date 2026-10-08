@@ -12,6 +12,17 @@
     "site": "hgprofitoptions",
     "public": "hosting",
     "ignore": ["**/.*"],
+    "headers": [
+      {
+        "source": "/@(icon.png|apple-icon.png|manifest.webmanifest)",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=86400"
+          }
+        ]
+      }
+    ],
     "rewrites": [
       {
         "source": "**",

@@ -9,24 +9,27 @@ export function MiniLadder({
   lines,
   bocLevels,
   median,
+  width = 120,
   className,
 }: {
   price: number
   lines: readonly number[]
   bocLevels: readonly number[]
   median?: number | null
+  /** Drawing width in pixels at the ladder's 24px height. It keeps its proportions when the box is wider. */
+  width?: number
   className?: string
 }) {
   const values = [...lines, ...bocLevels, price, ...(median ? [median] : [])]
   const min = Math.min(...values)
   const max = Math.max(...values)
   const span = max - min || 1
-  const width = 120
   const x = (v: number) => 4 + ((v - min) / span) * (width - 8)
   return (
     <svg
       viewBox={`0 0 ${width} 24`}
-      className={cn("h-6 w-[120px]", className)}
+      style={{ width }}
+      className={cn("h-6 max-w-full", className)}
       role="img"
       aria-label={`Price ${price.toFixed(2)} on its channel ladder`}
     >

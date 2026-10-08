@@ -6,6 +6,7 @@ import { LuSearch } from "react-icons/lu"
 import { formatLevel, formatPercent, formatSigned } from "@/core/format"
 import type { WeekRow } from "@/lib/tools/market-data"
 import { cn } from "@/lib/utils"
+import { useResponsiveRows } from "@/hooks/use-responsive-rows"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -59,6 +60,7 @@ export function MarketDataTable({ rows, groups }: { rows: WeekRow[]; groups: { s
       )
       .sort((a, b) => compareValues(a[sort.key], b[sort.key], sort.dir))
   }, [rows, query, group, direction, sort])
+  const { table, cards } = useResponsiveRows(filtered, "md")
   const onSort = (key: SortKey) => setSort((s) => toggleSort(s, key))
 
   return (
@@ -121,7 +123,7 @@ export function MarketDataTable({ rows, groups }: { rows: WeekRow[]; groups: { s
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((r) => (
+                {table.map((r) => (
                   <TableRow key={r.symbol}>
                     <TableCell>
                       <Link
@@ -159,7 +161,7 @@ export function MarketDataTable({ rows, groups }: { rows: WeekRow[]; groups: { s
             </Table>
           </div>
           <ul className="flex flex-col gap-2 md:hidden">
-            {filtered.map((r) => (
+            {cards.map((r) => (
               <li
                 key={r.symbol}
                 className="flex items-center justify-between gap-3 rounded-xl border bg-card px-4 py-3"

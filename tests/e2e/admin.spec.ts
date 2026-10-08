@@ -44,6 +44,32 @@ test("an alert HG publishes reaches members' feeds", async ({ page, browser }) =
   await member.close()
 })
 
+test("members with the app open get HG's alert right away", async ({ page, browser }) => {
+  const member = await browser.newContext()
+  const open = await member.newPage()
+  await signIn(open, ACCOUNTS.active)
+  await expect(open).toHaveURL(/\/members$/)
+  // The sidebar badge reads "Unread alerts: N", shows 9+ above nine and is hidden at zero.
+  const badge = open.locator("[data-sidebar=menu-badge]")
+  const shown = (n: number) => `Unread alerts: ${n > 9 ? "9+" : String(n)}`
+  const before = (await badge.count()) > 0 ? Number((await badge.textContent())?.match(/\d+/)?.[0] ?? 0) : 0
+
+  await signIn(page, ACCOUNTS.admin)
+  await expect(page).toHaveURL(/\/admin$/)
+  await page.goto("/admin/alerts/new")
+  await page.getByRole("button", { name: "Info", exact: true }).click()
+  const title = `Zoom link changed (${Date.now()})`
+  await page.getByLabel("Title").fill(title)
+  await page.getByLabel("Why, and what to watch").fill("Use the new link in the classroom page from tonight.")
+  await page.getByRole("button", { name: "Publish now" }).click()
+  await expect(page).toHaveURL(/\/admin\/alerts\/(?!new)[^/]+$/)
+
+  // Without a reload, the open page shows a toast and counts the alert as unread.
+  await expect(open.getByText(`Info · ${title}`)).toBeVisible()
+  await expect(badge).toHaveText(shown(before + 1))
+  await member.close()
+})
+
 test("HG sees every stock in a published update and can edit it", async ({ page }) => {
   await signIn(page, ACCOUNTS.admin)
   await expect(page).toHaveURL(/\/admin$/)

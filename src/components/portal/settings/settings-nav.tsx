@@ -3,6 +3,7 @@
 import type { Route } from "next"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { LinkPendingBar } from "@/components/shared/link-pending"
 import { cn } from "@/lib/utils"
 
 const ITEMS: { href: Route; label: string }[] = [
@@ -24,13 +25,14 @@ export function SettingsNav() {
             href={item.href}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "-mb-px border-b-2 px-3 py-2 text-sm whitespace-nowrap transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+              "relative -mb-px border-b-2 px-3 py-2 text-sm whitespace-nowrap transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
               active
                 ? "border-foreground font-medium text-foreground"
                 : "border-transparent text-muted-foreground hover:text-foreground",
             )}
           >
             {item.label}
+            <LinkPendingBar />
           </Link>
         )
       })}

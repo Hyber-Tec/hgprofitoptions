@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation"
 import { LuCalendarCheck, LuChevronsUpDown, LuLayoutDashboard, LuShield } from "react-icons/lu"
 import type { MembershipSummary } from "@/core/membership/summary"
 import { cn } from "@/lib/utils"
+import { LinkPendingIcon } from "@/components/shared/link-pending"
 import { LogoMark } from "@/components/site/logo"
 import {
   DropdownMenu,
@@ -140,7 +141,7 @@ export function AppSidebar({
                       />
                     }
                   >
-                    <item.icon />
+                    <LinkPendingIcon icon={item.icon} />
                     <span>{item.title}</span>
                   </SidebarMenuButton>
                   {item.badge === "unread" && unread > 0 && (

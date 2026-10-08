@@ -4,7 +4,6 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useTransition } from "react"
 import { LuLayoutDashboard, LuLogOut, LuSettings, LuShield } from "react-icons/lu"
-import { signOut } from "@/lib/auth/client"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
@@ -33,6 +32,8 @@ export function UserMenu({
   const [pending, startTransition] = useTransition()
   const handleSignOut = () => {
     startTransition(async () => {
+      // The Auth SDK loads only for this; the pages themselves never need it.
+      const { signOut } = await import("@/lib/auth/client")
       await signOut()
       router.replace("/")
       router.refresh()
