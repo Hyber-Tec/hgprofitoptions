@@ -37,6 +37,22 @@ test("about and FAQ pages render", async ({ page }) => {
   await expectNoHorizontalScroll(page)
 })
 
+test("the About page shows every photo whole", async ({ page }) => {
+  await page.goto("/about")
+  const photos = page.locator("main img")
+  await expect(photos).toHaveCount(4)
+  for (const photo of await photos.all()) {
+    await photo.scrollIntoViewIfNeeded()
+    await expect.poll(() => photo.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true)
+    // A frame with a different shape than the photo cuts part of the photo off.
+    const { alt, frame, photoShape } = await photo.evaluate((img: HTMLImageElement) => {
+      const box = img.getBoundingClientRect()
+      return { alt: img.alt, frame: box.width / box.height, photoShape: img.naturalWidth / img.naturalHeight }
+    })
+    expect(Math.abs(frame / photoShape - 1), alt).toBeLessThan(0.01)
+  }
+})
+
 test("unknown pages show the not-found page", async ({ page, allowConsole }) => {
   allowConsole(/status of 404/)
   const response = await page.goto("/no-such-page")
