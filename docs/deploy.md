@@ -107,6 +107,10 @@ Cloud Run's "no invoker check" setting either, because each rollout resets it. S
 - `hgprofitoptions-web` keeps one instance running, so members never wait several seconds for a cold
   start. While idle it costs about $13 a month (1 CPU and 1 GiB at Cloud Run's idle rate). The App
   Hosting service scales to zero; nobody is sent to its address.
+- A new instance's first request takes about 15 seconds while Cloud Run loads the app's files. The
+  copy gets a startup probe that loads the home page first, so a new instance (after a deploy, or
+  when traffic grows) only receives visitors once it is warm. It also runs in Cloud Run's
+  second-generation environment, which loads those files about twice as fast at the same price.
 - `firebase.json` rewrites every hgprofitoptions.web.app request to `hgprofitoptions-web`. Hosting
   passes only the `__session` cookie to the app, which is the session cookie it uses. It also lets
   browsers cache the icons and the web app manifest for a day; Next.js would have them downloaded

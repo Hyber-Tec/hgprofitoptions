@@ -6,8 +6,9 @@
  * stay public through Cloud Run's "no invoker check" setting either, because every rollout resets it.
  * So after each App Hosting rollout, this script copies that service's current configuration (image,
  * environment, secrets, service account, sizing) to a second service, hgprofitoptions-web, with the
- * invoker check off and one instance kept running. firebase.json points hgprofitoptions.web.app at
- * that service.
+ * invoker check off, one instance kept running, the second-generation execution environment and a
+ * startup probe that warms new instances before they get traffic. firebase.json points
+ * hgprofitoptions.web.app at that service.
  *
  *   pnpm deploy:web   # App Hosting build and rollout, then this copy
  */
@@ -46,9 +47,24 @@ const template = Object.fromEntries(
 // One instance stays running. Without it, the first visitor after about 15 quiet minutes waits
 // several seconds for a new one to start. While idle it costs about $13 a month (1 CPU, 1 GiB).
 template.scaling = { ...(template.scaling as Record<string, unknown> | undefined), minInstanceCount: 1 }
-const containers = template.containers as { image: string }[] | undefined
-const image = containers?.[0]?.image
-if (!image) throw new Error(`${SOURCE} has no container image yet. Deploy App Hosting first.`)
+const containers = template.containers as { image: string; startupProbe?: unknown }[] | undefined
+const container = containers?.[0]
+if (!container) throw new Error(`${SOURCE} has no container image yet. Deploy App Hosting first.`)
+const image = container.image
+// A new instance's first request takes about 15 seconds while Cloud Run loads the app's files (the
+// next ones take milliseconds). App Hosting's probe only checks that the port is open, so that wait
+// fell on a visitor after every deploy. This probe loads the home page first, and the instance gets
+// traffic once it has answered.
+container.startupProbe = {
+  httpGet: { path: "/", port: 8080 },
+  timeoutSeconds: 10,
+  periodSeconds: 10,
+  failureThreshold: 24,
+}
+// The second-generation environment reads the app's files much faster than App Hosting's default
+// first generation: a new instance is ready sooner and each page's first load on it is about twice as
+// fast. Both cost the same.
+template.executionEnvironment = "EXECUTION_ENVIRONMENT_GEN2"
 
 let operation = await call<Operation>(`${BASE}/services/${TARGET}?allowMissing=true`, {
   method: "PATCH",
