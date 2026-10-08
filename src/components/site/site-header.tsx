@@ -1,17 +1,25 @@
 "use client"
 
+import dynamic from "next/dynamic"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useEffect, useState } from "react"
 import { LuArrowRight, LuCalendarCheck, LuLayoutDashboard, LuLogIn, LuMenu, LuShield } from "react-icons/lu"
 import { ThemeToggle } from "@/components/shared/theme-toggle"
-import { UserMenu } from "@/components/shared/user-menu"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
 import { ButtonAnchor, ButtonLink } from "@/components/shared/button-link"
 import { Logo } from "./logo"
+
+/**
+ * Signing out needs the Firebase Auth client, which is large. Loading the menu on demand keeps it
+ * out of the public pages for visitors who are not signed in.
+ */
+const UserMenu = dynamic(() => import("@/components/shared/user-menu").then((mod) => mod.UserMenu), {
+  loading: () => <span className="size-8" />,
+})
 
 const NAV = [
   { href: "/#program", label: "Program" },
