@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { FaqSearch } from "@/components/site/faq-search"
 import { CtaBand } from "@/components/site/home/cta"
+import { Eyebrow } from "@/components/site/section"
 import { FAQ_GROUPS } from "@/content/faqs"
 import { getFaqs } from "@/lib/data/public"
 
@@ -29,7 +30,7 @@ export default async function FaqPage() {
       />
       <section className="border-b">
         <div className="mx-auto flex max-w-3xl flex-col items-center gap-4 px-4 py-16 text-center sm:px-6 sm:py-20">
-          <p className="text-xs font-medium tracking-widest text-muted-foreground uppercase">FAQ</p>
+          <Eyebrow>FAQ</Eyebrow>
           <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">Frequently asked questions</h1>
           <p className="text-lg text-muted-foreground">Everything you need to know before you join.</p>
         </div>
@@ -39,7 +40,7 @@ export default async function FaqPage() {
           <FaqSearch faqs={faqs} groups={groups} />
         </div>
       </section>
-      <CtaBand title="Still have questions?" lead="Book a free 15-minute call and ask HG directly." />
+      <CtaBand title="Still have questions?" lead="Book a free 15-minute call and ask HG directly." faqLink={false} />
     </>
   )
 }

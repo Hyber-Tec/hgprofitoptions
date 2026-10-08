@@ -1,127 +1,117 @@
-"use client"
-
 import BG from "country-flag-icons/react/3x2/BG"
 import CA from "country-flag-icons/react/3x2/CA"
+import CN from "country-flag-icons/react/3x2/CN"
 import GB from "country-flag-icons/react/3x2/GB"
 import IE from "country-flag-icons/react/3x2/IE"
 import RW from "country-flag-icons/react/3x2/RW"
 import SG from "country-flag-icons/react/3x2/SG"
 import US from "country-flag-icons/react/3x2/US"
 import Image from "next/image"
-import { useEffect, useState } from "react"
+import type { CSSProperties } from "react"
+import { LuInfo } from "react-icons/lu"
 import type { FlagComponent } from "country-flag-icons/react/3x2"
-import { LuQuote } from "react-icons/lu"
 import { formatPercent, formatSignedMoney } from "@/core/format"
 import type { TestimonialDoc } from "@/server/model"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
-import { Card, CardContent } from "@/components/ui/card"
-import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
-  type CarouselApi,
-} from "@/components/ui/carousel"
+import { cn } from "@/lib/utils"
+import { MarqueeFrame } from "../marquee-frame"
+import { Section, SectionHeading } from "../section"
 
-const FLAGS: Record<string, FlagComponent> = { BG, CA, GB, IE, RW, SG, US }
+const FLAGS: Record<string, FlagComponent> = { BG, CA, CN, GB, IE, RW, SG, US }
+
+/** Each column scrolls at its own pace; hovering or the pause button stops it. */
+const COLUMN =
+  "flex flex-col gap-5 pb-5 animate-marquee-up hover:[animation-play-state:paused] group-data-[paused]/marquee:[animation-play-state:paused] motion-reduce:animate-none"
 
 function MemberAvatar({ testimonial }: { testimonial: TestimonialDoc }) {
   const Flag = testimonial.flag ? FLAGS[testimonial.flag] : undefined
   return (
-    <Avatar className="size-11 overflow-hidden">
+    <span className="relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted ring-1 ring-foreground/10">
       {testimonial.avatar ? (
-        <Image src={testimonial.avatar} alt="" width={88} height={88} className="size-full rounded-full object-cover" />
+        <Image src={testimonial.avatar} alt="" width={80} height={80} className="size-full object-cover" />
       ) : Flag ? (
-        <Flag title={testimonial.location} className="h-full w-auto max-w-none scale-150 object-cover" />
+        <Flag title={testimonial.location} className="h-full w-auto max-w-none scale-150" />
       ) : (
-        <AvatarFallback>{testimonial.name.slice(0, 1)}</AvatarFallback>
+        <span className="text-sm font-medium">{testimonial.name.slice(0, 1)}</span>
       )}
-    </Avatar>
+    </span>
   )
 }
 
-function TradeCard({ trade }: { trade: NonNullable<TestimonialDoc["trade"]> }) {
+function TestimonialCard({ testimonial, hidden }: { testimonial: TestimonialDoc; hidden?: boolean }) {
+  const { trade } = testimonial
   return (
-    <div className="rounded-lg border bg-muted/40 p-3">
-      <p className="font-mono text-sm">
-        {trade.symbol} ${trade.strike.toFixed(2)} {trade.type === "call" ? "Call" : "Put"} · Exp {trade.expiryLabel}
-      </p>
-      <div className="mt-2 flex items-end justify-between gap-3">
-        <span className="text-xs text-muted-foreground">Realized profit</span>
-        <div className="flex items-center gap-2">
-          <span className="num text-lg font-semibold text-positive">
-            {formatSignedMoney(trade.realizedProfit, trade.currency)}
-            {trade.currency !== "USD" && (
-              <span className="ml-1 text-xs font-normal text-muted-foreground">{trade.currency}</span>
-            )}
+    <figure
+      aria-hidden={hidden || undefined}
+      className="flex flex-col gap-4 rounded-2xl border bg-card/70 p-5 shadow-lg shadow-black/5 backdrop-blur-sm sm:p-6 dark:shadow-black/25"
+    >
+      {trade && (
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl border bg-background/60 px-3 py-2">
+          <span className="font-mono text-xs text-foreground">
+            {trade.symbol} ${trade.strike.toFixed(2)} {trade.type === "call" ? "Call" : "Put"} · Exp {trade.expiryLabel}
           </span>
-          <Badge variant="outline" className="num border-positive/30 text-positive">
-            {formatPercent(trade.percentGain, { digits: 0 })}
-          </Badge>
+          <span className="num flex items-center gap-1.5 text-sm font-semibold text-positive">
+            {formatSignedMoney(trade.realizedProfit, trade.currency)}
+            {trade.currency !== "USD" && <span className="text-[11px] font-normal">{trade.currency}</span>}
+            <span className="rounded-md bg-positive/12 px-1.5 py-0.5 text-[11px]">
+              {formatPercent(trade.percentGain, { digits: 0 })}
+            </span>
+          </span>
         </div>
+      )}
+      <blockquote className="text-[0.95rem] leading-relaxed text-pretty text-foreground/85">
+        &ldquo;{testimonial.quote}&rdquo;
+      </blockquote>
+      <figcaption className="flex items-center gap-3">
+        <MemberAvatar testimonial={testimonial} />
+        <span className="flex flex-col">
+          <span className="text-sm font-medium text-foreground">{testimonial.name}</span>
+          <span className="text-xs text-muted-foreground">{testimonial.location}</span>
+        </span>
+      </figcaption>
+    </figure>
+  )
+}
+
+function Column({ items, seconds, className }: { items: TestimonialDoc[]; seconds: number; className?: string }) {
+  return (
+    <div className={cn("min-w-0 flex-1", className)}>
+      <div className={COLUMN} style={{ "--marquee-duration": `${seconds}s` } as CSSProperties}>
+        {items.map((t) => (
+          <TestimonialCard key={t.id} testimonial={t} />
+        ))}
+        {/* The loop's second lap: hidden from screen readers, which already heard it once. */}
+        {items.map((t) => (
+          <TestimonialCard key={`${t.id}-again`} testimonial={t} hidden />
+        ))}
       </div>
     </div>
   )
 }
 
 export function Testimonials({ items }: { items: TestimonialDoc[] }) {
-  const [api, setApi] = useState<CarouselApi>()
-  const [current, setCurrent] = useState(1)
-
-  useEffect(() => {
-    if (!api) return
-    const update = () => setCurrent(api.selectedScrollSnap() + 1)
-    update()
-    api.on("select", update)
-    return () => {
-      api.off("select", update)
-    }
-  }, [api])
-
+  // Dealt round-robin, so photos and flags mix in every column.
+  const columns = [0, 1, 2].map((c) => items.filter((_, i) => i % 3 === c))
   return (
-    <div className="flex flex-col gap-6">
-      <Carousel
-        setApi={setApi}
-        opts={{ align: "start", loop: true }}
-        className="w-full"
-        aria-label="Member testimonials"
-      >
-        <CarouselContent>
-          {items.map((t) => (
-            <CarouselItem key={t.id} className="basis-full md:basis-1/2 lg:basis-1/3">
-              <Card className="h-full ring-inset">
-                <CardContent className="flex h-full flex-col gap-4">
-                  <div className="flex items-center gap-3">
-                    <MemberAvatar testimonial={t} />
-                    <div>
-                      <p className="font-medium">{t.name}</p>
-                      <p className="text-sm text-muted-foreground">{t.location}</p>
-                    </div>
-                  </div>
-                  {t.trade && <TradeCard trade={t.trade} />}
-                  <blockquote className="relative flex-1 text-sm leading-relaxed text-pretty text-muted-foreground">
-                    <LuQuote aria-hidden className="mb-2 size-4 text-foreground/40" />
-                    <p>&ldquo;{t.quote}&rdquo;</p>
-                  </blockquote>
-                </CardContent>
-              </Card>
-            </CarouselItem>
-          ))}
-        </CarouselContent>
-        <div className="mt-6 flex items-center justify-center gap-4">
-          <CarouselPrevious className="static translate-y-0" />
-          <span className="num min-w-16 text-center text-sm text-muted-foreground" aria-live="polite">
-            {current} / {items.length}
-          </span>
-          <CarouselNext className="static translate-y-0" />
-        </div>
-      </Carousel>
-      <p className="text-center text-xs text-muted-foreground">
-        Testimonials reflect individual members&apos; experiences. Results are not typical and do not guarantee future
-        results.
+    <Section id="reviews" className="overflow-x-clip">
+      <SectionHeading
+        eyebrow="Member stories"
+        title="Real members, real trades"
+        lead="Members from 8+ countries share their experience of the class, in their own words."
+      />
+      <p className="mx-auto mb-8 flex max-w-2xl items-start gap-3 rounded-xl border bg-card/60 px-4 py-3 text-sm leading-relaxed text-pretty text-muted-foreground">
+        <LuInfo aria-hidden className="mt-0.5 size-4 shrink-0 text-brand" />
+        <span>
+          These trades and quotes are individual members&apos; experiences, not typical results, and they don&apos;t
+          predict how you will do. Options trading is risky and many people lose money.
+        </span>
       </p>
-    </div>
+      <MarqueeFrame>
+        <div className="flex max-h-[46rem] gap-5 overflow-hidden mask-[linear-gradient(to_bottom,transparent,black_12%,black_88%,transparent)]">
+          <Column items={columns[0] ?? []} seconds={64} />
+          <Column items={columns[1] ?? []} seconds={78} className="hidden md:block" />
+          <Column items={columns[2] ?? []} seconds={70} className="hidden lg:block" />
+        </div>
+      </MarqueeFrame>
+    </Section>
   )
 }
