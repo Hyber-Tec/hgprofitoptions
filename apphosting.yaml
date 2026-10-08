@@ -36,6 +36,10 @@ env:
     value: https://hgprofitoptions.web.app
     availability: [BUILD, RUNTIME]
 
+  # Two-step verification is optional for admins. "true" makes the admin console require it.
+  - variable: REQUIRE_ADMIN_MFA
+    value: "false"
+
   # Server actions stay valid across instances and rollouts.
   - variable: NEXT_SERVER_ACTIONS_ENCRYPTION_KEY
     secret: NEXT_SERVER_ACTIONS_ENCRYPTION_KEY

@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { LuShieldCheck } from "react-icons/lu"
 import { adminMfaRequired, requireAdmin } from "@/lib/auth/guards"
+import { useEmulators } from "@/lib/env.public"
 import { ReauthButton } from "@/components/admin/reauth-button"
 import { ToneBadge } from "@/components/portal/display"
 import { PageHeader } from "@/components/portal/page-header"
@@ -17,7 +18,11 @@ export default async function AdminSecurityPage() {
     <>
       <PageHeader
         title="Admin security"
-        description="Admins can see every member's data, so the admin console requires two-step verification."
+        description={
+          adminMfaRequired
+            ? "Admins can see every member's data, so the admin console requires two-step verification."
+            : "Admins can see every member's data. Two-step verification is optional here, and recommended: sign-ins then also ask for a code from your authenticator app."
+        }
       />
       {locked && (
         <Alert>
@@ -31,25 +36,25 @@ export default async function AdminSecurityPage() {
       )}
       <Card className="max-w-2xl">
         <CardContent className="flex flex-col gap-5">
-          <TwoStepSetup uid={viewer.uid} email={viewer.email} required />
-          <div className="flex flex-col gap-3 border-t pt-5 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm font-medium">This session</p>
-              <p className="text-sm text-muted-foreground">
-                {viewer.mfa
-                  ? "You signed in with a code."
-                  : locked
-                    ? "You signed in without a code. Sign in again and enter one to open the admin console."
-                    : "You signed in without a code."}
-              </p>
+          <TwoStepSetup uid={viewer.uid} email={viewer.email} required={adminMfaRequired} />
+          {adminMfaRequired && (
+            <div className="flex flex-col gap-3 border-t pt-5 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-medium">This session</p>
+                <p className="text-sm text-muted-foreground">
+                  {viewer.mfa
+                    ? "You signed in with a code."
+                    : "You signed in without a code. Sign in again and enter one to open the admin console."}
+                </p>
+              </div>
+              {viewer.mfa ? <ToneBadge tone="positive">Verified</ToneBadge> : <ReauthButton />}
             </div>
-            {viewer.mfa ? <ToneBadge tone="positive">Verified</ToneBadge> : <ReauthButton />}
-          </div>
+          )}
         </CardContent>
       </Card>
-      {!adminMfaRequired && (
+      {useEmulators && (
         <p className="text-xs text-muted-foreground">
-          Local development: two-step verification is not enforced because the Auth emulator does not support it.
+          Local development: the Auth emulator does not support two-step verification.
         </p>
       )}
     </>

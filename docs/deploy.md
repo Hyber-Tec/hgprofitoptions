@@ -76,8 +76,8 @@ The hybertec.com organization changes two Google defaults, and the steps below a
 
    These use Application Default Credentials (`gcloud auth application-default login`). Set
    `NEXT_PUBLIC_SITE_URL=https://hgprofitoptions.web.app` so the printed link points at production.
-   The admin opens the link, creates their account, sets up two-step verification at
-   `/admin/security` and signs in again with a code.
+   The admin opens the link and creates their account. Two-step verification is optional
+   (`REQUIRE_ADMIN_MFA` in `apphosting.yaml`); admins can turn it on at `/admin/security`.
 
 ## Deploying changes
 
