@@ -6,7 +6,7 @@
     "dev": "tsx --env-file-if-exists=.env.local scripts/build-sw.ts && next dev",
     "build": "tsx --env-file-if-exists=.env.local scripts/build-sw.ts && next build",
     "start": "next start",
-    "lint": "eslint",
+    "lint": "next typegen && eslint",
     "typecheck": "next typegen && tsc --noEmit && tsc --noEmit -p functions",
     "test": "vitest run --project unit --project golden",
     "test:emulators": "firebase emulators:exec --config firebase.test.json --only firestore,storage --project demo-hgprofitoptions \"vitest run --project rules --project integration\"",
