@@ -22,13 +22,15 @@ import { PushPromptCard } from "@/components/portal/push-controls"
 
 export const metadata: Metadata = { title: "Dashboard" }
 
-export default async function DashboardPage() {
+export default async function DashboardPage({ searchParams }: PageProps<"/members">) {
   const viewer = await requireActiveMember("/members")
+  // Set by the welcome page right after the account is created.
+  const firstVisit = (await searchParams).welcome === "1"
   const open = isMarketOpen()
   return (
     <>
       <PageHeader
-        title={`Welcome back, ${viewer.firstName}`}
+        title={firstVisit ? `Welcome, ${viewer.firstName}` : `Welcome back, ${viewer.firstName}`}
         description={
           <>
             {formatDateWithWeekday(todayInMarketZone())} ·{" "}

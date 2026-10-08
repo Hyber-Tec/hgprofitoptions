@@ -54,6 +54,9 @@ function crumbLabel(segment: string, parent: string | undefined, area: PortalAre
   return decoded
 }
 
+/** Path prefixes with no page of their own: shown in the trail, but not as links. */
+const WITHOUT_PAGE = new Set(["/members/stocks"])
+
 function Crumbs({ area }: { area: PortalArea }) {
   const pathname = usePathname()
   const segments = pathname.split("/").filter(Boolean)
@@ -77,6 +80,8 @@ function Crumbs({ area }: { area: PortalArea }) {
               <BreadcrumbItem className={last ? "min-w-0" : "hidden md:inline-flex"}>
                 {last ? (
                   <BreadcrumbPage className="truncate">{crumb.label}</BreadcrumbPage>
+                ) : WITHOUT_PAGE.has(crumb.href) ? (
+                  <span className="text-muted-foreground">{crumb.label}</span>
                 ) : (
                   <BreadcrumbLink render={<Link href={crumb.href} />}>{crumb.label}</BreadcrumbLink>
                 )}
