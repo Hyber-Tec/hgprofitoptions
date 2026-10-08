@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
+import { ButtonLink } from "@/components/shared/button-link"
 
 export function ForgotForm() {
   const [email, setEmail] = useState("")
@@ -34,9 +35,9 @@ export function ForgotForm() {
         <p className="text-sm text-muted-foreground">
           If an account exists for {email}, we sent a link to reset your password. The link expires in one hour.
         </p>
-        <Button variant="outline" render={<Link href="/login" />} nativeButton={false}>
+        <ButtonLink variant="outline" href="/login">
           Back to login
-        </Button>
+        </ButtonLink>
       </div>
     )
   }

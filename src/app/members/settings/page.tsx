@@ -12,9 +12,9 @@ import { DeletionRequest } from "@/components/portal/settings/account-actions"
 import { ProfileForm } from "@/components/portal/settings/profile-form"
 import { PasswordReset, TwoStepSetup } from "@/components/portal/settings/security-panel"
 import { SettingsNav } from "@/components/portal/settings/settings-nav"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
+import { ButtonAnchor } from "@/components/shared/button-link"
 
 export const metadata: Metadata = { title: "Settings" }
 
@@ -115,24 +115,14 @@ export default async function SettingsPage() {
               <CardDescription>Your journal and portfolio belong to you. Download them at any time.</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col items-start gap-3">
-              <Button
-                variant="outline"
-                size="sm"
-                render={<a href="/members/journal/export.csv" />}
-                nativeButton={false}
-              >
+              <ButtonAnchor variant="outline" size="sm" href="/members/journal/export.csv">
                 <LuDownload />
                 Journal (CSV)
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                render={<a href="/members/portfolio/export.csv" />}
-                nativeButton={false}
-              >
+              </ButtonAnchor>
+              <ButtonAnchor variant="outline" size="sm" href="/members/portfolio/export.csv">
                 <LuDownload />
                 Portfolio history (CSV)
-              </Button>
+              </ButtonAnchor>
               <Separator className="my-1" />
               <DeletionRequest requestedAt={viewer.member.deletionRequestedAt?.toISOString() ?? null} />
             </CardContent>

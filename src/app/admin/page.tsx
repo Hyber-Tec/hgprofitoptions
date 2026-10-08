@@ -3,7 +3,7 @@ import Link from "next/link"
 import { LuArrowRight } from "react-icons/lu"
 import { median } from "@/core/calc/standing"
 import { addDays, todayInMarketZone } from "@/core/dates"
-import { formatDate, formatDateTimeET, formatPercent } from "@/core/format"
+import { formatDate, formatDateTimeET, formatPercent, plural } from "@/core/format"
 import { quarterOf, quarterRange } from "@/core/membership/quarters"
 import { requireAdmin } from "@/lib/auth/guards"
 import { latestJobRuns, listInvites, listMemberRows } from "@/lib/data/admin"
@@ -12,8 +12,8 @@ import { RenewButton } from "@/components/admin/renew-button"
 import { AlertKindBadge } from "@/components/portal/alerts/alert-kind-badge"
 import { Signed, Stat, ToneBadge } from "@/components/portal/display"
 import { PageHeader } from "@/components/portal/page-header"
-import { Button } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { ButtonLink } from "@/components/shared/button-link"
 
 export const metadata: Metadata = { title: "Admin overview" }
 
@@ -85,7 +85,7 @@ export default async function AdminOverviewPage() {
             <Stat
               label="Open alerts"
               value={open.length}
-              hint={`${roots.filter((a) => a.status === "scheduled").length} scheduled · ${roots.filter((a) => a.status === "draft").length} drafts`}
+              hint={`${roots.filter((a) => a.status === "scheduled").length} scheduled · ${plural(roots.filter((a) => a.status === "draft").length, "draft")}`}
             />
           </CardContent>
         </Card>
@@ -98,15 +98,9 @@ export default async function AdminOverviewPage() {
           </CardHeader>
           <CardContent className="flex flex-wrap gap-2">
             {deletion.map((r) => (
-              <Button
-                key={r.member.uid}
-                size="sm"
-                variant="outline"
-                render={<Link href={`/admin/members/${r.member.uid}`} />}
-                nativeButton={false}
-              >
+              <ButtonLink key={r.member.uid} size="sm" variant="outline" href={`/admin/members/${r.member.uid}`}>
                 {r.member.fullName}
-              </Button>
+              </ButtonLink>
             ))}
           </CardContent>
         </Card>
@@ -149,16 +143,10 @@ export default async function AdminOverviewPage() {
             <CardTitle>Community this quarter</CardTitle>
             <CardDescription>Active members with a linked brokerage</CardDescription>
             <CardAction>
-              <Button
-                variant="ghost"
-                size="sm"
-                render={<Link href="/admin/performance" />}
-                nativeButton={false}
-                className="-mr-2 text-muted-foreground"
-              >
+              <ButtonLink variant="ghost" size="sm" className="-mr-2 text-muted-foreground" href="/admin/performance">
                 Performance
                 <LuArrowRight />
-              </Button>
+              </ButtonLink>
             </CardAction>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-x-4 gap-y-5">
@@ -188,16 +176,10 @@ export default async function AdminOverviewPage() {
           <CardHeader>
             <CardTitle>Recent alerts</CardTitle>
             <CardAction>
-              <Button
-                variant="ghost"
-                size="sm"
-                render={<Link href="/admin/alerts" />}
-                nativeButton={false}
-                className="-mr-2 text-muted-foreground"
-              >
+              <ButtonLink variant="ghost" size="sm" className="-mr-2 text-muted-foreground" href="/admin/alerts">
                 All alerts
                 <LuArrowRight />
-              </Button>
+              </ButtonLink>
             </CardAction>
           </CardHeader>
           <CardContent>
@@ -237,16 +219,10 @@ export default async function AdminOverviewPage() {
             <CardTitle>Data jobs</CardTitle>
             <CardDescription>The latest run of each scheduled job</CardDescription>
             <CardAction>
-              <Button
-                variant="ghost"
-                size="sm"
-                render={<Link href="/admin/market-data" />}
-                nativeButton={false}
-                className="-mr-2 text-muted-foreground"
-              >
+              <ButtonLink variant="ghost" size="sm" className="-mr-2 text-muted-foreground" href="/admin/market-data">
                 Market data
                 <LuArrowRight />
-              </Button>
+              </ButtonLink>
             </CardAction>
           </CardHeader>
           <CardContent>

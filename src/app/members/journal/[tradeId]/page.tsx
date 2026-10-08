@@ -18,9 +18,9 @@ import { Screenshots } from "@/components/portal/journal/screenshots"
 import { CloseTradeButton, DeleteTradeButton } from "@/components/portal/journal/trade-actions"
 import { PageHeader } from "@/components/portal/page-header"
 import { PriceChart, type ChartLevel, type ChartMarker } from "@/components/portal/stock/price-chart"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { ButtonLink } from "@/components/shared/button-link"
 
 export const metadata: Metadata = { title: "Trade" }
 
@@ -248,15 +248,10 @@ export default async function TradePage({ params }: PageProps<"/members/journal/
                     )}
                   </p>
                 )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  render={<Link href={`/members/alerts/${linkedAlert.id}`} />}
-                  nativeButton={false}
-                >
+                <ButtonLink variant="outline" size="sm" href={`/members/alerts/${linkedAlert.id}`}>
                   Open the alert
                   <LuArrowUpRight />
-                </Button>
+                </ButtonLink>
               </CardContent>
             </Card>
           )}

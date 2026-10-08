@@ -8,9 +8,9 @@ import { getEtfConfig, tickerMap } from "@/lib/data/tools"
 import { PageHeader } from "@/components/portal/page-header"
 import { Watermark } from "@/components/portal/watermark"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Button } from "@/components/ui/button"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { ButtonAnchor } from "@/components/shared/button-link"
 
 export const metadata: Metadata = { title: "Leveraged ETFs" }
 
@@ -32,21 +32,16 @@ export default async function EtfsPage() {
           {config.guidance.map((paragraph) => (
             <p key={paragraph}>{paragraph}</p>
           ))}
-          <Button
+          <ButtonAnchor
             size="sm"
             className="mt-1 w-fit"
-            render={
-              <a
-                href={bookHref}
-                target={bookHref.startsWith("http") ? "_blank" : undefined}
-                rel="noopener noreferrer"
-              />
-            }
-            nativeButton={false}
+            href={bookHref}
+            target={bookHref.startsWith("http") ? "_blank" : undefined}
+            rel="noopener noreferrer"
           >
             <LuCalendarCheck />
             Book a 1:1 with HG
-          </Button>
+          </ButtonAnchor>
         </AlertDescription>
       </Alert>
       {pairs.length === 0 ? (

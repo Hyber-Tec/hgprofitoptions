@@ -25,27 +25,21 @@ import {
   resolveWeek,
 } from "@/lib/data/tools"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Button } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
+import { ButtonAnchor, ButtonLink } from "@/components/shared/button-link"
 import { AlertCard, toAlertView } from "../alerts/alert-card"
 import { Signed, Stat, ToneBadge, type Tone } from "../display"
 import { Sparkline } from "../sparkline"
 
 function ViewAll({ href, children }: { href: Route; children: ReactNode }) {
   return (
-    <Button
-      variant="ghost"
-      size="sm"
-      render={<Link href={href} />}
-      nativeButton={false}
-      className="-mr-2 text-muted-foreground"
-    >
+    <ButtonLink variant="ghost" size="sm" className="-mr-2 text-muted-foreground" href={href}>
       {children}
       <LuArrowRight />
-    </Button>
+    </ButtonLink>
   )
 }
 
@@ -113,9 +107,9 @@ export function MembershipCard({ viewer, bookingHref }: { viewer: Viewer; bookin
             <AlertTitle>Your membership ends {formatDate(status.coverageEnd)}</AlertTitle>
             <AlertDescription>
               Book a quick call with HG to renew for the next quarter.
-              <Button size="sm" className="mt-2" render={<a href={bookingHref} />} nativeButton={false}>
+              <ButtonAnchor size="sm" className="mt-2" href={bookingHref}>
                 Book a call
-              </Button>
+              </ButtonAnchor>
             </AlertDescription>
           </Alert>
         )}
@@ -180,13 +174,13 @@ export async function PerformanceCard({ viewer }: { viewer: Viewer }) {
           <CardDescription>Link your brokerage to see your returns, trades and journal stats here.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">
-          <Button render={<Link href="/members/portfolio" />} nativeButton={false}>
+          <ButtonLink href="/members/portfolio">
             <LuLink2 />
             Connect your brokerage
-          </Button>
-          <Button variant="outline" render={<Link href="/members/journal" />} nativeButton={false}>
+          </ButtonLink>
+          <ButtonLink variant="outline" href="/members/journal">
             Add trades manually
-          </Button>
+          </ButtonLink>
         </CardContent>
       </Card>
     )
@@ -501,30 +495,27 @@ export async function ClassroomCard({ timezone }: { timezone: string }) {
       </CardContent>
       <CardFooter className="flex flex-wrap gap-2 border-t pt-4">
         {settings.zoomUrl && (
-          <Button
-            size="sm"
-            render={<a href={settings.zoomUrl} target="_blank" rel="noopener noreferrer" />}
-            nativeButton={false}
-          >
+          <ButtonAnchor size="sm" href={settings.zoomUrl} target="_blank" rel="noopener noreferrer">
             <SiZoom />
             Join Zoom
-          </Button>
+          </ButtonAnchor>
         )}
         {settings.whatsappUrl && (
-          <Button
+          <ButtonAnchor
             size="sm"
             variant="outline"
-            render={<a href={settings.whatsappUrl} target="_blank" rel="noopener noreferrer" />}
-            nativeButton={false}
+            href={settings.whatsappUrl}
+            target="_blank"
+            rel="noopener noreferrer"
           >
             <SiWhatsapp />
             WhatsApp group
-          </Button>
+          </ButtonAnchor>
         )}
-        <Button size="sm" variant="outline" render={<a href="/members/classroom/calendar.ics" />} nativeButton={false}>
+        <ButtonAnchor size="sm" variant="outline" href="/members/classroom/calendar.ics">
           <LuCalendarPlus />
           Add to calendar
-        </Button>
+        </ButtonAnchor>
       </CardFooter>
     </Card>
   )

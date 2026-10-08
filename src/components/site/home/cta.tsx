@@ -1,5 +1,5 @@
 import { LuCalendarCheck } from "react-icons/lu"
-import { Button } from "@/components/ui/button"
+import { ButtonAnchor } from "@/components/shared/button-link"
 
 export function CtaBand({
   title = "Ready to start?",
@@ -15,15 +15,10 @@ export function CtaBand({
         <div className="relative mx-auto flex max-w-xl flex-col items-center gap-4">
           <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">{title}</h2>
           <p className="text-muted-foreground">{lead}</p>
-          <Button
-            size="lg"
-            className="mt-2 h-11 px-5 text-base"
-            render={<a href="/book" target="_blank" rel="noopener" />}
-            nativeButton={false}
-          >
+          <ButtonAnchor size="lg" className="mt-2 h-11 px-5 text-base" href="/book" target="_blank" rel="noopener">
             <LuCalendarCheck data-icon="inline-start" />
             Book my free call
-          </Button>
+          </ButtonAnchor>
           <p className="text-xs text-muted-foreground">No credit card needed.</p>
         </div>
       </div>

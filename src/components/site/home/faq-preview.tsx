@@ -1,7 +1,6 @@
-import Link from "next/link"
 import { LuArrowRight } from "react-icons/lu"
 import type { FaqDoc } from "@/server/model"
-import { Button } from "@/components/ui/button"
+import { ButtonLink } from "@/components/shared/button-link"
 import { FaqAccordion } from "../faq-accordion"
 import { Section, SectionHeading } from "../section"
 
@@ -17,10 +16,10 @@ export function FaqPreview({ faqs }: { faqs: FaqDoc[] }) {
             align="left"
             className="mb-2 sm:mb-2"
           />
-          <Button variant="outline" render={<Link href="/faq" />} nativeButton={false}>
+          <ButtonLink variant="outline" href="/faq">
             See all FAQs
             <LuArrowRight data-icon="inline-end" />
-          </Button>
+          </ButtonLink>
         </div>
         <FaqAccordion faqs={faqs} />
       </div>

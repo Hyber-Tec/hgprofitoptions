@@ -1,5 +1,4 @@
 import type { Metadata } from "next"
-import Link from "next/link"
 import { redirect } from "next/navigation"
 import { LuCalendarCheck, LuDownload, LuNotebookPen, LuWallet } from "react-icons/lu"
 import { describePeriodRange } from "@/core/membership/quarters"
@@ -7,8 +6,8 @@ import { membershipSummary } from "@/core/membership/summary"
 import { requireViewer } from "@/lib/auth/guards"
 import { getSiteSettings } from "@/lib/data/public"
 import { PageHeader } from "@/components/portal/page-header"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { ButtonAnchor, ButtonLink } from "@/components/shared/button-link"
 
 export const metadata: Metadata = { title: "Membership" }
 
@@ -56,13 +55,10 @@ export default async function InactivePage() {
             </p>
           </CardContent>
           <CardFooter className="flex flex-wrap gap-2 border-t pt-4">
-            <Button
-              render={<a href={site.bookingUrl} target="_blank" rel="noopener noreferrer" />}
-              nativeButton={false}
-            >
+            <ButtonAnchor href={site.bookingUrl} target="_blank" rel="noopener noreferrer">
               <LuCalendarCheck />
               Book a call with HG
-            </Button>
+            </ButtonAnchor>
           </CardFooter>
         </Card>
         <Card>
@@ -71,33 +67,18 @@ export default async function InactivePage() {
             <CardDescription>Read-only while your membership is inactive.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-2">
-            <Button
-              variant="outline"
-              className="justify-start"
-              render={<Link href="/members/journal" />}
-              nativeButton={false}
-            >
+            <ButtonLink variant="outline" className="justify-start" href="/members/journal">
               <LuNotebookPen />
               Open my journal
-            </Button>
-            <Button
-              variant="outline"
-              className="justify-start"
-              render={<Link href="/members/portfolio" />}
-              nativeButton={false}
-            >
+            </ButtonLink>
+            <ButtonLink variant="outline" className="justify-start" href="/members/portfolio">
               <LuWallet />
               Open my portfolio
-            </Button>
-            <Button
-              variant="outline"
-              className="justify-start"
-              render={<a href="/members/journal/export.csv" />}
-              nativeButton={false}
-            >
+            </ButtonLink>
+            <ButtonAnchor variant="outline" className="justify-start" href="/members/journal/export.csv">
               <LuDownload />
               Export my journal
-            </Button>
+            </ButtonAnchor>
           </CardContent>
         </Card>
       </div>

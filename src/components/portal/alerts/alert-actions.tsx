@@ -1,6 +1,5 @@
 "use client"
 
-import Link from "next/link"
 import { useEffect, useState, useTransition, type SubmitEvent } from "react"
 import { LuBellOff, LuBellRing, LuCircleCheck, LuNotebookPen } from "react-icons/lu"
 import { markAlertRead, setTickerMuted, tookAlertTrade } from "@/lib/actions/member-alerts"
@@ -18,6 +17,7 @@ import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui
 import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
 import { toast } from "@/components/ui/toast"
+import { ButtonLink } from "@/components/shared/button-link"
 
 /** Marks the alert as read once it has been shown. */
 export function MarkRead({ alertId }: { alertId: string }) {
@@ -68,14 +68,10 @@ export function TookTradeButton({
 
   if (alreadyTook || tradeId !== null) {
     return (
-      <Button
-        variant="outline"
-        render={<Link href={tradeId ? `/members/journal/${tradeId}` : "/members/journal"} />}
-        nativeButton={false}
-      >
+      <ButtonLink variant="outline" href={tradeId ? `/members/journal/${tradeId}` : "/members/journal"}>
         <LuCircleCheck />
         You took this trade
-      </Button>
+      </ButtonLink>
     )
   }
 

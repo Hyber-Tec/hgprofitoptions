@@ -1,5 +1,4 @@
 import type { Metadata } from "next"
-import Link from "next/link"
 import { LuUpload, LuUserPlus } from "react-icons/lu"
 import { addQuarters, quarterLabel, quarterOf } from "@/core/membership/quarters"
 import { todayInMarketZone } from "@/core/dates"
@@ -9,7 +8,7 @@ import { toInviteRow, toMemberListRow } from "@/lib/admin/member-rows"
 import { MembersTable } from "@/components/admin/members-table"
 import { PendingInvites } from "@/components/admin/pending-invites"
 import { PageHeader } from "@/components/portal/page-header"
-import { Button } from "@/components/ui/button"
+import { ButtonLink } from "@/components/shared/button-link"
 
 export const metadata: Metadata = { title: "Members" }
 
@@ -26,14 +25,14 @@ export default async function AdminMembersPage({ searchParams }: PageProps<"/adm
         description="Add members by quarter, renew them, and see who is linked and how they are doing."
         actions={
           <>
-            <Button size="sm" variant="outline" render={<Link href="/admin/members/import" />} nativeButton={false}>
+            <ButtonLink size="sm" variant="outline" href="/admin/members/import">
               <LuUpload />
               Import CSV
-            </Button>
-            <Button size="sm" render={<Link href="/admin/members/new" />} nativeButton={false}>
+            </ButtonLink>
+            <ButtonLink size="sm" href="/admin/members/new">
               <LuUserPlus />
               Add member
-            </Button>
+            </ButtonLink>
           </>
         }
       />

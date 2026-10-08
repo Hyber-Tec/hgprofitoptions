@@ -16,9 +16,9 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
-import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
+import { ButtonLink } from "@/components/shared/button-link"
 import { CommandSearch } from "./command-search"
 import { useLiveAlerts } from "./live-alerts"
 import { SEGMENT_LABELS } from "./nav"
@@ -97,13 +97,12 @@ function Crumbs({ area }: { area: PortalArea }) {
 function AlertsBell() {
   const { unread } = useLiveAlerts()
   return (
-    <Button
+    <ButtonLink
       variant="ghost"
       size="icon"
       className="relative"
       aria-label={unread > 0 ? `Alerts, ${unread} unread` : "Alerts"}
-      render={<Link href="/members/alerts" />}
-      nativeButton={false}
+      href="/members/alerts"
     >
       <LuBell />
       {unread > 0 && (
@@ -111,7 +110,7 @@ function AlertsBell() {
           {unread > 9 ? "9+" : unread}
         </span>
       )}
-    </Button>
+    </ButtonLink>
   )
 }
 

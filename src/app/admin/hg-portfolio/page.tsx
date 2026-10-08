@@ -1,5 +1,4 @@
 import type { Metadata } from "next"
-import Link from "next/link"
 import { LuArrowUpRight, LuLink2 } from "react-icons/lu"
 import { formatDateTimeET, formatPrice } from "@/core/format"
 import { readAccounts, readConnections } from "@/server/portfolio"
@@ -11,8 +10,8 @@ import { adminDb } from "@/lib/firebase/admin"
 import { HgVisibilityForm, HouseSwitch } from "@/components/admin/settings-forms"
 import { Signed, Stat } from "@/components/portal/display"
 import { PageHeader } from "@/components/portal/page-header"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { ButtonLink } from "@/components/shared/button-link"
 
 export const metadata: Metadata = { title: "HG portfolio" }
 
@@ -34,10 +33,10 @@ export default async function HgPortfolioPage() {
         title="HG portfolio"
         description="Choose which of HG's own brokerage connections count as the house portfolio, and what members see on HG standing."
         actions={
-          <Button size="sm" variant="outline" render={<Link href="/members/standing" />} nativeButton={false}>
+          <ButtonLink size="sm" variant="outline" href="/members/standing">
             Member view
             <LuArrowUpRight />
-          </Button>
+          </ButtonLink>
         }
       />
       <div className="grid gap-6 xl:grid-cols-2">
@@ -50,10 +49,10 @@ export default async function HgPortfolioPage() {
             {connections.every((c) => c.connections.length === 0) ? (
               <div className="flex flex-col items-start gap-3">
                 <p className="text-sm text-muted-foreground">No admin has linked a brokerage yet.</p>
-                <Button size="sm" render={<Link href="/members/portfolio" />} nativeButton={false}>
+                <ButtonLink size="sm" href="/members/portfolio">
                   <LuLink2 />
                   Link a brokerage
-                </Button>
+                </ButtonLink>
               </div>
             ) : (
               connections.flatMap(({ admin, connections: list, accounts }) =>

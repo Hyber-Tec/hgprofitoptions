@@ -1,5 +1,4 @@
 import type { Metadata } from "next"
-import Link from "next/link"
 import { notFound, redirect } from "next/navigation"
 import { LuArrowUpRight, LuChartCandlestick, LuCrosshair, LuHistory } from "react-icons/lu"
 import { alertInstrument } from "@/core/alerts"
@@ -14,9 +13,9 @@ import { AlertKindBadge } from "@/components/portal/alerts/alert-kind-badge"
 import { Signed } from "@/components/portal/display"
 import { PageHeader } from "@/components/portal/page-header"
 import { RelativeTime } from "@/components/shared/relative-time"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { ButtonLink } from "@/components/shared/button-link"
 
 export const metadata: Metadata = { title: "Alert" }
 
@@ -259,15 +258,10 @@ export default async function AlertDetailPage({ params, searchParams }: PageProp
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  render={<Link href={`/members/stocks/${alert.symbol}`} />}
-                  nativeButton={false}
-                >
+                <ButtonLink variant="outline" className="w-full" href={`/members/stocks/${alert.symbol}`}>
                   Open the stock page
                   <LuArrowUpRight />
-                </Button>
+                </ButtonLink>
               </CardContent>
             </Card>
           )}

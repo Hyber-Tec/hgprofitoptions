@@ -8,8 +8,8 @@ import { getSiteSettings } from "@/lib/data/public"
 import { getMemberSettings } from "@/lib/data/settings"
 import { ToneBadge } from "@/components/portal/display"
 import { PageHeader } from "@/components/portal/page-header"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { ButtonAnchor } from "@/components/shared/button-link"
 
 export const metadata: Metadata = { title: "Classroom" }
 
@@ -31,15 +31,10 @@ export default async function ClassroomPage() {
         title="Classroom"
         description="Live classes on Zoom every week, a monthly one-on-one with HG and the member WhatsApp group."
         actions={
-          <Button
-            variant="outline"
-            size="sm"
-            render={<a href="/members/classroom/calendar.ics" />}
-            nativeButton={false}
-          >
+          <ButtonAnchor variant="outline" size="sm" href="/members/classroom/calendar.ics">
             <LuCalendarPlus />
             Add classes to my calendar
-          </Button>
+          </ButtonAnchor>
         }
       />
       <div className="grid gap-6 lg:grid-cols-3">
@@ -67,14 +62,10 @@ export default async function ClassroomPage() {
               </CardContent>
               {settings.zoomUrl && (
                 <CardFooter className="border-t pt-4">
-                  <Button
-                    size="sm"
-                    render={<a href={settings.zoomUrl} target="_blank" rel="noopener noreferrer" />}
-                    nativeButton={false}
-                  >
+                  <ButtonAnchor size="sm" href={settings.zoomUrl} target="_blank" rel="noopener noreferrer">
                     <SiZoom />
                     Join on Zoom
-                  </Button>
+                  </ButtonAnchor>
                 </CardFooter>
               )}
             </Card>
@@ -90,10 +81,10 @@ export default async function ClassroomPage() {
               <CardDescription>A private session with HG each month to review your trades and plan.</CardDescription>
             </CardHeader>
             <CardFooter>
-              <Button render={<a href={bookHref} target="_blank" rel="noopener noreferrer" />} nativeButton={false}>
+              <ButtonAnchor href={bookHref} target="_blank" rel="noopener noreferrer">
                 <LuCalendarCheck />
                 Book my one-on-one
-              </Button>
+              </ButtonAnchor>
             </CardFooter>
           </Card>
           <Card>
@@ -103,14 +94,10 @@ export default async function ClassroomPage() {
             </CardHeader>
             <CardFooter>
               {settings.whatsappUrl ? (
-                <Button
-                  variant="outline"
-                  render={<a href={settings.whatsappUrl} target="_blank" rel="noopener noreferrer" />}
-                  nativeButton={false}
-                >
+                <ButtonAnchor variant="outline" href={settings.whatsappUrl} target="_blank" rel="noopener noreferrer">
                   <SiWhatsapp />
                   Open WhatsApp group
-                </Button>
+                </ButtonAnchor>
               ) : (
                 <p className="text-sm text-muted-foreground">HG will share the group link.</p>
               )}

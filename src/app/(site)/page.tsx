@@ -6,6 +6,7 @@ import { MemberPreview } from "@/components/site/home/member-preview"
 import { HowItWorks, Offer } from "@/components/site/home/offer"
 import { Testimonials } from "@/components/site/home/testimonials"
 import { Section, SectionHeading } from "@/components/site/section"
+import { getViewer } from "@/lib/auth/guards"
 import { getFaqs, getTestimonials } from "@/lib/data/public"
 
 export const metadata: Metadata = {
@@ -17,13 +18,13 @@ export const metadata: Metadata = {
 const PREVIEW_FAQ_IDS = ["what-do-i-need", "while-working", "what-will-i-learn"]
 
 export default async function HomePage() {
-  const [testimonials, faqs] = await Promise.all([getTestimonials(), getFaqs()])
+  const [testimonials, faqs, viewer] = await Promise.all([getTestimonials(), getFaqs(), getViewer()])
   const preview = PREVIEW_FAQ_IDS.map((id) => faqs.find((f) => f.id === id)).filter(
     (f): f is NonNullable<typeof f> => f !== undefined,
   )
   return (
     <>
-      <Hero />
+      <Hero signedIn={viewer !== null} />
       <Offer />
       <HowItWorks />
       <MemberPreview />

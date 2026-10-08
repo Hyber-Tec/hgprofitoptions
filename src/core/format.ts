@@ -146,3 +146,8 @@ export function formatInstrument(instrument: Instrument): string {
   const right = instrument.right === "call" ? "Call" : "Put"
   return `${instrument.symbol} ${formatPrice(instrument.strike)} ${right} · Exp ${formatShortDate(instrument.expiry)}`
 }
+
+/** "1 draft", "2 drafts"; pass the plural for irregular words. */
+export function plural(count: number, singular: string, pluralForm = `${singular}s`): string {
+  return `${String(count)} ${count === 1 ? singular : pluralForm}`
+}

@@ -1,6 +1,5 @@
-import Link from "next/link"
 import { LogoMark } from "@/components/site/logo"
-import { Button } from "@/components/ui/button"
+import { ButtonLink } from "@/components/shared/button-link"
 
 export default function NotFound() {
   return (
@@ -11,9 +10,7 @@ export default function NotFound() {
         <h1 className="text-3xl font-semibold tracking-tight">This page does not exist</h1>
         <p className="text-muted-foreground">The link may be old, or the page may have moved.</p>
       </div>
-      <Button render={<Link href="/" />} nativeButton={false}>
-        Back to the home page
-      </Button>
+      <ButtonLink href="/">Back to the home page</ButtonLink>
     </main>
   )
 }

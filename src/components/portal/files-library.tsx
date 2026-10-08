@@ -3,9 +3,9 @@
 import { useMemo, useState } from "react"
 import { LuDownload, LuEye, LuFileText, LuFolder, LuSearch } from "react-icons/lu"
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
+import { ButtonAnchor } from "@/components/shared/button-link"
 
 export interface LibraryFile {
   id: string
@@ -93,25 +93,21 @@ export function FilesLibrary({ files }: { files: LibraryFile[] }) {
                 </div>
                 <div className="flex gap-2">
                   {f.isPdf && (
-                    <Button
+                    <ButtonAnchor
                       size="sm"
                       variant="outline"
-                      render={<a href={`/members/files/${f.id}/download`} target="_blank" rel="noopener" />}
-                      nativeButton={false}
+                      href={`/members/files/${f.id}/download`}
+                      target="_blank"
+                      rel="noopener"
                     >
                       <LuEye />
                       Open
-                    </Button>
+                    </ButtonAnchor>
                   )}
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    render={<a href={`/members/files/${f.id}/download?download=1`} />}
-                    nativeButton={false}
-                  >
+                  <ButtonAnchor size="sm" variant="outline" href={`/members/files/${f.id}/download?download=1`}>
                     <LuDownload />
                     Download
-                  </Button>
+                  </ButtonAnchor>
                 </div>
               </li>
             ))}

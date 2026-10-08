@@ -22,9 +22,9 @@ import {
 } from "@/components/portal/portfolio/brokerage-controls"
 import { RelativeTime } from "@/components/shared/relative-time"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { ButtonLink } from "@/components/shared/button-link"
 
 export const metadata: Metadata = { title: "Portfolio" }
 
@@ -291,14 +291,9 @@ export default async function PortfolioPage() {
                   )
                 })}
               </ul>
-              <Button
-                variant="link"
-                className="mt-2 px-0"
-                render={<Link href="/members/settings/brokerages" />}
-                nativeButton={false}
-              >
+              <ButtonLink variant="link" className="mt-2 px-0" href="/members/settings/brokerages">
                 Manage connections
-              </Button>
+              </ButtonLink>
             </CardContent>
           </Card>
         </>
@@ -318,9 +313,9 @@ export default async function PortfolioPage() {
             <div className="flex flex-col items-start gap-3">
               <p className="text-sm text-muted-foreground">No closed trades yet.</p>
               {viewer.hasAccess && (
-                <Button variant="outline" size="sm" render={<Link href="/members/journal/new" />} nativeButton={false}>
+                <ButtonLink variant="outline" size="sm" href="/members/journal/new">
                   Add a trade by hand
-                </Button>
+                </ButtonLink>
               )}
             </div>
           )}

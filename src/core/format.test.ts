@@ -11,6 +11,7 @@ import {
   formatSigned,
   formatSignedMoney,
   formatTimeET,
+  plural,
 } from "./format"
 
 describe("formatters", () => {
@@ -61,5 +62,14 @@ describe("formatters", () => {
       }),
     ).toBe("ABC $472.50 Call · Exp Oct 23")
     expect(formatInstrument({ assetType: "stock", symbol: "ABC" })).toBe("ABC")
+  })
+})
+
+describe("plural", () => {
+  it("counts things in plain words", () => {
+    expect(plural(1, "draft")).toBe("1 draft")
+    expect(plural(0, "draft")).toBe("0 drafts")
+    expect(plural(3, "follow-up")).toBe("3 follow-ups")
+    expect(plural(2, "person", "people")).toBe("2 people")
   })
 })

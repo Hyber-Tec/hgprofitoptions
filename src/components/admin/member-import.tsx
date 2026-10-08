@@ -11,6 +11,7 @@ import { Spinner } from "@/components/ui/spinner"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { toast } from "@/components/ui/toast"
 import { ToneBadge } from "@/components/portal/display"
+import { ButtonAnchor } from "@/components/shared/button-link"
 
 export function MemberImport() {
   const input = useRef<HTMLInputElement>(null)
@@ -78,18 +79,13 @@ export function MemberImport() {
               {pending ? <Spinner /> : <LuFileUp />}
               Choose CSV
             </Button>
-            <Button
+            <ButtonAnchor
               variant="ghost"
-              render={
-                <a
-                  href={`data:text/csv;charset=utf-8,${encodeURIComponent(MEMBER_CSV_TEMPLATE)}`}
-                  download="hg-members-template.csv"
-                />
-              }
-              nativeButton={false}
+              href={`data:text/csv;charset=utf-8,${encodeURIComponent(MEMBER_CSV_TEMPLATE)}`}
+              download="hg-members-template.csv"
             >
               Download template
-            </Button>
+            </ButtonAnchor>
           </div>
         </CardContent>
       </Card>

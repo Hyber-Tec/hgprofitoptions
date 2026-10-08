@@ -4,9 +4,9 @@ import { formatDateWithWeekday } from "@/core/format"
 import { requireActiveMember } from "@/lib/auth/guards"
 import { listPresentations } from "@/lib/data/content"
 import { PageHeader } from "@/components/portal/page-header"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
+import { ButtonAnchor } from "@/components/shared/button-link"
 
 export const metadata: Metadata = { title: "Presentations" }
 
@@ -45,35 +45,26 @@ export default async function PresentationsPage() {
               <CardFooter className="mt-auto flex flex-wrap gap-2 border-t pt-4">
                 {p.slidesPath && (
                   <>
-                    <Button
+                    <ButtonAnchor
                       size="sm"
-                      render={<a href={`/members/presentations/${p.id}/slides`} target="_blank" rel="noopener" />}
-                      nativeButton={false}
+                      href={`/members/presentations/${p.id}/slides`}
+                      target="_blank"
+                      rel="noopener"
                     >
                       <LuPresentation />
                       View slides
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      render={<a href={`/members/presentations/${p.id}/slides?download=1`} />}
-                      nativeButton={false}
-                    >
+                    </ButtonAnchor>
+                    <ButtonAnchor size="sm" variant="outline" href={`/members/presentations/${p.id}/slides?download=1`}>
                       <LuDownload />
                       Download
-                    </Button>
+                    </ButtonAnchor>
                   </>
                 )}
                 {p.videoUrl && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    render={<a href={p.videoUrl} target="_blank" rel="noopener noreferrer" />}
-                    nativeButton={false}
-                  >
+                  <ButtonAnchor size="sm" variant="outline" href={p.videoUrl} target="_blank" rel="noopener noreferrer">
                     <LuVideo />
                     Recording
-                  </Button>
+                  </ButtonAnchor>
                 )}
               </CardFooter>
             </Card>

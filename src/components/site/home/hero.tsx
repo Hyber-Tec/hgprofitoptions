@@ -1,9 +1,9 @@
-import Link from "next/link"
-import { LuArrowUpRight, LuCalendarCheck, LuLogIn } from "react-icons/lu"
+import { LuArrowUpRight, LuCalendarCheck, LuLayoutDashboard, LuLogIn } from "react-icons/lu"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { ButtonAnchor, ButtonLink } from "@/components/shared/button-link"
 
-export function Hero() {
+/** `signedIn` swaps "Member login" for a way back into the member area. */
+export function Hero({ signedIn }: { signedIn: boolean }) {
   return (
     <section className="relative overflow-hidden border-b">
       <div aria-hidden className="bg-grid mask-radial pointer-events-none absolute inset-0" />
@@ -25,25 +25,21 @@ export function Hero() {
             strategies from experienced traders.
           </p>
           <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
-            <Button
-              size="lg"
-              className="h-11 px-5 text-base"
-              render={<a href="/book" target="_blank" rel="noopener" />}
-              nativeButton={false}
-            >
+            <ButtonAnchor size="lg" className="h-11 px-5 text-base" href="/book" target="_blank" rel="noopener">
               <LuCalendarCheck data-icon="inline-start" />
               Book my free 15-min intro call
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              className="h-11 px-5 text-base"
-              render={<Link href="/login" />}
-              nativeButton={false}
-            >
-              <LuLogIn data-icon="inline-start" />
-              Member login
-            </Button>
+            </ButtonAnchor>
+            {signedIn ? (
+              <ButtonLink size="lg" variant="outline" className="h-11 px-5 text-base" href="/members">
+                <LuLayoutDashboard data-icon="inline-start" />
+                Go to the member area
+              </ButtonLink>
+            ) : (
+              <ButtonLink size="lg" variant="outline" className="h-11 px-5 text-base" href="/login">
+                <LuLogIn data-icon="inline-start" />
+                Member login
+              </ButtonLink>
+            )}
           </div>
           <p className="text-sm text-muted-foreground">No credit card needed.</p>
         </div>

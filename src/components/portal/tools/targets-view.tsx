@@ -4,7 +4,7 @@ import type { Viewer } from "@/lib/auth/guards"
 import { listTargetUpdates } from "@/lib/data/tools"
 import { buildTargetRows } from "@/lib/tools/targets"
 import type { TargetUpdate } from "@/server/model"
-import { Button } from "@/components/ui/button"
+import { ButtonAnchor } from "@/components/shared/button-link"
 import { AsOf, PageHeader } from "../page-header"
 import { ToneBadge } from "../display"
 import { Watermark } from "../watermark"
@@ -51,16 +51,15 @@ export async function TargetsView({
           <>
             <UpdatePicker options={options} current={update.effectiveDate} latest={latest} />
             <PrintButton />
-            <Button
+            <ButtonAnchor
               variant="outline"
               size="sm"
-              render={<a href={`/members/targets/${update.effectiveDate}/pdf`} />}
-              nativeButton={false}
               className="print:hidden"
+              href={`/members/targets/${update.effectiveDate}/pdf`}
             >
               <LuDownload />
               PDF
-            </Button>
+            </ButtonAnchor>
           </>
         }
       />

@@ -1,11 +1,10 @@
 import type { Metadata } from "next"
-import Link from "next/link"
 import { describePeriodRange } from "@/core/membership/quarters"
 import { COLLECTIONS, inviteSchema, parseDoc } from "@/server/model"
 import { WelcomeForm } from "@/components/auth/welcome-form"
-import { Button } from "@/components/ui/button"
 import { hashToken } from "@/server/tokens"
 import { adminDb } from "@/lib/firebase/admin"
+import { ButtonLink } from "@/components/shared/button-link"
 
 export const metadata: Metadata = { title: "Welcome", robots: { index: false } }
 
@@ -65,9 +64,7 @@ export default async function WelcomePage({ searchParams }: PageProps<"/welcome"
           <h1 className="text-2xl font-semibold tracking-tight">{copy.title}</h1>
           <p className="text-sm text-muted-foreground">{copy.body}</p>
         </div>
-        <Button render={<Link href="/login" />} nativeButton={false}>
-          {copy.action}
-        </Button>
+        <ButtonLink href="/login">{copy.action}</ButtonLink>
       </div>
     )
   }

@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Spinner } from "@/components/ui/spinner"
 import { toast } from "@/components/ui/toast"
+import { ButtonAnchor } from "@/components/shared/button-link"
 import { Stat } from "../display"
 
 export function CsvImport() {
@@ -156,15 +157,10 @@ export function CsvImport() {
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
           <pre className="overflow-x-auto rounded-lg bg-muted/50 p-3 text-[11px] leading-relaxed">{TEMPLATE_CSV}</pre>
-          <Button
-            variant="outline"
-            size="sm"
-            render={<a href={templateHref} download="hg-journal-template.csv" />}
-            nativeButton={false}
-          >
+          <ButtonAnchor variant="outline" size="sm" href={templateHref} download="hg-journal-template.csv">
             <LuDownload />
             Download template
-          </Button>
+          </ButtonAnchor>
         </CardContent>
       </Card>
     </div>

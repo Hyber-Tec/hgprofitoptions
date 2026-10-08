@@ -7,9 +7,9 @@ import { listTargetUpdates } from "@/lib/data/tools"
 import { listDrafts } from "@/lib/admin/targets-data"
 import { ToneBadge } from "@/components/portal/display"
 import { PageHeader } from "@/components/portal/page-header"
-import { Button } from "@/components/ui/button"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { ButtonLink } from "@/components/shared/button-link"
 
 export const metadata: Metadata = { title: "Strike targets" }
 
@@ -22,10 +22,10 @@ export default async function AdminTargetsPage() {
         title="Strike targets"
         description="Paste the weekly Google Doc, review what the reader flags, and publish. Published updates are never changed silently."
         actions={
-          <Button size="sm" render={<Link href="/admin/targets/new" />} nativeButton={false}>
+          <ButtonLink size="sm" href="/admin/targets/new">
             <LuPlus />
             New update
-          </Button>
+          </ButtonLink>
         }
       />
       {drafts.length > 0 && (

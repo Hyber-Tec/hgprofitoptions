@@ -1,5 +1,4 @@
 import type { Metadata } from "next"
-import Link from "next/link"
 import { notFound, redirect } from "next/navigation"
 import { LuArrowUpRight, LuCalendarClock } from "react-icons/lu"
 import { formatDateTimeET, formatPercent, formatPrice } from "@/core/format"
@@ -14,8 +13,8 @@ import { AlertKindBadge } from "@/components/portal/alerts/alert-kind-badge"
 import { Signed, Stat } from "@/components/portal/display"
 import { PageHeader } from "@/components/portal/page-header"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { ButtonLink } from "@/components/shared/button-link"
 
 export const metadata: Metadata = { title: "Alert" }
 
@@ -74,15 +73,10 @@ export default async function AdminAlertPage({ params }: PageProps<"/admin/alert
           </>
         }
         actions={
-          <Button
-            variant="outline"
-            size="sm"
-            render={<Link href={`/members/alerts/${alert.id}`} />}
-            nativeButton={false}
-          >
+          <ButtonLink variant="outline" size="sm" href={`/members/alerts/${alert.id}`}>
             View as a member
             <LuArrowUpRight />
-          </Button>
+          </ButtonLink>
         }
       />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

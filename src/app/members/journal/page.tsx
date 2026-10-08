@@ -11,8 +11,8 @@ import { JournalStatsView, PnlHeatmap } from "@/components/portal/journal/journa
 import { TradesTable, type TradeRow } from "@/components/portal/journal/trades-table"
 import { PageHeader } from "@/components/portal/page-header"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { ButtonAnchor, ButtonLink } from "@/components/shared/button-link"
 
 export const metadata: Metadata = { title: "Journal" }
 
@@ -68,25 +68,20 @@ export default async function JournalPage({ searchParams }: PageProps<"/members/
           <>
             {editable && (
               <>
-                <Button size="sm" render={<Link href="/members/journal/new" />} nativeButton={false}>
+                <ButtonLink size="sm" href="/members/journal/new">
                   <LuPlus />
                   Add trade
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  render={<Link href="/members/journal/import" />}
-                  nativeButton={false}
-                >
+                </ButtonLink>
+                <ButtonLink size="sm" variant="outline" href="/members/journal/import">
                   <LuUpload />
                   Import CSV
-                </Button>
+                </ButtonLink>
               </>
             )}
-            <Button size="sm" variant="outline" render={<a href="/members/journal/export.csv" />} nativeButton={false}>
+            <ButtonAnchor size="sm" variant="outline" href="/members/journal/export.csv">
               <LuDownload />
               Export
-            </Button>
+            </ButtonAnchor>
           </>
         }
       />

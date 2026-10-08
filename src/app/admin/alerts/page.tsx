@@ -8,9 +8,9 @@ import { cn } from "@/lib/utils"
 import { AlertKindBadge } from "@/components/portal/alerts/alert-kind-badge"
 import { Signed, ToneBadge, type Tone } from "@/components/portal/display"
 import { PageHeader } from "@/components/portal/page-header"
-import { Button } from "@/components/ui/button"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { ButtonLink } from "@/components/shared/button-link"
 
 export const metadata: Metadata = { title: "Alerts" }
 
@@ -61,10 +61,10 @@ export default async function AdminAlertsPage({ searchParams }: PageProps<"/admi
         title="Alerts"
         description="Buy and sell points for members. Publishing notifies them right away."
         actions={
-          <Button size="sm" render={<Link href="/admin/alerts/new" />} nativeButton={false}>
+          <ButtonLink size="sm" href="/admin/alerts/new">
             <LuPlus />
             New alert
-          </Button>
+          </ButtonLink>
         }
       />
       <nav aria-label="Alert status" className="flex gap-1 overflow-x-auto border-b">
@@ -180,14 +180,14 @@ export default async function AdminAlertsPage({ searchParams }: PageProps<"/admi
           </span>
           <span className="flex gap-2">
             {page > 1 && (
-              <Button size="sm" variant="outline" render={<Link href={pageHref(page - 1)} />} nativeButton={false}>
+              <ButtonLink size="sm" variant="outline" href={pageHref(page - 1)}>
                 Newer
-              </Button>
+              </ButtonLink>
             )}
             {page < pages && (
-              <Button size="sm" variant="outline" render={<Link href={pageHref(page + 1)} />} nativeButton={false}>
+              <ButtonLink size="sm" variant="outline" href={pageHref(page + 1)}>
                 Older
-              </Button>
+              </ButtonLink>
             )}
           </span>
         </nav>

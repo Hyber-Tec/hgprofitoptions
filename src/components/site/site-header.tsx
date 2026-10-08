@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
+import { ButtonAnchor, ButtonLink } from "@/components/shared/button-link"
 import { Logo } from "./logo"
 
 const NAV = [
@@ -69,24 +70,15 @@ export function SiteHeader({ viewer }: { viewer: HeaderViewer | null }) {
           {viewer ? (
             <UserMenu viewer={viewer} />
           ) : (
-            <Button
-              variant="ghost"
-              className="hidden sm:inline-flex"
-              render={<Link href="/login" />}
-              nativeButton={false}
-            >
+            <ButtonLink variant="ghost" className="hidden sm:inline-flex" href="/login">
               <LuLogIn data-icon="inline-start" />
               Member login
-            </Button>
+            </ButtonLink>
           )}
-          <Button
-            className="hidden sm:inline-flex"
-            render={<a href="/book" target="_blank" rel="noopener" />}
-            nativeButton={false}
-          >
+          <ButtonAnchor className="hidden sm:inline-flex" href="/book" target="_blank" rel="noopener">
             <LuCalendarCheck data-icon="inline-start" />
             Book intro call
-          </Button>
+          </ButtonAnchor>
 
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger render={<Button variant="ghost" size="icon" className="md:hidden" aria-label="Open menu" />}>
@@ -118,42 +110,27 @@ export function SiteHeader({ viewer }: { viewer: HeaderViewer | null }) {
               <div className="flex flex-col gap-2 px-4">
                 {viewer ? (
                   <>
-                    <Button
-                      variant="outline"
-                      size="lg"
-                      render={<Link href="/members" onClick={() => setOpen(false)} />}
-                      nativeButton={false}
-                    >
+                    <ButtonLink variant="outline" size="lg" href="/members" onClick={() => setOpen(false)}>
                       <LuLayoutDashboard data-icon="inline-start" />
                       Member area
-                    </Button>
+                    </ButtonLink>
                     {viewer.role === "admin" && (
-                      <Button
-                        variant="outline"
-                        size="lg"
-                        render={<Link href="/admin" onClick={() => setOpen(false)} />}
-                        nativeButton={false}
-                      >
+                      <ButtonLink variant="outline" size="lg" href="/admin" onClick={() => setOpen(false)}>
                         <LuShield data-icon="inline-start" />
                         Admin
-                      </Button>
+                      </ButtonLink>
                     )}
                   </>
                 ) : (
-                  <Button
-                    variant="outline"
-                    size="lg"
-                    render={<Link href="/login" onClick={() => setOpen(false)} />}
-                    nativeButton={false}
-                  >
+                  <ButtonLink variant="outline" size="lg" href="/login" onClick={() => setOpen(false)}>
                     <LuLogIn data-icon="inline-start" />
                     Member login
-                  </Button>
+                  </ButtonLink>
                 )}
-                <Button size="lg" render={<a href="/book" target="_blank" rel="noopener" />} nativeButton={false}>
+                <ButtonAnchor size="lg" href="/book" target="_blank" rel="noopener">
                   <LuCalendarCheck data-icon="inline-start" />
                   Book intro call
-                </Button>
+                </ButtonAnchor>
               </div>
             </SheetContent>
           </Sheet>

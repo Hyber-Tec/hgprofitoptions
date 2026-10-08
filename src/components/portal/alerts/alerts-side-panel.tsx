@@ -3,9 +3,9 @@ import { LuBellRing } from "react-icons/lu"
 import { formatPercent, formatPrice } from "@/core/format"
 import type { AlertDoc, StandingDoc } from "@/server/model"
 import type { TickerRecord } from "@/lib/data/tools"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { RelativeTime } from "@/components/shared/relative-time"
+import { ButtonLink } from "@/components/shared/button-link"
 import { Signed, Stat } from "../display"
 
 /** Open trades and HG's track record next to the alerts feed. */
@@ -75,10 +75,10 @@ export function AlertsSidePanel({
           />
         </CardContent>
       </Card>
-      <Button variant="outline" render={<Link href="/members/settings/notifications" />} nativeButton={false}>
+      <ButtonLink variant="outline" href="/members/settings/notifications">
         <LuBellRing />
         Notification settings
-      </Button>
+      </ButtonLink>
     </aside>
   )
 }
