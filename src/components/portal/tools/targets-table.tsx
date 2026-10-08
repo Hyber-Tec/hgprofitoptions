@@ -7,6 +7,7 @@ import { LuBell, LuSearch } from "react-icons/lu"
 import type { TargetStatus } from "@/core/parsers/strike-targets"
 import { formatExpiry, formatLevel, formatPercent, formatPrice } from "@/core/format"
 import type { GroupTab, RemovedRow, TargetRow } from "@/lib/tools/targets"
+import { useResponsiveRows } from "@/hooks/use-responsive-rows"
 import { useUpdateSearchParams } from "@/hooks/use-update-search-params"
 import { cn } from "@/lib/utils"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
@@ -142,6 +143,7 @@ export function TargetsTable({
     }
     return [...list].sort((a, b) => compareValues(value(a), value(b), sort.dir))
   }, [rows, group, query, expiry, status, etfOnly, showChanges, sort, groupOrder])
+  const { table, cards } = useResponsiveRows(filtered, "sm")
 
   const grouped = sort.key === "position" && group === "all"
   const showWeights = group === "all" ? groups.some((g) => g.hasWeights) : (groupBySlug.get(group)?.hasWeights ?? false)
@@ -298,7 +300,7 @@ export function TargetsTable({
               <TableBody>
                 {grouped
                   ? groups.map((g) => {
-                      const items = filtered.filter((r) => r.group === g.slug)
+                      const items = table.filter((r) => r.group === g.slug)
                       if (items.length === 0) return null
                       return (
                         <Fragment key={g.slug}>
@@ -317,14 +319,14 @@ export function TargetsTable({
                         </Fragment>
                       )
                     })
-                  : filtered.map(renderRow)}
+                  : table.map(renderRow)}
               </TableBody>
             </Table>
           </div>
 
           {/* Phones: cards. */}
           <ul className="flex flex-col gap-3 sm:hidden">
-            {filtered.map((r) => (
+            {cards.map((r) => (
               <li key={r.symbol} className="flex flex-col gap-3 rounded-xl border bg-card p-4">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex flex-col gap-1">

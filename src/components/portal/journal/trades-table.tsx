@@ -6,6 +6,7 @@ import { useMemo, useState } from "react"
 import { LuBell, LuSearch } from "react-icons/lu"
 import { formatPercent, formatPrice } from "@/core/format"
 import { cn } from "@/lib/utils"
+import { useResponsiveRows } from "@/hooks/use-responsive-rows"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Input } from "@/components/ui/input"
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
@@ -125,6 +126,7 @@ export function TradesTable({ rows }: { rows: TradeRow[] }) {
     }
     return [...list].sort((a, b) => compareValues(value(a), value(b), sort.dir))
   }, [rows, query, status, outcome, origin, asset, tag, from, to, sort])
+  const { table, cards } = useResponsiveRows(filtered, "md")
   const onSort = (key: SortKey) => setSort((s) => toggleSort(s, key))
   const total = filtered.reduce((s, r) => s + (r.status === "closed" ? (r.realizedPnl ?? 0) : 0), 0)
 
@@ -249,7 +251,7 @@ export function TradesTable({ rows }: { rows: TradeRow[] }) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((r) => (
+                {table.map((r) => (
                   <TableRow
                     key={r.id}
                     className="cursor-pointer"
@@ -320,7 +322,7 @@ export function TradesTable({ rows }: { rows: TradeRow[] }) {
             </Table>
           </div>
           <ul className="flex flex-col gap-2 md:hidden">
-            {filtered.map((r) => (
+            {cards.map((r) => (
               <li key={r.id}>
                 <Link
                   href={`/members/journal/${r.id}`}
