@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
+import { Eyebrow } from "@/components/site/section"
 import { LEGAL } from "@/content/legal"
 
 type Slug = keyof typeof LEGAL
@@ -25,7 +26,7 @@ export default async function LegalPage({ params }: PageProps<"/legal/[slug]">) 
   return (
     <article className="mx-auto max-w-3xl px-4 py-16 sm:px-6 sm:py-20">
       <header className="mb-10 flex flex-col gap-3 border-b pb-8">
-        <p className="text-xs font-medium tracking-widest text-muted-foreground uppercase">Legal</p>
+        <Eyebrow className="w-fit">Legal</Eyebrow>
         <h1 className="text-4xl font-semibold tracking-tight">{doc.title}</h1>
         <p className="text-sm text-muted-foreground">Last updated {doc.updated}</p>
       </header>

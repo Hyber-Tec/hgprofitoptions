@@ -2,12 +2,30 @@ import { expect, expectNoHorizontalScroll, test } from "./fixtures"
 
 test("the home page introduces the class and links to booking", async ({ page }) => {
   await page.goto("/")
-  await expect(
-    page.getByRole("heading", { level: 1, name: "Your journey toward trading excellence begins now" }),
-  ).toBeVisible()
-  await expect(page.getByRole("heading", { name: "Real members, real trades" })).toBeVisible()
+  await expect(page.getByRole("heading", { level: 1, name: "Trade options with a plan, not a guess." })).toBeVisible()
   await expect(page.locator('a[href="/book"]:visible').first()).toBeVisible()
+  for (const name of [
+    "Everything HG shares, in one place",
+    "Everything you need to trade options with confidence",
+    "Learn how HG reads a chart",
+    "From the racetrack to the trading desk",
+    "From your first call to your first plan",
+    "Real members, real trades",
+    "Questions before you join?",
+    "Your journey toward trading excellence begins now",
+  ]) {
+    const heading = page.getByRole("heading", { level: 2, name })
+    await heading.scrollIntoViewIfNeeded()
+    await expect(heading).toBeVisible()
+  }
   await expectNoHorizontalScroll(page)
+})
+
+test("the testimonials can be paused", async ({ page }) => {
+  await page.goto("/#reviews")
+  const pause = page.getByRole("button", { name: "Pause testimonials" })
+  await pause.click()
+  await expect(page.getByRole("button", { name: "Play testimonials" })).toHaveAttribute("aria-pressed", "true")
 })
 
 test("about and FAQ pages render", async ({ page }) => {

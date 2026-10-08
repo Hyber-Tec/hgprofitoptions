@@ -4,7 +4,19 @@
 
 @custom-variant dark (&:is(.dark *));
 
+@theme {
+  /* Testimonial columns on the home page: each column sets --marquee-duration. */
+  --animate-marquee-up: marquee-up var(--marquee-duration, 60s) linear infinite;
+  @keyframes marquee-up {
+    to {
+      transform: translateY(-50%);
+    }
+  }
+}
+
 @theme inline {
+  --color-brand: var(--brand);
+  --color-brand-2: var(--brand-2);
   --color-positive: var(--positive);
   --color-negative: var(--negative);
   --color-warning: var(--warning);
@@ -127,6 +139,55 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+/*
+ * The public site's navy palette. The (site) layout marks itself with data-site, and the palette then
+ * applies to the whole document, so menus and sheets rendered outside the layout match the page.
+ * The member area and admin console keep the neutral palette above.
+ */
+:root:has([data-site]) {
+  --background: oklch(0.979 0.006 264.5);
+  --foreground: oklch(0.198 0.059 267.7);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.198 0.059 267.7);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.198 0.059 267.7);
+  --primary: oklch(0.521 0.221 265.6);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.946 0.016 266.3);
+  --secondary-foreground: oklch(0.198 0.059 267.7);
+  --muted: oklch(0.957 0.012 264.5);
+  --muted-foreground: oklch(0.494 0.05 267.6);
+  --accent: oklch(0.943 0.02 267.3);
+  --accent-foreground: oklch(0.198 0.059 267.7);
+  --border: oklch(0.914 0.019 263);
+  --input: oklch(0.914 0.019 263);
+  --ring: oklch(0.6 0.18 265);
+  --brand: oklch(0.521 0.221 265.6);
+  --brand-2: oklch(0.588 0.139 242);
+}
+
+:root.dark:has([data-site]) {
+  --background: oklch(0.141 0.026 264.8);
+  --foreground: oklch(0.946 0.016 266.3);
+  --card: oklch(0.182 0.041 267.1);
+  --card-foreground: oklch(0.946 0.016 266.3);
+  --popover: oklch(0.196 0.044 266.7);
+  --popover-foreground: oklch(0.946 0.016 266.3);
+  --primary: oklch(0.579 0.216 265.9);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.239 0.057 267.6);
+  --secondary-foreground: oklch(0.946 0.016 266.3);
+  --muted: oklch(0.224 0.051 267.3);
+  --muted-foreground: oklch(0.687 0.048 268.5);
+  --accent: oklch(0.255 0.059 267);
+  --accent-foreground: oklch(0.946 0.016 266.3);
+  --border: oklch(0.8 0.06 266 / 11%);
+  --input: oklch(0.8 0.06 266 / 15%);
+  --ring: oklch(0.65 0.17 265);
+  --brand: oklch(0.702 0.155 264.5);
+  --brand-2: oklch(0.782 0.121 222.5);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -148,6 +209,51 @@
       animation-duration: 0.01ms !important;
       transition-duration: 0.01ms !important;
     }
+  }
+}
+
+@layer components {
+  /*
+   * Home page cards whose border and surface catch a soft brand glow near the pointer. SpotlightGroup
+   * sets --spot-x and --spot-y on each card; the glow shows while the pointer is over the group.
+   */
+  .spotlight-card {
+    position: relative;
+    isolation: isolate;
+  }
+  .spotlight-card::before,
+  .spotlight-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+  }
+  .spotlight-card::before {
+    z-index: 1;
+    padding: 1px;
+    background: radial-gradient(
+      26rem circle at var(--spot-x, 50%) var(--spot-y, 50%),
+      color-mix(in oklab, var(--brand) 80%, transparent),
+      transparent 45%
+    );
+    mask:
+      linear-gradient(#000 0 0) content-box exclude,
+      linear-gradient(#000 0 0);
+  }
+  .spotlight-card::after {
+    z-index: -1;
+    background: radial-gradient(
+      30rem circle at var(--spot-x, 50%) var(--spot-y, 50%),
+      color-mix(in oklab, var(--brand) 10%, transparent),
+      transparent 55%
+    );
+  }
+  .spotlight-group:hover .spotlight-card::before,
+  .spotlight-group:hover .spotlight-card::after {
+    opacity: 1;
   }
 }
 

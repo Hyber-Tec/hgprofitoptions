@@ -3,6 +3,7 @@ import Image from "next/image"
 import type { IconType } from "react-icons"
 import { LuChartLine, LuLayers, LuTarget, LuTrophy } from "react-icons/lu"
 import { CtaBand } from "@/components/site/home/cta"
+import { Eyebrow } from "@/components/site/section"
 import { Badge } from "@/components/ui/badge"
 
 export const metadata: Metadata = {
@@ -66,14 +67,14 @@ export default function AboutPage() {
                 alt="Hubert Gaffney (HG) with one of his horses"
                 width={960}
                 height={1200}
-                priority
+                preload
                 className="aspect-[4/5] h-auto w-full object-cover"
               />
             </div>
           </div>
           <div className="flex flex-col gap-6">
             <div className="flex flex-col gap-3">
-              <p className="text-xs font-medium tracking-widest text-muted-foreground uppercase">About HG</p>
+              <Eyebrow className="w-fit">About HG</Eyebrow>
               <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">Hubert Gaffney</h1>
               <p className="text-lg text-muted-foreground">Founder of HG Profit Options</p>
             </div>
@@ -151,7 +152,7 @@ export default function AboutPage() {
 
       <section className="py-16 sm:py-24">
         <figure className="mx-auto flex max-w-3xl flex-col items-center gap-6 px-4 text-center sm:px-6">
-          <p className="text-xs font-medium tracking-widest text-muted-foreground uppercase">Mission</p>
+          <Eyebrow>Mission</Eyebrow>
           <blockquote className="text-2xl leading-snug font-medium tracking-tight text-balance sm:text-3xl">
             &ldquo;To help traders navigate the markets with clarity, confidence, and consistency.&rdquo;
           </blockquote>
