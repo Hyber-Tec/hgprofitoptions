@@ -25,8 +25,8 @@ journal and portfolio, but not the tools, alerts or classes.
 ## Stack
 
 Next.js 16 (App Router, React 19, TypeScript strict) · Tailwind CSS 4 with shadcn/ui and react-icons ·
-Firebase: Authentication (invite-only, Google and email, authenticator-app two-step verification for
-admins), Firestore, Cloud Storage, Cloud Messaging, Cloud Functions, App Hosting and Hosting · zod ·
+Firebase: Authentication (invite-only, Google and email, optional authenticator-app two-step
+verification), Firestore, Cloud Storage, Cloud Messaging, Cloud Functions, App Hosting and Hosting · zod ·
 Vitest and Playwright. Optional integrations: Resend (email), SnapTrade (read-only brokerage linking)
 and a Polygon-compatible market data API.
 
@@ -88,16 +88,18 @@ tests             rules, integration, golden and e2e suites
 - Accounts exist only for invited emails: an Auth blocking function rejects other sign-ups, and the
   server checks the invitation again.
 - Access follows the member's quarters, enforced by the server and by Firestore security rules.
-- The admin console requires authenticator-app two-step verification in production, and admin views
-  of members' portfolios and journals are recorded in the audit log.
+- Admin views of members' portfolios and journals are recorded in the audit log. Two-step
+  verification is optional for admins on the hosted site (`REQUIRE_ADMIN_MFA` in `apphosting.yaml`);
+  set it to `"true"` and the admin console requires it.
 - Private journal notes are readable only by their owner, admins included.
 - Files are streamed by the server after an access check; PDFs are stamped with the member's name.
 - No secrets live in the repository. Server keys are in Cloud Secret Manager.
 
 ## Deployment
 
-See [docs/deploy.md](docs/deploy.md). Merges to `main` roll out the app through Firebase App Hosting;
-Firestore rules and indexes, Storage rules and Cloud Functions are deployed with the Firebase CLI.
+Live at https://hgprofitoptions.web.app. The app runs on Firebase App Hosting; rules, indexes,
+functions and the app are deployed from `main` with the Firebase CLI. See [docs/deploy.md](docs/deploy.md),
+including the two settings the hybertec.com organization requires.
 
 ## Contributing
 

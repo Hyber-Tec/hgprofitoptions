@@ -16,10 +16,29 @@
       {
         "source": "**",
         "run": {
-          "serviceId": "hgprofitoptions",
+          "serviceId": "hgprofitoptions-web",
           "region": "us-central1"
         }
       }
+    ]
+  },
+  "apphosting": {
+    "backendId": "hgprofitoptions",
+    "rootDir": "/",
+    "ignore": [
+      "node_modules",
+      ".git",
+      ".next",
+      "functions",
+      "tests",
+      "docs/private",
+      "emulator-data",
+      "test-results",
+      "playwright-report",
+      ".env.local",
+      ".env.*.local",
+      "*.log",
+      "tsconfig.tsbuildinfo"
     ]
   },
   "functions": [

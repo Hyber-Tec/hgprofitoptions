@@ -17,9 +17,11 @@
     "seed:demo": "tsx --env-file=.env.local scripts/seed-demo.ts",
     "import:source": "tsx --env-file=.env.local scripts/import-source-files.ts",
     "auth:totp": "tsx --env-file=.env.local scripts/enable-totp.ts",
+    "auth:guard": "tsx scripts/enable-signup-guard.ts",
     "icons:swap": "tsx scripts/swap-icons.ts",
     "build:sw": "tsx --env-file-if-exists=.env.local scripts/build-sw.ts",
     "build:functions": "tsx scripts/build-functions.ts",
+    "deploy:web": "firebase deploy --only apphosting --project hgprofitoptions-hybertec && tsx scripts/sync-web-service.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
