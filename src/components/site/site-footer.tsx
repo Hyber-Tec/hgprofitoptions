@@ -75,6 +75,9 @@ export function SiteFooter({ settings }: { settings: SiteSettings }) {
   )
 }
 
+const FOOTER_LINK =
+  "rounded-sm text-sm text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+
 function FooterColumn({
   title,
   links,
@@ -91,12 +94,16 @@ function FooterColumn({
       <ul className="flex flex-col gap-2">
         {links.map((link) => (
           <li key={link.href}>
-            <Link
-              href={link.href}
-              className="rounded-sm text-sm text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
-            >
-              {link.label}
-            </Link>
+            {link.href === "/book" ? (
+              // A redirect to the external scheduler: a plain link, so nothing prefetches it.
+              <a href={link.href} target="_blank" rel="noopener" className={FOOTER_LINK}>
+                {link.label}
+              </a>
+            ) : (
+              <Link href={link.href} className={FOOTER_LINK}>
+                {link.label}
+              </Link>
+            )}
           </li>
         ))}
       </ul>

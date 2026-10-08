@@ -1,4 +1,3 @@
-import Link from "next/link"
 import { LuCalendarCheck } from "react-icons/lu"
 import { Button } from "@/components/ui/button"
 
@@ -19,7 +18,7 @@ export function CtaBand({
           <Button
             size="lg"
             className="mt-2 h-11 px-5 text-base"
-            render={<Link href="/book" target="_blank" rel="noopener" />}
+            render={<a href="/book" target="_blank" rel="noopener" />}
             nativeButton={false}
           >
             <LuCalendarCheck data-icon="inline-start" />

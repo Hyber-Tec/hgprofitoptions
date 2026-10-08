@@ -81,7 +81,7 @@ export function SiteHeader({ viewer }: { viewer: HeaderViewer | null }) {
           )}
           <Button
             className="hidden sm:inline-flex"
-            render={<Link href="/book" target="_blank" rel="noopener" />}
+            render={<a href="/book" target="_blank" rel="noopener" />}
             nativeButton={false}
           >
             <LuCalendarCheck data-icon="inline-start" />
@@ -150,7 +150,7 @@ export function SiteHeader({ viewer }: { viewer: HeaderViewer | null }) {
                     Member login
                   </Button>
                 )}
-                <Button size="lg" render={<Link href="/book" target="_blank" rel="noopener" />} nativeButton={false}>
+                <Button size="lg" render={<a href="/book" target="_blank" rel="noopener" />} nativeButton={false}>
                   <LuCalendarCheck data-icon="inline-start" />
                   Book intro call
                 </Button>

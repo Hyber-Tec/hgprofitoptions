@@ -107,14 +107,14 @@ export function LoginForm({ next }: { next: string | null }) {
       </form>
       <p className="text-center text-sm text-muted-foreground">
         Not a member yet?{" "}
-        <Link
+        <a
           href="/book"
           target="_blank"
           rel="noopener"
           className="font-medium text-foreground underline-offset-4 hover:underline"
         >
           Book a free intro call
-        </Link>
+        </a>
       </p>
     </div>
   )

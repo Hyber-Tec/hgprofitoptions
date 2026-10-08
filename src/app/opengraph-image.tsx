@@ -24,12 +24,12 @@ export default async function OpenGraphImage() {
     >
       <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
         <img src={logo} width={72} height={72} alt="" />
-        <div style={{ fontSize: 36, fontWeight: 600 }}>
-          HG Profit <span style={{ color: "#a1a1a1", marginLeft: 10 }}>Options</span>
+        <div style={{ display: "flex", fontSize: 36, fontWeight: 600 }}>
+          HG Profit<span style={{ color: "#a1a1a1", marginLeft: 10 }}>Options</span>
         </div>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-        <div style={{ fontSize: 68, fontWeight: 600, lineHeight: 1.05, letterSpacing: -2 }}>
+        <div style={{ fontSize: 68, fontWeight: 600, lineHeight: 1.05, letterSpacing: -1 }}>
           Your journey toward trading excellence begins now
         </div>
         <div style={{ fontSize: 30, color: "#a1a1a1" }}>Live classes · Real-time alerts · Exclusive member tools</div>

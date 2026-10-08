@@ -28,7 +28,7 @@ export function Hero() {
             <Button
               size="lg"
               className="h-11 px-5 text-base"
-              render={<Link href="/book" target="_blank" rel="noopener" />}
+              render={<a href="/book" target="_blank" rel="noopener" />}
               nativeButton={false}
             >
               <LuCalendarCheck data-icon="inline-start" />
