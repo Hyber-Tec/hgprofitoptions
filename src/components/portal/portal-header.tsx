@@ -24,7 +24,25 @@ import { useLiveAlerts } from "./live-alerts"
 import { SEGMENT_LABELS } from "./nav"
 import type { PortalArea } from "./app-sidebar"
 
-function crumbLabel(segment: string, parent: string | undefined): string {
+const ADMIN_LABELS: Record<string, string> = {
+  members: "Members",
+  alerts: "Alerts",
+  targets: "Strike targets",
+  "market-data": "Market data",
+  settings: "Settings",
+  presentations: "Presentations",
+  files: "Files",
+}
+const NEW_LABELS: Record<string, string> = { members: "Add member", alerts: "New alert", targets: "New update" }
+
+function crumbLabel(segment: string, parent: string | undefined, area: PortalArea): string {
+  if (area === "admin") {
+    if (segment === "new" && parent) return NEW_LABELS[parent] ?? "New"
+    const adminLabel = ADMIN_LABELS[segment]
+    if (adminLabel) return adminLabel
+    if (parent === "alerts") return "Alert"
+    if (parent === "targets") return "Update"
+  }
   const known = SEGMENT_LABELS[segment]
   if (known) return known
   const decoded = decodeURIComponent(segment)
@@ -41,7 +59,7 @@ function Crumbs({ area }: { area: PortalArea }) {
   const segments = pathname.split("/").filter(Boolean)
   const crumbs = segments.map((segment, i) => ({
     href: `/${segments.slice(0, i + 1).join("/")}`,
-    label: crumbLabel(segment, segments[i - 1]),
+    label: crumbLabel(segment, segments[i - 1], area),
   }))
   // The area root is implied by the sidebar; start from the page's own section.
   const visible =

@@ -19,7 +19,7 @@ const schema = z.object({
 export const serverEnv = schema.parse(process.env)
 
 export const integrations = {
-  email: serverEnv.RESEND_API_KEY !== null,
+  email: serverEnv.RESEND_API_KEY !== null && serverEnv.EMAIL_FROM !== null,
   brokerage:
     serverEnv.SNAPTRADE_CLIENT_ID !== null &&
     serverEnv.SNAPTRADE_CONSUMER_KEY !== null &&
@@ -35,4 +35,10 @@ export function brokerageConfig(): { clientId: string; consumerKey: string; encr
     SNAPTRADE_ENCRYPTION_KEY: encryptionKey,
   } = serverEnv
   return clientId && consumerKey && encryptionKey ? { clientId, consumerKey, encryptionKey } : null
+}
+
+/** Resend settings, or null when email is not configured. EMAIL_FROM must use a domain verified in Resend. */
+export function emailConfig(): { apiKey: string; from: string } | null {
+  const { RESEND_API_KEY: apiKey, EMAIL_FROM: from } = serverEnv
+  return apiKey && from ? { apiKey, from } : null
 }

@@ -577,12 +577,14 @@ function alertDoc(a: DemoAlert, adminUid: string) {
     delivery:
       delivered > 0
         ? {
+            audience: 8,
             queued: delivered,
             sent: delivered - 1,
             failed: 1,
             finishedAt: a.publishedAt ? ts(new Date(a.publishedAt.getTime() + 4000)) : null,
           }
         : null,
+    readCount: 0,
     tookCount: 0,
     edited: false,
     editedAt: null,
@@ -1267,6 +1269,17 @@ async function main(): Promise<void> {
       acceptedUid: null,
       acceptedAt: null,
     })
+
+  // Read counters on alerts, matching the receipts written above.
+  const reads = await db.collectionGroup(MEMBER_SUBCOLLECTIONS.alertReads).get()
+  const readCounts = new Map<string, number>()
+  for (const r of reads.docs) readCounts.set(r.id, (readCounts.get(r.id) ?? 0) + 1)
+  for (const [alertId, count] of readCounts)
+    await db
+      .collection(COLLECTIONS.alerts)
+      .doc(alertId)
+      .update({ readCount: count })
+      .catch(() => undefined)
 
   await seedContent(db, bucket, today)
   await computeStanding(db, today)

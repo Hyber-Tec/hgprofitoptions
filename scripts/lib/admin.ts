@@ -18,10 +18,18 @@ export function flag(name: string): boolean {
   return process.argv.includes(`--${name}`)
 }
 
+/** `--name=value` or `--name value`. */
 export function option(name: string): string | null {
-  const prefix = `--${name}=`
-  const arg = process.argv.find((a) => a.startsWith(prefix))
-  return arg ? arg.slice(prefix.length) : null
+  const args = process.argv.slice(2)
+  for (const [i, arg] of args.entries()) {
+    if (arg.startsWith(`--${name}=`)) return arg.slice(name.length + 3)
+    if (arg === `--${name}`) {
+      const value = args[i + 1]
+      if (value === undefined || value.startsWith("--")) throw new Error(`--${name} needs a value`)
+      return value
+    }
+  }
+  return null
 }
 
 export function initAdmin() {

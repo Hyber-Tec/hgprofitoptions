@@ -89,6 +89,11 @@ export function lastCompletedWeek(today: IsoDate): { start: IsoDate; end: IsoDat
   return { start, end: addDays(start, 4) }
 }
 
+/** The Monday that starts the week containing `date` (Sunday belongs to the week before). */
+export function mondayOf(date: IsoDate): IsoDate {
+  return addDays(date, -((dayOfWeek(date) + 6) % 7))
+}
+
 /** The Friday on or after `date`. */
 export function nextFriday(date: IsoDate): IsoDate {
   const dow = dayOfWeek(date)

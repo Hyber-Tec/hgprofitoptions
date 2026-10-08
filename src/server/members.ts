@@ -2,6 +2,7 @@
  * Membership logic shared by the Next.js server and Cloud Functions (no Next.js imports).
  */
 import { Timestamp, type Firestore } from "firebase-admin/firestore"
+import { auditCategory } from "@/core/audit"
 import { todayInMarketZone, zonedStartOfDay } from "@/core/dates"
 import type { IsoDate, MembershipPeriod } from "@/core/domain/types"
 import { accessWindow, findOverlap } from "@/core/membership/quarters"
@@ -86,5 +87,7 @@ export async function writeAudit(
     detail?: Record<string, unknown>
   },
 ): Promise<void> {
-  await db.collection(COLLECTIONS.auditLog).add({ ...entry, detail: entry.detail ?? null, createdAt: Timestamp.now() })
+  await db
+    .collection(COLLECTIONS.auditLog)
+    .add({ ...entry, category: auditCategory(entry.action), detail: entry.detail ?? null, createdAt: Timestamp.now() })
 }

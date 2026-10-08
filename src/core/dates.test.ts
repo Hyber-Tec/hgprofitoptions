@@ -7,6 +7,7 @@ import {
   isIsoDate,
   isoDateInZone,
   lastCompletedWeek,
+  mondayOf,
   nextFriday,
   zonedStartOfDay,
 } from "./dates"
@@ -43,6 +44,13 @@ describe("calendar dates", () => {
     expect(lastCompletedWeek(d("2026-10-07"))).toEqual({ start: "2026-09-28", end: "2026-10-02" })
     expect(lastCompletedWeek(d("2026-10-05"))).toEqual({ start: "2026-09-28", end: "2026-10-02" })
     expect(lastCompletedWeek(d("2026-10-10"))).toEqual({ start: "2026-10-05", end: "2026-10-09" })
+  })
+
+  it("finds the Monday that starts a week", () => {
+    expect(mondayOf(d("2026-10-07"))).toBe("2026-10-05")
+    expect(mondayOf(d("2026-10-05"))).toBe("2026-10-05")
+    expect(mondayOf(d("2026-10-11"))).toBe("2026-10-05")
+    expect(mondayOf(d("2026-10-10"))).toBe("2026-10-05")
   })
 
   it("finds the next Friday", () => {

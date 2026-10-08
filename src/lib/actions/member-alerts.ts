@@ -25,9 +25,12 @@ export async function markAlertRead(alertId: string): Promise<ActionResult> {
   if (typeof alertId !== "string" || alertId.length === 0 || alertId.length > 128)
     return { ok: false, code: "validation", message: "Invalid alert." }
   const ref = memberRef(viewer.uid).collection(MEMBER_SUBCOLLECTIONS.alertReads).doc(alertId)
+  const alertRef = adminDb().collection(COLLECTIONS.alerts).doc(alertId)
   await adminDb().runTransaction(async (tx) => {
-    const snap = await tx.get(ref)
-    if (!snap.exists) tx.set(ref, { readAt: Timestamp.now(), took: false })
+    const [snap, alert] = await Promise.all([tx.get(ref), tx.get(alertRef)])
+    if (snap.exists || !alert.exists) return
+    tx.set(ref, { readAt: Timestamp.now(), took: false })
+    tx.update(alertRef, { readCount: FieldValue.increment(1) })
   })
   return { ok: true, data: undefined }
 }
@@ -43,6 +46,7 @@ export async function markAllAlertsRead(): Promise<ActionResult<{ marked: number
   for (const snap of existing) {
     if (snap.exists) continue
     batch.set(snap.ref, { readAt: Timestamp.now(), took: false })
+    batch.update(adminDb().collection(COLLECTIONS.alerts).doc(snap.id), { readCount: FieldValue.increment(1) })
     marked++
   }
   if (marked > 0) await batch.commit()
@@ -139,7 +143,11 @@ export async function tookAlertTrade(input: {
       { readAt: read.exists ? (read.get("readAt") as Timestamp) : now, took: true, tookInstrumentKey: key },
       { merge: true },
     )
-    if (!alreadyTook) tx.update(alertRef, { tookCount: FieldValue.increment(1) })
+    if (!alreadyTook)
+      tx.update(alertRef, {
+        tookCount: FieldValue.increment(1),
+        ...(read.exists ? {} : { readCount: FieldValue.increment(1) }),
+      })
     return created
   })
   refresh()

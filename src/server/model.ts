@@ -325,9 +325,18 @@ export const alertSchema = z.object({
   resultPct: z.number().nullable().default(null),
   sendEmail: z.boolean().default(false),
   delivery: z
-    .object({ queued: z.number(), sent: z.number(), failed: z.number(), finishedAt: optionalTimestamp })
+    .object({
+      /** Members with access when it was published. */
+      audience: z.number().default(0),
+      queued: z.number(),
+      sent: z.number(),
+      failed: z.number(),
+      finishedAt: optionalTimestamp,
+    })
     .nullable()
     .default(null),
+  /** Members who opened the alert. */
+  readCount: z.number().default(0),
   tookCount: z.number().default(0),
   edited: z.boolean().default(false),
   editedAt: optionalTimestamp,
@@ -643,6 +652,8 @@ export const auditSchema = z.object({
   actorUid: z.string().nullable(),
   actorEmail: z.string().nullable(),
   action: z.string(),
+  /** The action's prefix, stored so the audit log can be filtered in the query. */
+  category: z.string().optional(),
   targetType: z.string(),
   targetId: z.string().nullable(),
   detail: z.record(z.string(), z.unknown()).nullable().default(null),
