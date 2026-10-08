@@ -1,20 +1,10 @@
 "use client"
 
-import { onAuthStateChanged, type User } from "firebase/auth"
-import { collection, documentId, limit, onSnapshot, orderBy, query, where, type Timestamp } from "firebase/firestore"
 import { usePathname, useRouter } from "next/navigation"
-import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import { createContext, useContext, useEffect, useEffectEvent, useMemo, useRef, useState, type ReactNode } from "react"
 import { ALERT_KIND_LABEL } from "@/core/alerts"
-import type { AlertKind } from "@/core/domain/types"
-import { clientAuth, clientDb } from "@/lib/firebase/client"
 import { toast } from "@/components/ui/toast"
-
-interface LiveAlert {
-  id: string
-  kind: AlertKind
-  title: string
-  publishedAt: number
-}
+import type { LiveAlert } from "./live-alerts-listener"
 
 interface LiveAlertsValue {
   /** Unread alerts among the latest ones. */
@@ -34,90 +24,77 @@ const FEED_SIZE = 30
 const TOAST_WINDOW_MS = 15 * 60 * 1000
 
 /**
- * Listens to HG's alerts with the Firestore client SDK (security rules allow it for active members)
- * and to this member's read receipts, so the unread badge and toasts update without a reload.
- * Without a signed-in Firebase client user it keeps the server-rendered count.
+ * Keeps the unread badge and new-alert toasts live with Firestore listeners (live-alerts-listener.ts).
+ * The listener and the Firebase SDK load after the page is interactive, so they never delay a page;
+ * until they connect, and without a signed-in Firebase client user, the server-rendered count shows.
  */
 export function LiveAlertsProvider({
   uid,
   enabled,
   baselineMs,
+  countedAtMs,
   initialUnread,
   children,
 }: {
   uid: string
   enabled: boolean
   baselineMs: number
+  /** When the server counted initialUnread. Alerts published later are news to this page. */
+  countedAtMs: number
   initialUnread: number
   children: ReactNode
 }) {
   const router = useRouter()
   const pathname = usePathname()
-  const [user, setUser] = useState<User | null>(null)
   const [alerts, setAlerts] = useState<LiveAlert[] | null>(null)
   const [readIds, setReadIds] = useState<Set<string> | null>(null)
   const seen = useRef<Set<string> | null>(null)
-  const pathRef = useRef(pathname)
 
-  useEffect(() => {
-    pathRef.current = pathname
-  }, [pathname])
+  const showAlerts = useEffectEvent((list: LiveAlert[]) => {
+    const previous = seen.current
+    // The first snapshot can arrive a moment after the page loads, so it is compared with what the
+    // server counted; later snapshots with the one before.
+    const isNew = (a: LiveAlert) => (previous ? !previous.has(a.id) : a.publishedAt > countedAtMs)
+    const fresh = list.filter((a) => isNew(a) && a.publishedAt > Date.now() - TOAST_WINDOW_MS)
+    if (fresh.length > 0) {
+      for (const alert of fresh) {
+        toast.add({
+          title: `${ALERT_KIND_LABEL[alert.kind]} · ${alert.title}`,
+          description: "New alert from HG",
+          type: "info",
+          timeout: 12_000,
+          actionProps: { children: "View", onClick: () => router.push(`/members/alerts/${alert.id}`) },
+        })
+      }
+      if (pathname === "/members" || pathname.startsWith("/members/alerts")) router.refresh()
+    }
+    seen.current = new Set(list.map((a) => a.id))
+    setAlerts(list)
+  })
 
   useEffect(() => {
     if (!enabled) return
-    return onAuthStateChanged(clientAuth(), (u) => setUser(u?.uid === uid ? u : null))
+    let stop: (() => void) | null = null
+    let cancelled = false
+    import("./live-alerts-listener")
+      .then(({ listenToAlerts }) => {
+        if (cancelled) return
+        stop = listenToAlerts(uid, FEED_SIZE, {
+          onAlerts: (list) => showAlerts(list),
+          onReads: setReadIds,
+          onIdle: () => {
+            seen.current = null
+            setAlerts(null)
+            setReadIds(null)
+          },
+        })
+      })
+      .catch(() => console.warn("Live alerts are unavailable: the listener did not load."))
+    return () => {
+      cancelled = true
+      stop?.()
+    }
   }, [enabled, uid])
-
-  useEffect(() => {
-    if (!user) return
-    const feed = query(
-      collection(clientDb(), "alerts"),
-      where("status", "in", ["published", "closed"]),
-      orderBy("publishedAt", "desc"),
-      limit(FEED_SIZE),
-    )
-    return onSnapshot(
-      feed,
-      (snap) => {
-        const list = snap.docs.map((d) => ({
-          id: d.id,
-          kind: d.get("kind") as AlertKind,
-          title: String(d.get("title") ?? ""),
-          publishedAt: (d.get("publishedAt") as Timestamp | null)?.toMillis() ?? 0,
-        }))
-        const previous = seen.current
-        if (previous) {
-          const fresh = list.filter((a) => !previous.has(a.id) && a.publishedAt > Date.now() - TOAST_WINDOW_MS)
-          for (const alert of fresh) {
-            toast.add({
-              title: `${ALERT_KIND_LABEL[alert.kind]} · ${alert.title}`,
-              description: "New alert from HG",
-              type: "info",
-              timeout: 12_000,
-              actionProps: { children: "View", onClick: () => router.push(`/members/alerts/${alert.id}`) },
-            })
-          }
-          const path = pathRef.current
-          if (fresh.length > 0 && (path === "/members" || path.startsWith("/members/alerts"))) router.refresh()
-        }
-        seen.current = new Set(list.map((a) => a.id))
-        setAlerts(list)
-      },
-      (error) => console.warn("Live alerts are unavailable:", error.code),
-    )
-  }, [user, router])
-
-  const idsKey = alerts?.map((a) => a.id).join(",") ?? ""
-  useEffect(() => {
-    if (!user || idsKey === "") return
-    const ids = idsKey.split(",").slice(0, FEED_SIZE)
-    const reads = query(collection(clientDb(), "members", uid, "alertReads"), where(documentId(), "in", ids))
-    return onSnapshot(
-      reads,
-      (snap) => setReadIds(new Set(snap.docs.map((d) => d.id))),
-      (error) => console.warn("Read receipts are unavailable:", error.code),
-    )
-  }, [user, uid, idsKey])
 
   const value = useMemo<LiveAlertsValue>(() => {
     if (!alerts || !readIds) return { unread: initialUnread, live: false }

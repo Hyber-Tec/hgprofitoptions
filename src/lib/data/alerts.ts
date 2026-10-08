@@ -121,15 +121,19 @@ export async function alertEngagement(alertIds: readonly string[]): Promise<Map<
   return new Map(entries)
 }
 
-/** Unread among the latest 30 alerts, counting only alerts posted after the member joined. */
-export async function unreadCount(uid: string, since: Date): Promise<number> {
+/**
+ * Unread among the latest 30 alerts, counting only alerts posted after the member joined, and when
+ * they were counted: anything published later is not included.
+ */
+export async function countUnread(uid: string, since: Date): Promise<{ count: number; countedAt: number }> {
+  const countedAt = Date.now()
   const latest = await listFeedAlerts({ limit: 30, window: 30 })
   const candidates = latest.filter((a) => (a.publishedAt?.getTime() ?? 0) > since.getTime())
   const receipts = await readReceipts(
     uid,
     candidates.map((a) => a.id),
   )
-  return candidates.filter((a) => !receipts.has(a.id)).length
+  return { count: candidates.filter((a) => !receipts.has(a.id)).length, countedAt }
 }
 
 /** Tickers with an open buy alert (for "HG alert" badges on tool tables). */

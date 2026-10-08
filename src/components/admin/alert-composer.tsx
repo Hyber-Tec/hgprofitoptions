@@ -8,7 +8,7 @@ import { ALERT_KINDS, ALERT_KIND_LABEL, alertNotification, defaultAlertTitle, ty
 import type { AlertKind } from "@/core/domain/types"
 import { formatExpiry, formatLevel } from "@/core/format"
 import { publishAlertAction, saveAlertDraft, type AlertDraftInput } from "@/lib/actions/admin/alerts"
-import { clientStorage } from "@/lib/firebase/client"
+import { clientStorage } from "@/lib/firebase/client-storage"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"

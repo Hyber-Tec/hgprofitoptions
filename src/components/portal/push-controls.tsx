@@ -3,20 +3,25 @@
 import { useEffect, useState, useSyncExternalStore, useTransition } from "react"
 import { LuBellOff, LuBellRing, LuShare, LuSquarePlus, LuX } from "react-icons/lu"
 import { sendTestNotification } from "@/lib/actions/notifications"
-import { disablePush, enablePush, getPushStatus, type PushStatus } from "@/lib/push/client"
+import type { PushStatus } from "@/lib/push/client"
 import { Button } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Spinner } from "@/components/ui/spinner"
 import { Switch } from "@/components/ui/switch"
 import { toast } from "@/components/ui/toast"
 
+/** The Messaging SDK loads only where these controls are shown, after the page is interactive. */
+const pushClient = () => import("@/lib/push/client")
+
 function usePushStatus(): [PushStatus | null, (s: PushStatus) => void] {
   const [status, setStatus] = useState<PushStatus | null>(null)
   useEffect(() => {
     let cancelled = false
-    void getPushStatus().then((s) => {
-      if (!cancelled) setStatus(s)
-    })
+    void pushClient()
+      .then((push) => push.getPushStatus())
+      .then((s) => {
+        if (!cancelled) setStatus(s)
+      })
     return () => {
       cancelled = true
     }
@@ -47,7 +52,7 @@ export function PushPromptCard() {
 
   const turnOn = () =>
     startTransition(async () => {
-      const result = await enablePush()
+      const result = await (await pushClient()).enablePush()
       if (result.ok) {
         setStatus("on")
         toast.add({
@@ -57,7 +62,7 @@ export function PushPromptCard() {
         })
       } else {
         toast.add({ title: "Notifications are off", description: result.message, type: "error" })
-        setStatus(await getPushStatus())
+        setStatus(await (await pushClient()).getPushStatus())
       }
     })
 
@@ -137,12 +142,12 @@ export function PushSettings() {
   const toggle = (on: boolean) =>
     startTransition(async () => {
       if (on) {
-        const result = await enablePush()
+        const result = await (await pushClient()).enablePush()
         if (!result.ok) toast.add({ title: "Notifications are off", description: result.message, type: "error" })
       } else {
-        await disablePush()
+        await (await pushClient()).disablePush()
       }
-      setStatus(await getPushStatus())
+      setStatus(await (await pushClient()).getPushStatus())
     })
 
   const test = () =>
