@@ -4,10 +4,13 @@ import { getApp, getApps, initializeApp, type FirebaseApp } from "firebase/app"
 import { browserLocalPersistence, connectAuthEmulator, getAuth, setPersistence, type Auth } from "firebase/auth"
 import { connectFirestoreEmulator, getFirestore, type Firestore } from "firebase/firestore"
 import { connectStorageEmulator, getStorage, type FirebaseStorage } from "firebase/storage"
-import { firebaseWebConfig, useEmulators } from "@/lib/env.public"
+import { firebaseWebConfig, publicEnv, useEmulators } from "@/lib/env.public"
 
-/** Must match the ports in firebase.json. */
-export const EMULATOR_PORTS = { auth: 7399, firestore: 7380, storage: 7499 } as const
+const EMULATOR_PORTS = {
+  auth: publicEnv.NEXT_PUBLIC_AUTH_EMULATOR_PORT,
+  firestore: publicEnv.NEXT_PUBLIC_FIRESTORE_EMULATOR_PORT,
+  storage: publicEnv.NEXT_PUBLIC_STORAGE_EMULATOR_PORT,
+}
 
 let auth: Auth | null = null
 let db: Firestore | null = null

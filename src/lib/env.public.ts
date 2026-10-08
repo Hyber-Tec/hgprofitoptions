@@ -12,6 +12,10 @@ const schema = z.object({
   NEXT_PUBLIC_FIREBASE_VAPID_KEY: z.string().optional(),
   NEXT_PUBLIC_SITE_URL: z.url().default("http://localhost:3000"),
   NEXT_PUBLIC_USE_FIREBASE_EMULATORS: z.enum(["true", "false"]).default("false"),
+  /** Emulator ports for the browser; the defaults match firebase.json (tests use firebase.test.json). */
+  NEXT_PUBLIC_AUTH_EMULATOR_PORT: z.coerce.number().int().default(7399),
+  NEXT_PUBLIC_FIRESTORE_EMULATOR_PORT: z.coerce.number().int().default(7380),
+  NEXT_PUBLIC_STORAGE_EMULATOR_PORT: z.coerce.number().int().default(7499),
 })
 
 // Each variable is referenced literally so Next.js can inline it into browser bundles.
@@ -26,6 +30,9 @@ export const publicEnv = schema.parse({
   NEXT_PUBLIC_FIREBASE_VAPID_KEY: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY || undefined,
   NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL || undefined,
   NEXT_PUBLIC_USE_FIREBASE_EMULATORS: process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS || undefined,
+  NEXT_PUBLIC_AUTH_EMULATOR_PORT: process.env.NEXT_PUBLIC_AUTH_EMULATOR_PORT || undefined,
+  NEXT_PUBLIC_FIRESTORE_EMULATOR_PORT: process.env.NEXT_PUBLIC_FIRESTORE_EMULATOR_PORT || undefined,
+  NEXT_PUBLIC_STORAGE_EMULATOR_PORT: process.env.NEXT_PUBLIC_STORAGE_EMULATOR_PORT || undefined,
 })
 
 export const useEmulators = publicEnv.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === "true"

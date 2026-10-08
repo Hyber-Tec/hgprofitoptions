@@ -10,7 +10,7 @@
     "typecheck": "next typegen && tsc --noEmit && tsc --noEmit -p functions",
     "test": "vitest run --project unit --project golden",
     "test:emulators": "firebase emulators:exec --config firebase.test.json --only firestore,storage --project demo-hgprofitoptions \"vitest run --project rules --project integration\"",
-    "test:e2e": "playwright test",
+    "test:e2e": "firebase emulators:exec --config firebase.test.json --only auth,firestore,storage --project demo-hgprofitoptions \"tsx scripts/e2e.ts\"",
     "emulators": "firebase emulators:start --only auth,firestore,storage --project hgprofitoptions-hybertec",
     "emulators:functions": "pnpm build:functions && npm --prefix functions ci --no-audit --no-fund && firebase emulators:start --only auth,firestore,storage,functions --project hgprofitoptions-hybertec",
     "seed": "tsx --env-file=.env.local scripts/seed.ts",

@@ -70,3 +70,8 @@ public/firebase-messaging-sw.js
 /playwright-report/
 /test-results/
 /blob-report/
+
+# end-to-end test environment (emulators and a demo project only, no secrets)
+!.env.e2e
+/test-results/
+/playwright-report/

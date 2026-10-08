@@ -26,7 +26,8 @@ import {
   zonedStartOfDay,
 } from "../src/core/dates"
 import type { DailyBar, Fill, Instrument, IsoDate, Quarter } from "../src/core/domain/types"
-import { periodFromQuarters } from "../src/core/membership/quarters"
+import { addQuarters, periodFromQuarters, quarterOf, quarterRange } from "../src/core/membership/quarters"
+import { CONSENT_VERSION } from "../src/server/brokerage/sync"
 import { recomputeAccess } from "../src/server/members"
 import {
   ACCOUNT_SUBCOLLECTIONS,
@@ -308,6 +309,19 @@ interface DemoMember {
   skill: number
 }
 
+/** Quarters relative to the one containing today, so the demo (and the E2E tests) never go stale. */
+const CURRENT = quarterOf(todayInMarketZone())
+function q(offset: number): [number, Quarter] {
+  const r = addQuarters(CURRENT.year, CURRENT.q, offset)
+  return [r.year, r.q]
+}
+/** A late start inside the current quarter (a member who joined mid-quarter). */
+function lateStart(): IsoDate {
+  const start = addDays(quarterRange(CURRENT.year, CURRENT.q).start, 4)
+  const today = todayInMarketZone()
+  return start > today ? today : start
+}
+
 const MEMBERS: DemoMember[] = [
   {
     key: "hg",
@@ -325,7 +339,7 @@ const MEMBERS: DemoMember[] = [
     email: "ava.martin@example.com",
     fullName: "Ava Martin",
     role: "member",
-    periods: [[2026, 1, 4]],
+    periods: [[...q(-3), 4]],
     linked: true,
     location: "Austin, Texas",
     timezone: "America/Chicago",
@@ -338,8 +352,8 @@ const MEMBERS: DemoMember[] = [
     fullName: "Ben Carter",
     role: "member",
     periods: [
-      [2026, 3, 1],
-      [2026, 4, 1],
+      [...q(-1), 1],
+      [...q(0), 1],
     ],
     linked: true,
     location: "Atlanta, Georgia",
@@ -351,7 +365,7 @@ const MEMBERS: DemoMember[] = [
     email: "chloe.nguyen@example.com",
     fullName: "Chloe Nguyen",
     role: "member",
-    periods: [[2027, 1, 1]],
+    periods: [[...q(1), 1]],
     linked: false,
     location: "San Jose, California",
     timezone: "America/Los_Angeles",
@@ -362,7 +376,7 @@ const MEMBERS: DemoMember[] = [
     email: "diego.ramos@example.com",
     fullName: "Diego Ramos",
     role: "member",
-    periods: [[2026, 2, 2]],
+    periods: [[...q(-2), 2]],
     linked: true,
     location: "Miami, Florida",
     timezone: "America/New_York",
@@ -374,7 +388,7 @@ const MEMBERS: DemoMember[] = [
     fullName: "Emma Wilson",
     role: "member",
     status: "suspended",
-    periods: [[2026, 4, 1]],
+    periods: [[...q(0), 1]],
     linked: false,
     location: "Denver, Colorado",
     timezone: "America/Denver",
@@ -385,7 +399,7 @@ const MEMBERS: DemoMember[] = [
     email: "farah.haddad@example.com",
     fullName: "Farah Haddad",
     role: "member",
-    periods: [[2026, 4, 1, "2026-10-05" as IsoDate]],
+    periods: [[...q(0), 1, lateStart()]],
     linked: true,
     location: "London, UK",
     timezone: "Europe/London",
@@ -396,7 +410,7 @@ const MEMBERS: DemoMember[] = [
     email: "george.okafor@example.com",
     fullName: "George Okafor",
     role: "member",
-    periods: [[2026, 3, 2]],
+    periods: [[...q(-1), 2]],
     linked: true,
     location: "Kigali, Rwanda",
     timezone: "Africa/Kigali",
@@ -407,7 +421,7 @@ const MEMBERS: DemoMember[] = [
     email: "hana.sato@example.com",
     fullName: "Hana Sato",
     role: "member",
-    periods: [[2026, 4, 1]],
+    periods: [[...q(0), 1]],
     linked: true,
     location: "Osaka, Japan",
     timezone: "Asia/Tokyo",
@@ -418,7 +432,7 @@ const MEMBERS: DemoMember[] = [
     email: "ivan.petrov@example.com",
     fullName: "Ivan Petrov",
     role: "member",
-    periods: [[2026, 4, 2]],
+    periods: [[...q(0), 2]],
     linked: true,
     location: "Sofia, Bulgaria",
     timezone: "Europe/Sofia",
@@ -429,7 +443,7 @@ const MEMBERS: DemoMember[] = [
     email: "julia.brooks@example.com",
     fullName: "Julia Brooks",
     role: "member",
-    periods: [[2026, 4, 1]],
+    periods: [[...q(0), 1]],
     linked: false,
     manualTrades: true,
     location: "Toronto, Canada",
@@ -855,7 +869,7 @@ async function seedAccount(
     brokerageName,
     status: m.key === "hana" ? "needs_reauth" : "active",
     isHouse,
-    consentVersion: "2026-10",
+    consentVersion: CONSENT_VERSION,
     consentedAt: now,
     lastSyncedAt: now,
     createdAt: now,
@@ -1171,7 +1185,15 @@ async function main(): Promise<void> {
   for (const m of MEMBERS) {
     const uid = uidOf(m.key)
     const password = sharedPassword ?? randomBytes(9).toString("base64url")
-    await auth.createUser({ uid, email: m.email, emailVerified: true, password, displayName: m.fullName })
+    // Suspended members cannot sign in, as when an admin suspends someone.
+    await auth.createUser({
+      uid,
+      email: m.email,
+      emailVerified: true,
+      password,
+      displayName: m.fullName,
+      disabled: m.status === "suspended",
+    })
     if (m.role === "admin") await auth.setCustomUserClaims(uid, { role: "admin" })
     credentials.push([m.fullName, m.email, password])
     const memberRef = db.collection(COLLECTIONS.members).doc(uid)
@@ -1272,7 +1294,7 @@ async function main(): Promise<void> {
       location: "Chicago, Illinois",
       timezone: "America/Chicago",
       notes: "Referred by Ava. Beginner, Webull account ready.",
-      periods: [{ ...periodFromQuarters(2026, 4, 1), note: null }],
+      periods: [{ ...periodFromQuarters(...q(1), 1), note: null }],
       tokenHash: "0".repeat(64),
       status: "pending",
       expiresAt: ts(new Date(Date.now() + 10 * 86_400_000)),
