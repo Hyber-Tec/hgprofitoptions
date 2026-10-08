@@ -6,11 +6,42 @@ import {
   createChart,
   createSeriesMarkers,
   LineStyle,
+  TickMarkType,
   type SeriesMarker,
   type Time,
 } from "lightweight-charts"
 import { useTheme } from "next-themes"
 import { useEffect, useRef } from "react"
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+function dayParts(time: Time): { year?: number; month?: number; day?: number } {
+  if (typeof time === "string") {
+    const [year, month, day] = time.split("-").map(Number)
+    return { year, month, day }
+  }
+  if (typeof time === "number") {
+    const date = new Date(time * 1000)
+    return { year: date.getUTCFullYear(), month: date.getUTCMonth() + 1, day: date.getUTCDate() }
+  }
+  return time
+}
+
+/**
+ * Axis labels: the year, the month, or "Jun 3" for other days (a bare "3" reads oddly). Labels are
+ * centered on their bar, so none is drawn for the first bars, where it would be cut off at the edge.
+ */
+function dateTicks(firstDates: ReadonlySet<string>) {
+  return (time: Time, type: TickMarkType): string | null => {
+    const { year, month, day } = dayParts(time)
+    const name = month ? MONTHS[month - 1] : undefined
+    if (!year || !month || !name || !day) return null
+    if (firstDates.has(`${String(year)}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`)) return ""
+    if (type === TickMarkType.Year) return String(year)
+    if (type === TickMarkType.Month) return name
+    return `${name} ${String(day)}`
+  }
+}
 
 export interface ChartBar {
   date: string
@@ -83,7 +114,11 @@ export function PriceChart({
       },
       grid: { vertLines: { color: grid }, horzLines: { color: grid } },
       rightPriceScale: { borderColor: grid },
-      timeScale: { borderColor: grid, rightOffset: 4 },
+      timeScale: {
+        borderColor: grid,
+        rightOffset: 4,
+        tickMarkFormatter: dateTicks(new Set(bars.slice(0, 4).map((b) => b.date))),
+      },
       crosshair: { vertLine: { labelBackgroundColor: fg }, horzLine: { labelBackgroundColor: fg } },
     })
     const series = chart.addSeries(CandlestickSeries, {
