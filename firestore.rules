@@ -1,0 +1,154 @@
+rules_version = '2';
+
+// Client access rules. The Next.js server and Cloud Functions use the Admin SDK and bypass these
+// rules, so every server path does its own checks (src/lib/auth/guards.ts). These rules protect
+// everything the browser touches directly: live alerts, notification tokens, read receipts and
+// private journal notes.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return signedIn() && request.auth.token.get('role', '') == 'admin';
+    }
+
+    function isSelf(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function memberData() {
+      return get(/databases/$(database)/documents/members/$(request.auth.uid)).data;
+    }
+
+    // Active membership: status active and request.time inside the access window that the
+    // server keeps on the member document (start of the current block until the day after it ends).
+    function hasAccess() {
+      return isAdmin() || (
+        signedIn()
+        && exists(/databases/$(database)/documents/members/$(request.auth.uid))
+        && memberData().get('status', '') == 'active'
+        && memberData().get('access', null) != null
+        && memberData().access.from <= request.time
+        && request.time < memberData().access.until
+      );
+    }
+
+    // ---- Public content ---------------------------------------------------------------------
+    match /testimonials/{id} {
+      allow read: if resource.data.published == true;
+      allow write: if false;
+    }
+    match /faqs/{id} {
+      allow read: if resource.data.published == true;
+      allow write: if false;
+    }
+    match /settings/site {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // ---- Member content (written by the server only) ----------------------------------------
+    match /settings/members {
+      allow read: if hasAccess();
+      allow write: if false;
+    }
+    match /tickers/{symbol} {
+      allow read: if hasAccess();
+      allow write: if false;
+    }
+    match /weeks/{week} {
+      allow read: if hasAccess();
+      allow write: if false;
+    }
+    match /targetUpdates/{id} {
+      allow read: if hasAccess() && resource.data.status == 'published';
+      allow write: if false;
+    }
+    match /config/{doc} {
+      allow read: if hasAccess() && doc in ['targetGroups', 'leveragedEtfs'];
+      allow write: if false;
+    }
+    match /alerts/{id} {
+      allow read: if hasAccess() && resource.data.status in ['published', 'closed'];
+      allow write: if false;
+      match /revisions/{revision} {
+        allow read: if hasAccess();
+        allow write: if false;
+      }
+    }
+    match /standing/{period} {
+      allow read: if hasAccess();
+      allow write: if false;
+    }
+    match /presentations/{id} {
+      allow read: if hasAccess() && resource.data.published == true;
+      allow write: if false;
+    }
+    match /resources/{id} {
+      allow read: if hasAccess() && resource.data.published == true;
+      allow write: if false;
+    }
+
+    // ---- Members -------------------------------------------------------------------------------
+    match /members/{uid} {
+      allow read: if isSelf(uid) || isAdmin();
+      allow write: if false;
+
+      match /periods/{id} {
+        allow read: if isSelf(uid) || isAdmin();
+        allow write: if false;
+      }
+
+      // Browser notification tokens for this member's devices (written by the server).
+      match /fcmTokens/{tokenId} {
+        allow read: if isSelf(uid);
+        allow write: if false;
+      }
+
+      // Read receipts for alerts (written by the server when an alert is opened).
+      match /alertReads/{alertId} {
+        allow read: if isSelf(uid);
+        allow write: if false;
+      }
+
+      // Owner only. Admins can never read private notes, and no server code reads them either.
+      match /privateNotes/{tradeId} {
+        allow read, delete: if isSelf(uid);
+        allow create, update: if isSelf(uid)
+          && request.resource.data.keys().hasOnly(['body', 'updatedAt'])
+          && request.resource.data.body is string
+          && request.resource.data.body.size() <= 20000
+          && request.resource.data.updatedAt == request.time;
+      }
+
+      match /trades/{id} {
+        allow read: if isSelf(uid) || isAdmin();
+        allow write: if false;
+      }
+      match /journalDays/{day} {
+        allow read: if isSelf(uid) || isAdmin();
+        allow write: if false;
+      }
+      match /connections/{id} {
+        allow read: if isSelf(uid) || isAdmin();
+        allow write: if false;
+      }
+      match /accounts/{accountId} {
+        allow read: if isSelf(uid) || isAdmin();
+        allow write: if false;
+        match /{sub=**} {
+          allow read: if isSelf(uid) || isAdmin();
+          allow write: if false;
+        }
+      }
+    }
+
+    // Everything else (invites, sessions, audit log, job runs, brokerage secrets, bars) is server-only.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

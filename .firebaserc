@@ -1,0 +1,12 @@
+{
+  "projects": {
+    "default": "hgprofitoptions-hybertec"
+  },
+  "targets": {
+    "hgprofitoptions-hybertec": {
+      "hosting": {
+        "web": ["hgprofitoptions"]
+      }
+    }
+  }
+}

@@ -1,0 +1,20 @@
+# Shared files: changes here need the code owner's approval (see AGENTS.md).
+/AGENTS.md                  @daviddkim03
+/CLAUDE.md                  @daviddkim03
+/.github/                   @daviddkim03
+/package.json               @daviddkim03
+/pnpm-lock.yaml             @daviddkim03
+/pnpm-workspace.yaml        @daviddkim03
+/firebase.json              @daviddkim03
+/firebase.test.json         @daviddkim03
+/apphosting.yaml            @daviddkim03
+/firestore.rules            @daviddkim03
+/firestore.indexes.json     @daviddkim03
+/storage.rules              @daviddkim03
+/functions/                 @daviddkim03
+/src/server/model.ts        @daviddkim03
+/src/lib/auth/              @daviddkim03
+/src/components/ui/         @daviddkim03
+/eslint.config.ts           @daviddkim03
+/tsconfig.json              @daviddkim03
+/next.config.ts             @daviddkim03
