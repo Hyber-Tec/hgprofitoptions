@@ -12,6 +12,7 @@ import {
   type User,
 } from "firebase/auth"
 import { clientAuth } from "@/lib/firebase/client"
+import { blockingFunctionMessage } from "./blocking-error"
 
 export type SignInResult =
   | { kind: "ok"; role: "admin" | "member" }
@@ -35,11 +36,10 @@ const MESSAGES: Record<string, string> = {
 
 export function authErrorMessage(error: unknown): string {
   if (error instanceof FirebaseError) {
-    // Blocking functions return their own message inside the error.
-    const blocked = /BLOCKING_FUNCTION_ERROR_RESPONSE.*?"message":"([^"]+)"/.exec(error.message)?.[1]
-    if (blocked) return blocked
-    if (error.code === "auth/internal-error" && error.message.includes("permission-denied"))
-      return "This email is not on the member list. Book a call with HG to join."
+    if (error.code === "auth/internal-error") {
+      const blocked = blockingFunctionMessage(error.message)
+      if (blocked) return blocked
+    }
     return MESSAGES[error.code] ?? "Something went wrong. Please try again."
   }
   return error instanceof Error ? error.message : "Something went wrong. Please try again."

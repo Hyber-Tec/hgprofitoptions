@@ -1,5 +1,6 @@
 "use server"
 
+import { randomUUID } from "node:crypto"
 import { Timestamp } from "firebase-admin/firestore"
 import { refresh } from "next/cache"
 import { after } from "next/server"
@@ -8,7 +9,7 @@ import { isIsoDate } from "@/core/dates"
 import type { ActionResult } from "@/core/domain/types"
 import { publishTargets, updateTitle } from "@/server/targets"
 import { COLLECTIONS } from "@/server/model"
-import { notifyTargetsPublished } from "@/server/notifications"
+import { notifyTargetsOnce } from "@/server/notifications"
 import { adminForAction } from "@/lib/auth/guards"
 import { invalidate } from "@/lib/data/cache"
 import { adminDb, adminMessaging } from "@/lib/firebase/admin"
@@ -128,7 +129,7 @@ export async function publishTargetUpdate(
   if (input.notify && process.env.DELIVER_ALERTS_INLINE === "true") {
     after(async () => {
       try {
-        await notifyTargetsPublished(adminDb(), adminMessaging(), parsed.data.effectiveDate, revision)
+        await notifyTargetsOnce(adminDb(), adminMessaging(), parsed.data.effectiveDate, `inline-${randomUUID()}`)
       } catch (error) {
         console.error("notifyTargetsPublished", error)
       }

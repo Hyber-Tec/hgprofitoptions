@@ -7,7 +7,7 @@ import { formatDate, formatDateTimeET, formatPercent } from "@/core/format"
 import { quarterOf, quarterRange } from "@/core/membership/quarters"
 import { requireAdmin } from "@/lib/auth/guards"
 import { latestJobRuns, listInvites, listMemberRows } from "@/lib/data/admin"
-import { listAllAlerts } from "@/lib/data/alerts"
+import { alertEngagement, listAllAlerts } from "@/lib/data/alerts"
 import { RenewButton } from "@/components/admin/renew-button"
 import { AlertKindBadge } from "@/components/portal/alerts/alert-kind-badge"
 import { Signed, Stat, ToneBadge } from "@/components/portal/display"
@@ -44,6 +44,7 @@ export default async function AdminOverviewPage() {
   const roots = alerts.filter((a) => a.parentId === null)
   const open = roots.filter((a) => a.status === "published")
   const recent = alerts.filter((a) => a.status === "published" || a.status === "closed").slice(0, 5)
+  const engagement = await alertEngagement(recent.map((a) => a.id))
 
   return (
     <>
@@ -206,6 +207,7 @@ export default async function AdminOverviewPage() {
               <ul className="flex flex-col divide-y">
                 {recent.map((a) => {
                   const audience = a.delivery?.audience ?? 0
+                  const reads = engagement.get(a.id)?.reads ?? 0
                   return (
                     <li key={a.id}>
                       <Link
@@ -217,9 +219,9 @@ export default async function AdminOverviewPage() {
                           <span className="truncate text-sm">{a.title}</span>
                         </span>
                         <span className="shrink-0 text-right text-xs text-muted-foreground tabular-nums">
-                          {a.delivery ? `${a.delivery.sent} sent` : "Sending"}
+                          {a.delivery ? `${a.delivery.sent} notified` : "Sending"}
                           {audience > 0 &&
-                            ` · ${formatPercent(Math.min(1, a.readCount / audience), { signed: false, digits: 0 })} read`}
+                            ` · ${formatPercent(Math.min(1, reads / audience), { signed: false, digits: 0 })} read`}
                         </span>
                       </Link>
                     </li>

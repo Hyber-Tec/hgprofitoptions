@@ -6,3 +6,4 @@ functions/lib
 emulator-data
 public/firebase-messaging-sw.js
 src/components/ui
+functions/package-lock.json

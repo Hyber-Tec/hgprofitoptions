@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import type { DailyBar, Fill, Instrument, IsoDate } from "../domain/types"
+import { mergeBars } from "./bars"
 import { channelLadder, nearestLevel, nearestLevels } from "./channels"
 import { journalStats } from "./journal-stats"
 import { positionInRange, signedRange, svi, weeklyStats } from "./kmd"
@@ -59,6 +60,29 @@ describe("key market data", () => {
   it("places the close inside the range", () => {
     expect(positionInRange({ high: 110, low: 100, close: 105 })).toBe(0.5)
     expect(positionInRange({ high: 100, low: 100, close: 100 })).toBe(0.5)
+  })
+})
+
+describe("daily bar history", () => {
+  it("adds new sessions in date order, replacing a corrected bar", () => {
+    const merged = mergeBars(
+      [bar("2026-10-05", 11, 9, 10), bar("2026-10-06", 12, 10, 11)],
+      [bar("2026-10-06", 12.5, 10, 12), bar("2026-10-07", 13, 11, 12.5)],
+    )
+    expect(merged.map((b) => [b.date, b.close])).toEqual([
+      ["2026-10-05", 10],
+      ["2026-10-06", 12],
+      ["2026-10-07", 12.5],
+    ])
+  })
+
+  it("keeps only the most recent bars", () => {
+    const merged = mergeBars(
+      [bar("2026-10-05", 11, 9, 10), bar("2026-10-06", 12, 10, 11)],
+      [bar("2026-10-07", 13, 11, 12.5)],
+      2,
+    )
+    expect(merged.map((b) => b.date)).toEqual(["2026-10-06", "2026-10-07"])
   })
 })
 

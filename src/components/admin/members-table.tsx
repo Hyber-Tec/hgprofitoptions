@@ -98,9 +98,20 @@ function toCsv(rows: MemberListRow[]): string {
   ].join("\n")
 }
 
-export function MembersTable({ rows, quarters }: { rows: MemberListRow[]; quarters: string[] }) {
+export function MembersTable({
+  rows,
+  quarters,
+  initialStatus = "all",
+}: {
+  rows: MemberListRow[]
+  quarters: string[]
+  /** A status filter from the link that opened the page (?status=expired). */
+  initialStatus?: string
+}) {
   const [query, setQuery] = useState("")
-  const [status, setStatus] = useState("all")
+  const [status, setStatus] = useState(() =>
+    STATUS_ITEMS.some((f) => f.value === initialStatus) ? initialStatus : "all",
+  )
   const [linked, setLinked] = useState("all")
   const [quarter, setQuarter] = useState("all")
   const [selected, setSelected] = useState<Set<string>>(new Set())

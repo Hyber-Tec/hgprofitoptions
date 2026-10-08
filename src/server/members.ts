@@ -47,6 +47,13 @@ export async function recomputeAccess(db: Firestore, uid: string, today: IsoDate
     .update({ access: accessField(periods, today), memberSince: first ? first.start : null })
 }
 
+/** Nightly: every member's access window, so a new quarter (or a lapsed one) takes effect in the rules. */
+export async function refreshAllAccess(db: Firestore, today: IsoDate = todayInMarketZone()): Promise<number> {
+  const members = await db.collection(COLLECTIONS.members).select().get()
+  for (const doc of members.docs) await recomputeAccess(db, doc.id, today)
+  return members.size
+}
+
 export class OverlapError extends Error {
   constructor(public readonly existing: { label: string; start: string; end: string }) {
     super(`This overlaps ${existing.label} (${existing.start} to ${existing.end}).`)

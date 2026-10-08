@@ -28,6 +28,16 @@ export default defineConfig({
       {
         resolve: { alias: { "@": src } },
         test: {
+          name: "integration",
+          include: ["tests/integration/**/*.test.ts"],
+          environment: "node",
+          testTimeout: 30000,
+          fileParallelism: false,
+        },
+      },
+      {
+        resolve: { alias: { "@": src } },
+        test: {
           name: "golden",
           include: ["tests/golden/**/*.test.ts"],
           environment: "node",

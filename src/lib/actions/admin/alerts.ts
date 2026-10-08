@@ -1,5 +1,6 @@
 "use server"
 
+import { randomUUID } from "node:crypto"
 import { Timestamp } from "firebase-admin/firestore"
 import { refresh } from "next/cache"
 import { after } from "next/server"
@@ -17,13 +18,11 @@ import {
   readAlert,
   reviseAlert,
 } from "@/server/alerts"
-import { layout, sendEmail } from "@/server/email"
-import { COLLECTIONS, type AlertDoc } from "@/server/model"
+import { COLLECTIONS } from "@/server/model"
 import { adminForAction, type Viewer } from "@/lib/auth/guards"
 import { publicEnv } from "@/lib/env.public"
 import { emailConfig } from "@/lib/env.server"
 import { adminDb, adminMessaging } from "@/lib/firebase/admin"
-import { alertNotification } from "@/core/alerts"
 
 const forbidden = {
   ok: false,
@@ -38,34 +37,15 @@ const actor = (v: Viewer) => ({ uid: v.uid, email: v.email })
  */
 const inlineDelivery = process.env.DELIVER_ALERTS_INLINE === "true"
 
-async function emailAlert(to: { email: string; fullName: string }[], alert: AlertDoc): Promise<number> {
-  const config = emailConfig()
-  if (!config) return 0
-  const { title, body } = alertNotification(alert)
-  const { html, text } = layout({
-    heading: title,
-    paragraphs: body.split("\n"),
-    cta: {
-      label: "Open the alert",
-      href: `${publicEnv.NEXT_PUBLIC_SITE_URL}/members/alerts/${alert.parentId ?? alert.id}`,
-    },
-    footer:
-      "You get these emails because you turned on email alerts. Change it in Settings, Notifications. Educational content, not personalized investment advice.",
-  })
-  let sent = 0
-  for (const recipient of to) {
-    await sendEmail(config, { to: recipient.email, subject: title, html, text })
-      .then(() => sent++)
-      .catch((error: unknown) => console.error("alert email", error))
-  }
-  return sent
-}
-
 function deliverLater(id: string) {
   if (!inlineDelivery) return
   after(async () => {
     try {
-      await deliverAlert(adminDb(), adminMessaging(), id, { sendEmail: emailAlert })
+      await deliverAlert(adminDb(), adminMessaging(), id, {
+        email: emailConfig(),
+        siteUrl: publicEnv.NEXT_PUBLIC_SITE_URL,
+        claimId: `inline-${randomUUID()}`,
+      })
     } catch (error) {
       console.error("deliverAlert", error)
     }
@@ -158,8 +138,6 @@ export async function saveAlertDraft(input: AlertDraftInput, id: string | null):
     exits: [],
     resultPct: null,
     delivery: null,
-    readCount: 0,
-    tookCount: 0,
     edited: false,
     editedAt: null,
     revision: 1,

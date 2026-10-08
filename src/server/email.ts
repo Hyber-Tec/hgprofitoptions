@@ -32,6 +32,35 @@ export async function sendEmail(config: EmailConfig, message: EmailMessage): Pro
   if (!response.ok) throw new Error(`Email failed (${response.status}): ${(await response.text()).slice(0, 200)}`)
 }
 
+/**
+ * Individually addressed emails, up to 100 per request (Resend batch API). Returns how many were accepted;
+ * a failed chunk is logged and skipped so one bad request does not stop the rest.
+ */
+export async function sendEmailBatch(config: EmailConfig, messages: readonly EmailMessage[]): Promise<number> {
+  let accepted = 0
+  for (let i = 0; i < messages.length; i += 100) {
+    const chunk = messages.slice(i, i + 100)
+    const response = await fetch("https://api.resend.com/emails/batch", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${config.apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify(
+        chunk.map((m) => ({
+          from: config.from,
+          to: m.to,
+          subject: m.subject,
+          html: m.html,
+          text: m.text,
+          ...(m.replyTo ? { reply_to: m.replyTo } : {}),
+        })),
+      ),
+      signal: AbortSignal.timeout(30_000),
+    })
+    if (response.ok) accepted += chunk.length
+    else console.error(`Email batch failed (${response.status}): ${(await response.text()).slice(0, 200)}`)
+  }
+  return accepted
+}
+
 const escape = (text: string) =>
   text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
 

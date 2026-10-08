@@ -3,7 +3,7 @@ import Link from "next/link"
 import { LuPlus } from "react-icons/lu"
 import { formatDateTimeET, formatPercent } from "@/core/format"
 import { requireAdmin } from "@/lib/auth/guards"
-import { listAllAlerts } from "@/lib/data/alerts"
+import { alertEngagement, listAllAlerts } from "@/lib/data/alerts"
 import { cn } from "@/lib/utils"
 import { AlertKindBadge } from "@/components/portal/alerts/alert-kind-badge"
 import { Signed, ToneBadge, type Tone } from "@/components/portal/display"
@@ -13,6 +13,8 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/u
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 export const metadata: Metadata = { title: "Alerts" }
+
+const PAGE_SIZE = 50
 
 const STATUSES = [
   { value: "all", label: "All" },
@@ -32,13 +34,26 @@ const STATUS_TONE: Record<string, { label: string; tone: Tone }> = {
 
 export default async function AdminAlertsPage({ searchParams }: PageProps<"/admin/alerts">) {
   await requireAdmin({ next: "/admin/alerts" })
-  const requested = (await searchParams).status
-  const status = STATUSES.find((s) => s.value === requested)?.value ?? "all"
+  const params = await searchParams
+  const status = STATUSES.find((s) => s.value === params.status)?.value ?? "all"
   const all = await listAllAlerts()
   const roots = all.filter((a) => a.parentId === null)
   const followUps = new Map<string, number>()
   for (const a of all) if (a.parentId) followUps.set(a.parentId, (followUps.get(a.parentId) ?? 0) + 1)
   const list = roots.filter((a) => status === "all" || a.status === status)
+  const pages = Math.max(1, Math.ceil(list.length / PAGE_SIZE))
+  const page = Math.min(pages, Math.max(1, Math.floor(Number(params.page)) || 1))
+  const visible = list.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  const engagement = await alertEngagement(
+    visible.filter((a) => a.status === "published" || a.status === "closed").map((a) => a.id),
+  )
+  const pageHref = (n: number) => {
+    const query = new URLSearchParams({
+      ...(status === "all" ? {} : { status }),
+      ...(n > 1 ? { page: String(n) } : {}),
+    })
+    return `/admin/alerts${query.size ? `?${query.toString()}` : ""}` as const
+  }
 
   return (
     <>
@@ -88,16 +103,17 @@ export default async function AdminAlertsPage({ searchParams }: PageProps<"/admi
                 <TableHead>Status</TableHead>
                 <TableHead>When</TableHead>
                 <TableHead className="text-right">Result</TableHead>
-                <TableHead className="text-right">Delivered</TableHead>
+                <TableHead className="text-right">Notified</TableHead>
                 <TableHead className="text-right">Read</TableHead>
                 <TableHead className="text-right">Took it</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {list.map((a) => {
+              {visible.map((a) => {
                 const st = STATUS_TONE[a.status] ?? { label: a.status, tone: "muted" as Tone }
                 const when = a.publishedAt ?? a.publishAt ?? a.createdAt
                 const audience = a.delivery?.audience ?? 0
+                const { reads, took } = engagement.get(a.id) ?? { reads: 0, took: 0 }
                 return (
                   <TableRow key={a.id}>
                     <TableCell>
@@ -110,7 +126,9 @@ export default async function AdminAlertsPage({ searchParams }: PageProps<"/admi
                           <span className="font-medium">{a.title}</span>
                         </span>
                         {(followUps.get(a.id) ?? 0) > 0 && (
-                          <span className="text-xs text-muted-foreground">{followUps.get(a.id)} follow-ups</span>
+                          <span className="text-xs text-muted-foreground">
+                            {followUps.get(a.id) === 1 ? "1 follow-up" : `${followUps.get(a.id)} follow-ups`}
+                          </span>
                         )}
                       </Link>
                     </TableCell>
@@ -142,18 +160,37 @@ export default async function AdminAlertsPage({ searchParams }: PageProps<"/admi
                     </TableCell>
                     <TableCell className="text-right text-sm tabular-nums">
                       {audience > 0
-                        ? formatPercent(Math.min(1, a.readCount / audience), { signed: false, digits: 0 })
-                        : a.readCount > 0
-                          ? a.readCount
+                        ? formatPercent(Math.min(1, reads / audience), { signed: false, digits: 0 })
+                        : reads > 0
+                          ? reads
                           : "-"}
                     </TableCell>
-                    <TableCell className="text-right text-sm tabular-nums">{a.tookCount || "-"}</TableCell>
+                    <TableCell className="text-right text-sm tabular-nums">{took || "-"}</TableCell>
                   </TableRow>
                 )
               })}
             </TableBody>
           </Table>
         </div>
+      )}
+      {pages > 1 && (
+        <nav aria-label="Pages" className="flex items-center justify-between gap-2 text-sm text-muted-foreground">
+          <span className="tabular-nums">
+            Page {page} of {pages}
+          </span>
+          <span className="flex gap-2">
+            {page > 1 && (
+              <Button size="sm" variant="outline" render={<Link href={pageHref(page - 1)} />} nativeButton={false}>
+                Newer
+              </Button>
+            )}
+            {page < pages && (
+              <Button size="sm" variant="outline" render={<Link href={pageHref(page + 1)} />} nativeButton={false}>
+                Older
+              </Button>
+            )}
+          </span>
+        </nav>
       )}
     </>
   )

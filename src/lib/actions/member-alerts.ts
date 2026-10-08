@@ -12,6 +12,8 @@ import { getAlert, listFeedAlerts } from "@/lib/data/alerts"
 import { adminDb } from "@/lib/firebase/admin"
 
 const memberRef = (uid: string) => adminDb().collection(COLLECTIONS.members).doc(uid)
+/** gRPC status returned by create() when the document is already there. */
+const ALREADY_EXISTS = 6
 const unauthorized = {
   ok: false,
   code: "unauthorized",
@@ -24,13 +26,13 @@ export async function markAlertRead(alertId: string): Promise<ActionResult> {
   if (!viewer) return unauthorized
   if (typeof alertId !== "string" || alertId.length === 0 || alertId.length > 128)
     return { ok: false, code: "validation", message: "Invalid alert." }
+  const alert = await adminDb().collection(COLLECTIONS.alerts).doc(alertId).get()
+  if (!alert.exists) return { ok: false, code: "not-found", message: "This alert is not available." }
+  // Only the member's own receipt is written, so a burst of members opening a new alert never contends.
   const ref = memberRef(viewer.uid).collection(MEMBER_SUBCOLLECTIONS.alertReads).doc(alertId)
-  const alertRef = adminDb().collection(COLLECTIONS.alerts).doc(alertId)
-  await adminDb().runTransaction(async (tx) => {
-    const [snap, alert] = await Promise.all([tx.get(ref), tx.get(alertRef)])
-    if (snap.exists || !alert.exists) return
-    tx.set(ref, { readAt: Timestamp.now(), took: false })
-    tx.update(alertRef, { readCount: FieldValue.increment(1) })
+  const receipt = { alertId, member: viewer.role === "member", readAt: Timestamp.now(), took: false }
+  await ref.create(receipt).catch((error: unknown) => {
+    if ((error as { code?: number }).code !== ALREADY_EXISTS) throw error
   })
   return { ok: true, data: undefined }
 }
@@ -45,8 +47,7 @@ export async function markAllAlertsRead(): Promise<ActionResult<{ marked: number
   let marked = 0
   for (const snap of existing) {
     if (snap.exists) continue
-    batch.set(snap.ref, { readAt: Timestamp.now(), took: false })
-    batch.update(adminDb().collection(COLLECTIONS.alerts).doc(snap.id), { readCount: FieldValue.increment(1) })
+    batch.set(snap.ref, { alertId: snap.id, member: viewer.role === "member", readAt: Timestamp.now(), took: false })
     marked++
   }
   if (marked > 0) await batch.commit()
@@ -82,7 +83,6 @@ export async function tookAlertTrade(input: {
 
   const db = adminDb()
   const readRef = memberRef(viewer.uid).collection(MEMBER_SUBCOLLECTIONS.alertReads).doc(alert.id)
-  const alertRef = db.collection(COLLECTIONS.alerts).doc(alert.id)
   const tradesRef = memberRef(viewer.uid).collection(MEMBER_SUBCOLLECTIONS.trades)
   const linked = viewer.member.brokerage.linked
   const now = Timestamp.now()
@@ -90,7 +90,8 @@ export async function tookAlertTrade(input: {
 
   const tradeId = await db.runTransaction(async (tx) => {
     const read = await tx.get(readRef)
-    const alreadyTook = read.exists && read.get("took") === true
+    // Recorded once: a second click (or another tab) must not add a second journal entry.
+    if (read.exists && read.get("took") === true) return null
     let created: string | null = null
     if (!linked) {
       const ref = tradesRef.doc()
@@ -138,16 +139,13 @@ export async function tookAlertTrade(input: {
         updatedAt: now,
       })
     }
-    tx.set(
-      readRef,
-      { readAt: read.exists ? (read.get("readAt") as Timestamp) : now, took: true, tookInstrumentKey: key },
-      { merge: true },
-    )
-    if (!alreadyTook)
-      tx.update(alertRef, {
-        tookCount: FieldValue.increment(1),
-        ...(read.exists ? {} : { readCount: FieldValue.increment(1) }),
-      })
+    tx.set(readRef, {
+      alertId: alert.id,
+      member: viewer.role === "member",
+      readAt: read.exists ? (read.get("readAt") as Timestamp) : now,
+      took: true,
+      tookInstrumentKey: key,
+    })
     return created
   })
   refresh()

@@ -2,13 +2,13 @@
  * Member notifications other than alerts: new strike targets and membership reminders.
  * Shared by Cloud Functions (scheduled and triggered) and, in local development, the web server.
  */
-import type { Firestore } from "firebase-admin/firestore"
+import { Timestamp, type Firestore } from "firebase-admin/firestore"
 import type { Messaging } from "firebase-admin/messaging"
 import { addDays, daysBetween, todayInMarketZone } from "@/core/dates"
 import type { IsoDate } from "@/core/domain/types"
 import { formatDate } from "@/core/format"
 import { hasAccess, membershipStatus } from "@/core/membership/quarters"
-import { layout, sendEmail, type EmailConfig } from "./email"
+import { layout, sendEmail, sendEmailBatch, type EmailConfig } from "./email"
 import { readPeriods, toMembershipPeriods } from "./members"
 import { COLLECTIONS, memberSchema, parseDoc, type Member } from "./model"
 import { sendToMembers } from "./push"
@@ -55,6 +55,29 @@ export async function notifyTargetsPublished(
     tag: `targets-${effectiveDate}`,
   })
   return result.sent
+}
+
+/**
+ * Sends "new strike targets" once per published revision, however many times the trigger fires.
+ * Returns how many members were notified, or null when there was nothing to send.
+ */
+export async function notifyTargetsOnce(
+  db: Firestore,
+  messaging: Messaging,
+  effectiveDate: IsoDate,
+  claimId: string,
+): Promise<number | null> {
+  const ref = db.collection(COLLECTIONS.targetUpdates).doc(effectiveDate)
+  const revision = await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref)
+    if (!snap.exists || snap.get("status") !== "published" || snap.get("notify") !== true) return null
+    const current = (snap.get("revision") as number | undefined) ?? 1
+    const claim = snap.get("notifyClaim") as { revision: number; id: string } | undefined
+    if (claim && claim.revision === current && claim.id !== claimId) return null
+    tx.update(ref, { notifyClaim: { revision: current, id: claimId, at: Timestamp.now() } })
+    return current
+  })
+  return revision === null ? null : notifyTargetsPublished(db, messaging, effectiveDate, revision)
 }
 
 /**
@@ -108,4 +131,29 @@ export async function expiredYesterday(db: Firestore): Promise<Member[]> {
       ({ member, status }) => member.role === "member" && status.kind === "expired" && status.last.end === yesterday,
     )
     .map(({ member }) => member)
+}
+
+/** Emails the admins the members whose membership ended yesterday, so nobody is forgotten. */
+export async function emailAdminsExpired(db: Firestore, email: EmailConfig | null, siteUrl: string): Promise<number> {
+  const expired = await expiredYesterday(db)
+  if (expired.length === 0 || !email) return 0
+  const admins = await db.collection(COLLECTIONS.members).where("role", "==", "admin").get()
+  const heading =
+    expired.length === 1 ? "1 membership ended yesterday" : `${expired.length} memberships ended yesterday`
+  const { html, text } = layout({
+    heading,
+    paragraphs: [
+      expired.map((m) => m.fullName).join(", "),
+      "They can still sign in to see their journal and portfolio. Renew them from Members when they pay for the next quarter.",
+    ],
+    cta: { label: "Open Members", href: `${siteUrl.replace(/\/+$/, "")}/admin/members?status=expired` },
+    footer: "Sent to HG Profit Options admins.",
+  })
+  return sendEmailBatch(
+    email,
+    admins.docs
+      .map((d) => d.get("email") as string | undefined)
+      .filter((to): to is string => Boolean(to))
+      .map((to) => ({ to, subject: heading, html, text })),
+  )
 }

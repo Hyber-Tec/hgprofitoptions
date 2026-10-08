@@ -374,3 +374,29 @@ export async function forgetSnapUser(db: Firestore, config: BrokerageConfig, uid
   await snap.deleteUser(config, existing.get("userId") as string).catch(() => undefined)
   await ref.delete()
 }
+
+/** The scheduled sync: every active member with a linked brokerage. One failure does not stop the rest. */
+export async function syncAllBrokerages(
+  db: Firestore,
+  config: BrokerageConfig,
+): Promise<{ synced: number; failed: number; needsReauth: number }> {
+  const users = await db.collection(COLLECTIONS.snaptradeUsers).select().get()
+  let synced = 0
+  let failed = 0
+  let needsReauth = 0
+  for (const doc of users.docs) {
+    const member = await memberRef(db, doc.id).get()
+    if (!member.exists || member.get("status") !== "active") continue
+    const connections = await memberRef(db, doc.id).collection(MEMBER_SUBCOLLECTIONS.connections).limit(1).get()
+    if (connections.empty) continue
+    try {
+      const result = await syncMemberBrokerage(db, config, doc.id)
+      synced++
+      if (result.status === "needs_reauth") needsReauth++
+    } catch (error) {
+      failed++
+      console.error(`Brokerage sync failed for ${doc.id}`, error)
+    }
+  }
+  return { synced, failed, needsReauth }
+}

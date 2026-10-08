@@ -6,12 +6,14 @@
  * Exits (from sell follow-ups or a direct close) accumulate on the root alert; when the portions
  * reach 100% the alert closes and its result is computed from the published buy and sell points.
  */
+import { randomUUID } from "node:crypto"
 import { Timestamp, type Firestore } from "firebase-admin/firestore"
 import type { Messaging } from "firebase-admin/messaging"
 import { alertNotification } from "@/core/alerts"
 import { alertReturn } from "@/core/calc/standing"
 import { todayInMarketZone } from "@/core/dates"
 import { hasAccess, membershipStatus } from "@/core/membership/quarters"
+import { layout, sendEmailBatch, type EmailConfig } from "./email"
 import { readPeriods, toMembershipPeriods, writeAudit } from "./members"
 import { COLLECTIONS, REVISIONS, alertSchema, memberSchema, parseDoc, type AlertDoc } from "./model"
 import { sendToMembers } from "./push"
@@ -209,7 +211,6 @@ export async function postFollowUp(
       resultPct: null,
       sendEmail: root.sendEmail,
       delivery: null,
-      tookCount: 0,
       edited: false,
       editedAt: null,
       revision: 1,
@@ -311,15 +312,65 @@ export async function audienceSize(db: Firestore): Promise<number> {
   return count
 }
 
-/** Sends the notifications for a newly published alert and records delivery stats on it. */
+/** How long a delivery claim holds before another run may take over (a crashed sender). */
+const CLAIM_LEASE_MS = 10 * 60 * 1000
+
+export interface DeliveryOptions {
+  email: EmailConfig | null
+  siteUrl: string
+  /** Identifies this attempt: the trigger's event id, so a retried event resumes its own claim. */
+  claimId: string
+}
+
+export interface DeliveryResult {
+  audience: number
+  queued: number
+  sent: number
+  failed: number
+}
+
+/** The email version of an alert. */
+export function alertEmail(alert: AlertDoc, siteUrl: string): { subject: string; html: string; text: string } {
+  const { title, body } = alertNotification(alert)
+  const { html, text } = layout({
+    heading: title,
+    paragraphs: body.split("\n"),
+    cta: {
+      label: "Open the alert",
+      href: `${siteUrl.replace(/\/+$/, "")}/members/alerts/${alert.parentId ?? alert.id}`,
+    },
+    footer:
+      "You get these emails because you turned on email alerts. Change it in Settings, Notifications. Educational content, not personalized investment advice.",
+  })
+  return { subject: title, html, text }
+}
+
+/** Takes the right to send an alert's notifications. False when it was sent or another run is sending it. */
+async function claimDelivery(db: Firestore, id: string, claimId: string): Promise<boolean> {
+  const ref = alerts(db).doc(id)
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref)
+    if (!snap.exists || snap.get("status") !== "published" || snap.get("delivery")) return false
+    const claim = snap.get("deliveryClaim") as { id: string; at: Timestamp } | null | undefined
+    if (claim && claim.id !== claimId && Date.now() - claim.at.toMillis() < CLAIM_LEASE_MS) return false
+    tx.update(ref, { deliveryClaim: { id: claimId, at: Timestamp.now() } })
+    return true
+  })
+}
+
+/**
+ * Sends the notifications for a newly published alert (browser push, and email for members who chose
+ * it) and records delivery stats on it. Safe to call more than once: only one caller sends.
+ */
 export async function deliverAlert(
   db: Firestore,
   messaging: Messaging,
   id: string,
-  options: { sendEmail?: (to: { email: string; fullName: string }[], alert: AlertDoc) => Promise<number> } = {},
-): Promise<{ queued: number; sent: number; failed: number }> {
+  options: DeliveryOptions,
+): Promise<DeliveryResult | null> {
+  if (!(await claimDelivery(db, id, options.claimId))) return null
   const alert = await readAlert(db, id)
-  if (!alert || alert.status !== "published") return { queued: 0, sent: 0, failed: 0 }
+  if (!alert) return null
   const recipients = await alertRecipients(db, alert, "push")
   const { title, body } = alertNotification(alert)
   const url = `/members/alerts/${alert.parentId ?? alert.id}${alert.parentId ? `?f=${alert.id}` : ""}`
@@ -330,18 +381,46 @@ export async function deliverAlert(
     { title, body, url, tag: alert.parentId ?? alert.id, alertId: alert.id },
   )
   let emailed = 0
-  if (options.sendEmail && alert.sendEmail) {
-    const emailRecipients = await alertRecipients(db, alert, "email")
-    if (emailRecipients.length > 0) emailed = await options.sendEmail(emailRecipients, alert)
+  let emailFailed = 0
+  if (options.email && alert.sendEmail) {
+    const to = await alertRecipients(db, alert, "email")
+    const message = alertEmail(alert, options.siteUrl)
+    emailed = await sendEmailBatch(
+      options.email,
+      to.map((r) => ({ to: r.email, ...message })),
+    )
+    emailFailed = to.length - emailed
   }
-  const audience = await audienceSize(db)
   const delivery = {
-    audience,
-    queued: push.queued + emailed,
+    audience: await audienceSize(db),
+    queued: push.queued + emailed + emailFailed,
     sent: push.sent + emailed,
-    failed: push.failed,
+    failed: push.failed + emailFailed,
     finishedAt: Timestamp.now(),
   }
   await alerts(db).doc(id).update({ delivery })
   return delivery
+}
+
+/**
+ * Alerts published in the last day whose notifications never went out (a missed trigger or a crashed
+ * sender). Run by the every-minute job.
+ */
+export async function deliverStragglers(
+  db: Firestore,
+  messaging: Messaging,
+  options: Omit<DeliveryOptions, "claimId">,
+): Promise<string[]> {
+  const since = Timestamp.fromMillis(Date.now() - 24 * 60 * 60 * 1000)
+  const settle = Date.now() - 2 * 60 * 1000
+  const pending = await alerts(db).where("status", "==", "published").where("delivery", "==", null).get()
+  const sent: string[] = []
+  for (const doc of pending.docs) {
+    const publishedAt = doc.get("publishedAt") as Timestamp | null | undefined
+    // Give the trigger a couple of minutes first, and never notify about old alerts.
+    if (!publishedAt || publishedAt.toMillis() < since.toMillis() || publishedAt.toMillis() > settle) continue
+    const result = await deliverAlert(db, messaging, doc.id, { ...options, claimId: `sweep-${randomUUID()}` })
+    if (result) sent.push(doc.id)
+  }
+  return sent
 }

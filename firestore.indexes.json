@@ -112,6 +112,23 @@
         { "fieldPath": "status", "order": "ASCENDING" },
         { "fieldPath": "openedAt", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "alertReads",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "alertId", "order": "ASCENDING" },
+        { "fieldPath": "member", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "alertReads",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "alertId", "order": "ASCENDING" },
+        { "fieldPath": "member", "order": "ASCENDING" },
+        { "fieldPath": "took", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

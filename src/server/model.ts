@@ -335,9 +335,8 @@ export const alertSchema = z.object({
     })
     .nullable()
     .default(null),
-  /** Members who opened the alert. */
-  readCount: z.number().default(0),
-  tookCount: z.number().default(0),
+  /** Who is sending the notifications (an event id), so a trigger that fires twice sends once. */
+  deliveryClaim: z.object({ id: z.string(), at: timestamp }).nullable().default(null),
   edited: z.boolean().default(false),
   editedAt: optionalTimestamp,
   revision: z.number().int().default(1),
@@ -346,7 +345,11 @@ export const alertSchema = z.object({
 })
 export type AlertDoc = z.infer<typeof alertSchema> & { id: string }
 
+/** members/{uid}/alertReads/{alertId}. Read and "took it" counts are aggregation queries over these. */
 export const alertReadSchema = z.object({
+  alertId: z.string(),
+  /** False for admins, so the counts reflect members. */
+  member: z.boolean().default(false),
   readAt: timestamp,
   took: z.boolean().default(false),
   /** Set by "I took this trade" so a later brokerage sync can link the matching trade. */

@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation"
 import { LuArrowUpRight, LuCalendarClock } from "react-icons/lu"
 import { formatDateTimeET, formatPercent, formatPrice } from "@/core/format"
 import { requireAdmin } from "@/lib/auth/guards"
-import { getAlert, listAlertRevisions, listFollowUps } from "@/lib/data/alerts"
+import { alertEngagement, getAlert, listAlertRevisions, listFollowUps } from "@/lib/data/alerts"
 import { integrations } from "@/lib/env.server"
 import { composerInitial, composerOptions } from "@/lib/admin/alert-form"
 import { AlertComposer } from "@/components/admin/alert-composer"
@@ -52,7 +52,12 @@ export default async function AdminAlertPage({ params }: PageProps<"/admin/alert
     )
   }
 
-  const [followUps, revisions] = await Promise.all([listFollowUps(alert.id), listAlertRevisions(alert.id)])
+  const [followUps, revisions, engagement] = await Promise.all([
+    listFollowUps(alert.id),
+    listAlertRevisions(alert.id),
+    alertEngagement([alert.id]),
+  ])
+  const { reads, took } = engagement.get(alert.id) ?? { reads: 0, took: 0 }
   const remaining = Math.max(0, 1 - alert.exits.reduce((s, e) => s + e.portion, 0))
   const audience = alert.delivery?.audience ?? 0
 
@@ -84,12 +89,12 @@ export default async function AdminAlertPage({ params }: PageProps<"/admin/alert
         <Card size="sm">
           <CardContent>
             <Stat
-              label="Delivered"
+              label="Push and email sent"
               value={alert.delivery?.sent ?? "-"}
               hint={
                 alert.delivery
-                  ? `${alert.delivery.failed} failed · ${audience} members with access`
-                  : "Not delivered yet"
+                  ? `${alert.delivery.failed > 0 ? `${alert.delivery.failed} failed · ` : ""}${audience} members have access`
+                  : "Sending now"
               }
             />
           </CardContent>
@@ -98,18 +103,14 @@ export default async function AdminAlertPage({ params }: PageProps<"/admin/alert
           <CardContent>
             <Stat
               label="Read"
-              value={
-                audience > 0
-                  ? formatPercent(Math.min(1, alert.readCount / audience), { signed: false, digits: 0 })
-                  : alert.readCount
-              }
-              hint={`${alert.readCount} members opened it`}
+              value={audience > 0 ? formatPercent(Math.min(1, reads / audience), { signed: false, digits: 0 }) : reads}
+              hint={`${reads} ${reads === 1 ? "member" : "members"} opened it`}
             />
           </CardContent>
         </Card>
         <Card size="sm">
           <CardContent>
-            <Stat label="Took the trade" value={alert.tookCount} hint="Marked in their journal" />
+            <Stat label="Took the trade" value={took} hint="Marked in their journal" />
           </CardContent>
         </Card>
         <Card size="sm">

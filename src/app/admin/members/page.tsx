@@ -13,8 +13,9 @@ import { Button } from "@/components/ui/button"
 
 export const metadata: Metadata = { title: "Members" }
 
-export default async function AdminMembersPage() {
+export default async function AdminMembersPage({ searchParams }: PageProps<"/admin/members">) {
   await requireAdmin({ next: "/admin/members" })
+  const { status } = await searchParams
   const [rows, invites] = await Promise.all([listMemberRows(), listInvites("pending")])
   const now = quarterOf(todayInMarketZone())
   const quarters = [-1, 0, 1, 2].map((n) => addQuarters(now.year, now.q, n)).map((q) => quarterLabel(q.year, q.q))
@@ -36,7 +37,11 @@ export default async function AdminMembersPage() {
           </>
         }
       />
-      <MembersTable rows={rows.map(toMemberListRow)} quarters={quarters} />
+      <MembersTable
+        rows={rows.map(toMemberListRow)}
+        quarters={quarters}
+        initialStatus={typeof status === "string" ? status : undefined}
+      />
       {invites.length > 0 && (
         <section className="flex flex-col gap-3">
           <h2 className="text-base font-semibold">Pending invitations ({invites.length})</h2>

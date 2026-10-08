@@ -18,6 +18,7 @@ import { alertReturn } from "../src/core/calc/standing"
 import { buildTrades, instrumentKey } from "../src/core/calc/trades"
 import {
   addDays,
+  isoDateInZone,
   isWeekend,
   lastCompletedWeek,
   nextFriday,
@@ -584,8 +585,6 @@ function alertDoc(a: DemoAlert, adminUid: string) {
             finishedAt: a.publishedAt ? ts(new Date(a.publishedAt.getTime() + 4000)) : null,
           }
         : null,
-    readCount: 0,
-    tookCount: 0,
     edited: false,
     editedAt: null,
     revision: 1,
@@ -1217,14 +1216,27 @@ async function main(): Promise<void> {
       const { open } = await seedTrades(db, m, m.linked ? "demo-account" : null, tickers, alerts, today)
       if (m.linked) await seedAccount(db, m, open, tickers, today)
     }
-    // Most members have read the older alerts.
+    // Most members who had access at the time read the older alerts; HG reads them too.
     for (const a of alerts.filter((x) => x.publishedAt && x.status !== "draft")) {
-      if (a.publishedAt && a.publishedAt.getTime() < Date.now() - 2 * 86_400_000 && rand() < 0.9) {
-        await memberRef
-          .collection(MEMBER_SUBCOLLECTIONS.alertReads)
-          .doc(a.id)
-          .set({ readAt: ts(new Date(a.publishedAt.getTime() + 600_000)), took: false })
-      }
+      if (!a.publishedAt || a.publishedAt.getTime() > Date.now() - 2 * 86_400_000 || rand() >= 0.9) continue
+      const publishedOn = isoDateInZone(a.publishedAt)
+      const covered = m.periods.some((spec) => {
+        const p = periodFromQuarters(...spec)
+        return p.start <= publishedOn && publishedOn <= p.end
+      })
+      if (m.role === "member" && (m.status === "suspended" || !covered)) continue
+      // Members who traded the alert said so with "I took this trade".
+      const took = await memberRef.collection(MEMBER_SUBCOLLECTIONS.trades).where("alertId", "==", a.id).limit(1).get()
+      await memberRef
+        .collection(MEMBER_SUBCOLLECTIONS.alertReads)
+        .doc(a.id)
+        .set({
+          alertId: a.id,
+          member: m.role === "member",
+          readAt: ts(new Date(a.publishedAt.getTime() + 600_000)),
+          took: !took.empty,
+          tookInstrumentKey: (took.docs[0]?.get("instrumentKey") as string | undefined) ?? null,
+        })
     }
     await computeMemberStats(db, uid, today)
   }
@@ -1269,17 +1281,6 @@ async function main(): Promise<void> {
       acceptedUid: null,
       acceptedAt: null,
     })
-
-  // Read counters on alerts, matching the receipts written above.
-  const reads = await db.collectionGroup(MEMBER_SUBCOLLECTIONS.alertReads).get()
-  const readCounts = new Map<string, number>()
-  for (const r of reads.docs) readCounts.set(r.id, (readCounts.get(r.id) ?? 0) + 1)
-  for (const [alertId, count] of readCounts)
-    await db
-      .collection(COLLECTIONS.alerts)
-      .doc(alertId)
-      .update({ readCount: count })
-      .catch(() => undefined)
 
   await seedContent(db, bucket, today)
   await computeStanding(db, today)

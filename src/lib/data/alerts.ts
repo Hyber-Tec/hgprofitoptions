@@ -99,6 +99,28 @@ export async function readReceipts(uid: string, alertIds: readonly string[]): Pr
   return map
 }
 
+export interface AlertEngagement {
+  /** Members who opened the alert. */
+  reads: number
+  /** Members who marked that they took the trade. */
+  took: number
+}
+
+/** Opens and "took it" marks per alert by members (not admins), counted from read receipts. */
+export async function alertEngagement(alertIds: readonly string[]): Promise<Map<string, AlertEngagement>> {
+  const receipts = adminDb().collectionGroup(MEMBER_SUBCOLLECTIONS.alertReads).where("member", "==", true)
+  const entries = await Promise.all(
+    alertIds.map(async (id) => {
+      const [reads, took] = await Promise.all([
+        receipts.where("alertId", "==", id).count().get(),
+        receipts.where("alertId", "==", id).where("took", "==", true).count().get(),
+      ])
+      return [id, { reads: reads.data().count, took: took.data().count }] as const
+    }),
+  )
+  return new Map(entries)
+}
+
 /** Unread among the latest 30 alerts, counting only alerts posted after the member joined. */
 export async function unreadCount(uid: string, since: Date): Promise<number> {
   const latest = await listFeedAlerts({ limit: 30, window: 30 })
