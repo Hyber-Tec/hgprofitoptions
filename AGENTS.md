@@ -49,6 +49,10 @@ These apply to people and AI agents alike. When something is unclear, ask the ow
 - **Copy**: plain, friendly English; hyphens, never em dashes. Educational content, never personalized
   investment advice.
 - **Private data**: HG's source files stay in `docs/private` (git-ignored). The repository is public.
+- **Instant navigation**: every route folder under `members/` and `admin/` whose page changes on a
+  click (sub-pages or a `[param]`) has a `loading.tsx` with `PageSkeleton`. Pages read the session, so
+  without one a click shows nothing until the server finishes. Filters the browser applies by itself
+  use `useUpdateSearchParams({ clientOnly: true })`, which skips the server round trip.
 - **Static files**: never read files from `public/` in server code. Next.js would put a partial
   `public/` folder in the server bundle, and App Hosting's build then skips copying the real one, so
   every other public file 404s in production. Keep shared assets in TypeScript modules instead.

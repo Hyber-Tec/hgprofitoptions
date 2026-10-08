@@ -104,8 +104,13 @@ Cloud Run's "no invoker check" setting either, because each rollout resets it. S
 - `pnpm deploy:web` builds and rolls out App Hosting, then `scripts/sync-web-service.ts` copies that
   service's configuration (image, environment, secrets, service account, sizing) to a second service,
   `hgprofitoptions-web`, with the invoker check off.
+- `hgprofitoptions-web` keeps one instance running, so members never wait several seconds for a cold
+  start. While idle it costs about $13 a month (1 CPU and 1 GiB at Cloud Run's idle rate). The App
+  Hosting service scales to zero; nobody is sent to its address.
 - `firebase.json` rewrites every hgprofitoptions.web.app request to `hgprofitoptions-web`. Hosting
-  passes only the `__session` cookie to the app, which is the session cookie it uses.
+  passes only the `__session` cookie to the app, which is the session cookie it uses. It also lets
+  browsers cache the icons and the web app manifest for a day; Next.js would have them downloaded
+  again on every page change.
 - The App Hosting address keeps working too. If App Hosting is ever connected to GitHub for automatic
   rollouts, run `pnpm exec tsx scripts/sync-web-service.ts` after each one, or hgprofitoptions.web.app
   keeps serving the previous version.

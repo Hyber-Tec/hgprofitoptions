@@ -106,7 +106,8 @@ export function TargetsTable({
 }) {
   const router = useRouter()
   const params = useSearchParams()
-  const [update] = useUpdateSearchParams()
+  // The page always holds every row; the group tabs and the changes toggle only filter them here.
+  const [update] = useUpdateSearchParams({ clientOnly: true })
   const group = params.get("group") ?? "all"
   const showChanges = params.get("changes") === "1"
   const [query, setQuery] = useState("")

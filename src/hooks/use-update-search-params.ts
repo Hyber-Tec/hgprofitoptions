@@ -3,8 +3,17 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useCallback, useTransition } from "react"
 
-/** Updates URL search params in place (no scroll, no history entry) for filter controls. */
-export function useUpdateSearchParams(): [(updates: Record<string, string | null>) => void, boolean] {
+/**
+ * Updates URL search params in place (no scroll, no history entry) for filter controls.
+ *
+ * With `clientOnly`, for filters the component applies by itself (the server renders the same page
+ * whatever their value), only the address changes: Next.js keeps useSearchParams in sync with the
+ * History API, so the component re-renders at once without asking the server for the page again.
+ */
+export function useUpdateSearchParams({ clientOnly = false }: { clientOnly?: boolean } = {}): [
+  (updates: Record<string, string | null>) => void,
+  boolean,
+] {
   const router = useRouter()
   const pathname = usePathname()
   const params = useSearchParams()
@@ -17,9 +26,11 @@ export function useUpdateSearchParams(): [(updates: Record<string, string | null
         else next.set(key, value)
       }
       const query = next.toString()
-      startTransition(() => router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false }))
+      const url = query ? `${pathname}?${query}` : pathname
+      if (clientOnly) window.history.replaceState(null, "", url)
+      else startTransition(() => router.replace(url, { scroll: false }))
     },
-    [router, pathname, params],
+    [router, pathname, params, clientOnly],
   )
   return [update, pending]
 }

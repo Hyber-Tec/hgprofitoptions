@@ -1,7 +1,9 @@
 import "server-only"
 import { randomUUID } from "node:crypto"
+import type { DecodedIdToken } from "firebase-admin/auth"
 import { Timestamp } from "firebase-admin/firestore"
 import { cookies } from "next/headers"
+import { after } from "next/server"
 import { cache } from "react"
 import { COLLECTIONS, MEMBER_SUBCOLLECTIONS, memberSettingsSchema, type Member } from "@/server/model"
 import { adminAuth, adminDb } from "@/lib/firebase/admin"
@@ -81,26 +83,51 @@ function parseCookie(value: string | undefined): { sid: string; jwt: string } | 
   return { sid: value.slice(0, split), jwt: value.slice(split + 1) }
 }
 
-/** The verified session for this request, or null. Cached per request. */
-export const readSession = cache(async (): Promise<SessionInfo | null> => {
+/**
+ * The session cookie after a local check of its signature and expiry, which needs no network call.
+ * readSession adds the revocation and session record checks. Cached per request.
+ */
+const signedCookie = cache(async (): Promise<{ sid: string; jwt: string; decoded: DecodedIdToken } | null> => {
   const store = await cookies()
   const parsed = parseCookie(store.get(SESSION_COOKIE)?.value)
   if (!parsed) return null
   try {
-    const decoded = await adminAuth().verifySessionCookie(parsed.jwt, true)
-    const ref = adminDb()
-      .collection(COLLECTIONS.members)
-      .doc(decoded.uid)
-      .collection(MEMBER_SUBCOLLECTIONS.sessions)
-      .doc(parsed.sid)
-    const session = await ref.get()
+    return { ...parsed, decoded: await adminAuth().verifySessionCookie(parsed.jwt) }
+  } catch {
+    return null
+  }
+})
+
+/**
+ * The member this request's cookie was issued to, before readSession's revocation and session checks.
+ * Callers use it to load that member's records alongside those checks, and use the records only if
+ * readSession then returns a session.
+ */
+export async function cookieUid(): Promise<string | null> {
+  return (await signedCookie())?.decoded.uid ?? null
+}
+
+/** The verified session for this request, or null. Cached per request. */
+export const readSession = cache(async (): Promise<SessionInfo | null> => {
+  const cookie = await signedCookie()
+  if (!cookie) return null
+  const { sid, jwt, decoded } = cookie
+  const ref = adminDb()
+    .collection(COLLECTIONS.members)
+    .doc(decoded.uid)
+    .collection(MEMBER_SUBCOLLECTIONS.sessions)
+    .doc(sid)
+  try {
+    // Revoked sign-ins and disabled accounts (one Auth call), checked alongside the session record.
+    const [, session] = await Promise.all([adminAuth().verifySessionCookie(jwt, true), ref.get()])
     if (!session.exists) return null
     const lastSeen = session.get("lastSeenAt") as Timestamp | undefined
     if (!lastSeen || Date.now() - lastSeen.toMillis() > 10 * 60 * 1000)
-      await ref.update({ lastSeenAt: Timestamp.now() })
+      // After the response. The member may have signed this session out in the meantime.
+      after(() => ref.update({ lastSeenAt: Timestamp.now() }).catch(() => undefined))
     return {
       uid: decoded.uid,
-      sid: parsed.sid,
+      sid,
       email: decoded.email ?? null,
       mfa: Boolean(decoded.firebase.sign_in_second_factor),
     }

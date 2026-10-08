@@ -6,7 +6,8 @@
  * stay public through Cloud Run's "no invoker check" setting either, because every rollout resets it.
  * So after each App Hosting rollout, this script copies that service's current configuration (image,
  * environment, secrets, service account, sizing) to a second service, hgprofitoptions-web, with the
- * invoker check off. firebase.json points hgprofitoptions.web.app at that service.
+ * invoker check off and one instance kept running. firebase.json points hgprofitoptions.web.app at
+ * that service.
  *
  *   pnpm deploy:web   # App Hosting build and rollout, then this copy
  */
@@ -42,6 +43,9 @@ const source = await call<{ template: Record<string, unknown> }>(`${BASE}/servic
 const template = Object.fromEntries(
   Object.entries(source.template).filter(([key]) => !["revision", "labels", "annotations"].includes(key)),
 )
+// One instance stays running. Without it, the first visitor after about 15 quiet minutes waits
+// several seconds for a new one to start. While idle it costs about $13 a month (1 CPU, 1 GiB).
+template.scaling = { ...(template.scaling as Record<string, unknown> | undefined), minInstanceCount: 1 }
 const containers = template.containers as { image: string }[] | undefined
 const image = containers?.[0]?.image
 if (!image) throw new Error(`${SOURCE} has no container image yet. Deploy App Hosting first.`)

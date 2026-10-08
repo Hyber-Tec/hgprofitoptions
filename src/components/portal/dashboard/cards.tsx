@@ -28,7 +28,6 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Progress } from "@/components/ui/progress"
-import { Skeleton } from "@/components/ui/skeleton"
 import { ButtonAnchor, ButtonLink } from "@/components/shared/button-link"
 import { AlertCard, toAlertView } from "../alerts/alert-card"
 import { Signed, Stat, ToneBadge, type Tone } from "../display"
@@ -40,21 +39,6 @@ function ViewAll({ href, children }: { href: Route; children: ReactNode }) {
       {children}
       <LuArrowRight />
     </ButtonLink>
-  )
-}
-
-export function CardSkeleton({ lines = 3 }: { lines?: number }) {
-  return (
-    <Card>
-      <CardHeader>
-        <Skeleton className="h-5 w-32" />
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
-        {Array.from({ length: lines }, (_, i) => (
-          <Skeleton key={i} className="h-10 w-full" />
-        ))}
-      </CardContent>
-    </Card>
   )
 }
 
