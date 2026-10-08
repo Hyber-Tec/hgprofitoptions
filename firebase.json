@@ -8,12 +8,26 @@
   "storage": {
     "rules": "storage.rules"
   },
+  "hosting": {
+    "site": "hgprofitoptions",
+    "public": "hosting",
+    "ignore": ["**/.*"],
+    "rewrites": [
+      {
+        "source": "**",
+        "run": {
+          "serviceId": "hgprofitoptions",
+          "region": "us-central1"
+        }
+      }
+    ]
+  },
   "functions": [
     {
       "source": "functions",
       "codebase": "default",
       "runtime": "nodejs22",
-      "ignore": ["node_modules", ".git", "src", "*.log", "tsconfig.json", ".secret.local", ".env*"],
+      "ignore": ["node_modules", ".git", "src", "*.log", "tsconfig.json", ".secret.local", ".env.local"],
       "predeploy": [
         "pnpm --dir \"$PROJECT_DIR\" build:functions",
         "npm --prefix \"$RESOURCE_DIR\" ci --no-audit --no-fund"

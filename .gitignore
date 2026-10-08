@@ -75,3 +75,4 @@ public/firebase-messaging-sw.js
 !.env.e2e
 /test-results/
 /playwright-report/
+!functions/.env.hgprofitoptions-hybertec

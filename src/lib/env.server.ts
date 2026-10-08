@@ -1,10 +1,14 @@
 import "server-only"
 import { z } from "zod"
 
+/** Unset, empty or "none" (the placeholder for an optional secret that is turned off) all mean off. */
 const optional = z
   .string()
   .optional()
-  .transform((v) => (v && v.trim().length > 0 ? v.trim() : null))
+  .transform((v) => {
+    const value = v?.trim() ?? ""
+    return value === "" || value.toLowerCase() === "none" ? null : value
+  })
 
 const schema = z.object({
   RESEND_API_KEY: optional,
