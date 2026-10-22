@@ -1,29 +1,19 @@
 "use client"
 
 import { useTheme } from "next-themes"
-import { useSyncExternalStore } from "react"
 import { LuMoon, LuSun } from "react-icons/lu"
 import { Button } from "@/components/ui/button"
 
-const subscribe = () => () => {}
-
 export function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme()
-  // The theme is only known in the browser; render a neutral icon on the server.
-  const mounted = useSyncExternalStore(
-    subscribe,
-    () => true,
-    () => false,
-  )
-  const dark = !mounted || resolvedTheme === "dark"
+  // The icon and label follow the theme class on <html>, which is set before the page paints, so they are
+  // right on the server-rendered page in either area's default.
   return (
-    <Button
-      variant="ghost"
-      size="icon"
-      aria-label={dark ? "Switch to light theme" : "Switch to dark theme"}
-      onClick={() => setTheme(dark ? "light" : "dark")}
-    >
-      {dark ? <LuSun /> : <LuMoon />}
+    <Button variant="ghost" size="icon" onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}>
+      <LuMoon className="dark:hidden" />
+      <LuSun className="hidden dark:block" />
+      <span className="sr-only dark:hidden">Switch to dark theme</span>
+      <span className="sr-only hidden dark:inline">Switch to light theme</span>
     </Button>
   )
 }

@@ -16,6 +16,8 @@ test("a stock page opens from a tool", async ({ page }) => {
 
 test("an active member lands on their dashboard", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 1, name: "Welcome back, Ava" })).toBeVisible()
+  // The sign-in page opens light like the site; the member area opens dark.
+  await expect(page.locator("html")).toHaveClass(/\bdark\b/)
   await expectNoHorizontalScroll(page)
 })
 
