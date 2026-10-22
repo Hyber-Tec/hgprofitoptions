@@ -65,6 +65,12 @@ test("the About page shows every photo whole", async ({ page }) => {
   }
 })
 
+test("browsers that ask for /favicon.ico get the icon", async ({ request }) => {
+  const response = await request.get("/favicon.ico")
+  expect(response.status()).toBe(200)
+  expect(response.headers()["content-type"]).toMatch(/^image\//)
+})
+
 test("unknown pages show the not-found page", async ({ page, allowConsole }) => {
   allowConsole(/status of 404/)
   const response = await page.goto("/no-such-page")

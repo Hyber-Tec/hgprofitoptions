@@ -14,7 +14,7 @@
     "ignore": ["**/.*"],
     "headers": [
       {
-        "source": "/@(icon.png|apple-icon.png|manifest.webmanifest)",
+        "source": "/@(favicon.ico|icon.png|apple-icon.png|manifest.webmanifest)",
         "headers": [
           {
             "key": "Cache-Control",
