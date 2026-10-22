@@ -8,4 +8,5 @@
 
 ## Deploy notes
 
-Rules, indexes or functions to deploy after merge, new secrets or settings.
+Merging deploys everything once CI passes. List secrets or settings to set before merging, and anything
+the deploy cannot do by itself (docs/deploy.md).

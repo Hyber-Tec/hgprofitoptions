@@ -22,6 +22,7 @@
     "build:sw": "tsx --env-file-if-exists=.env.local scripts/build-sw.ts",
     "build:functions": "tsx scripts/build-functions.ts",
     "deploy:web": "firebase deploy --only apphosting --project hgprofitoptions-hybertec && tsx scripts/sync-web-service.ts",
+    "deploy:functions": "tsx scripts/deploy-functions.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
