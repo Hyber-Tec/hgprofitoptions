@@ -21,6 +21,18 @@ test("the home page introduces the class and links to booking", async ({ page })
   await expectNoHorizontalScroll(page)
 })
 
+test("the site opens light, even on a dark device, and a picked theme sticks", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "dark" })
+  await page.goto("/")
+  const html = page.locator("html")
+  await expect(html).toHaveClass(/\blight\b/)
+  await page.getByRole("button", { name: "Switch to dark theme" }).click()
+  await expect(html).toHaveClass(/\bdark\b/)
+  await page.reload()
+  await expect(html).toHaveClass(/\bdark\b/)
+  await expect(page.getByRole("button", { name: "Switch to light theme" })).toBeVisible()
+})
+
 test("the testimonials can be paused", async ({ page }) => {
   await page.goto("/#reviews")
   const pause = page.getByRole("button", { name: "Pause testimonials" })
