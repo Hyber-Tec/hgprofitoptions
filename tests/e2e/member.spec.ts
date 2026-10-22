@@ -22,11 +22,11 @@ test("an active member lands on their dashboard", async ({ page }) => {
 test("alerts open to their detail page", async ({ page }) => {
   await page.goto("/members/alerts")
   await expect(page.getByRole("heading", { level: 1, name: "Alerts" })).toBeVisible()
-  const first = page.locator('a[href^="/members/alerts/"]').first()
-  const title = (await first.innerText()).split("\n")[0] ?? ""
+  const first = page.getByRole("article").first().getByRole("link")
+  const title = (await first.innerText()).trim()
   await first.click()
   await expect(page).toHaveURL(/\/members\/alerts\/[^/]+$/)
-  await expect(page.getByText(title.trim()).first()).toBeVisible()
+  await expect(page.getByRole("heading", { level: 1, name: title, exact: true })).toBeVisible()
 })
 
 for (const [path, heading] of [

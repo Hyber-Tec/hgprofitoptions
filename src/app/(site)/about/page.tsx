@@ -20,18 +20,25 @@ const FACTS = [
   "Top 100 NHC handicapper",
 ]
 
+type Photo = { src: string; alt: string; width: number; height: number }
+
 const TIMELINE: {
   period: string
   title: string
   body: string
-  image?: { src: string; alt: string }
+  image?: Photo
   Icon: IconType
 }[] = [
   {
     period: "2003 to 2021",
     title: "Early career",
     body: "HG was a stakes-winning thoroughbred trainer, earning over $2 million in purse winnings and establishing a reputation for precision, discipline, and competitive excellence. His ability to analyze patterns, manage risk, and execute under pressure seamlessly transitioned into the world of trading.",
-    image: { src: "/media/about/hg-racing.webp", alt: "One of HG's thoroughbreds racing to the finish line" },
+    image: {
+      src: "/media/about/hg-racing.webp",
+      alt: "Waiting for a Star, a horse HG trained, winning at Tampa Bay Downs in 2021",
+      width: 840,
+      height: 708,
+    },
     Icon: LuTrophy,
   },
   {
@@ -50,10 +57,16 @@ const TIMELINE: {
     period: "Today",
     title: "Recognitions",
     body: "Outside of trading, HG is a top-ranked thoroughbred handicapper, competing annually in Las Vegas for the coveted title of NHC (National Horseplayers Championship) champion. He is ranked among the top 100 handicappers worldwide, a testament to his sharp analytical skills and competitive drive.",
-    image: { src: "/media/about/hg-trophy.webp", alt: "A championship trophy won by HG" },
+    image: { src: "/media/about/hg-trophy.webp", alt: "A championship trophy won by HG", width: 672, height: 896 },
     Icon: LuTarget,
   },
 ]
+
+// Timeline photos keep their own shape, so nothing in them is cut off. Each covers the area of a
+// 256 px square, which gives a wide photo and a tall one the same weight on the page.
+function photoWidth({ width, height }: Photo) {
+  return Math.round(256 * Math.sqrt(width / height))
+}
 
 export default function AboutPage() {
   return (
@@ -111,13 +124,17 @@ export default function AboutPage() {
                   <p className="leading-relaxed text-pretty text-muted-foreground">{body}</p>
                 </div>
                 {image && (
-                  <div className="w-full max-w-[220px] overflow-hidden rounded-xl border bg-muted">
+                  <div
+                    className="max-w-full overflow-hidden rounded-xl border bg-muted"
+                    style={{ width: photoWidth(image) }}
+                  >
                     <Image
                       src={image.src}
                       alt={image.alt}
-                      width={960}
-                      height={1200}
-                      className="aspect-[4/5] h-auto w-full object-cover"
+                      width={image.width}
+                      height={image.height}
+                      sizes={`${photoWidth(image)}px`}
+                      className="h-auto w-full"
                     />
                   </div>
                 )}
