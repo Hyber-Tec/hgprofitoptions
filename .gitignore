@@ -49,6 +49,8 @@ docs/private/
 *-firebase-adminsdk-*.json
 *.key
 .runtimeconfig.json
+# written by the deploy job's Google sign-in; also keeps it out of the App Hosting source upload
+gha-creds-*.json
 
 # firebase
 .firebase/
