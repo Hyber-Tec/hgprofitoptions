@@ -1,4 +1,3 @@
-import { cookies } from "next/headers"
 import type { ReactNode } from "react"
 import { answersQuestions } from "@/core/levels"
 import { membershipSummary } from "@/core/membership/summary"
@@ -22,8 +21,6 @@ export async function PortalShell({
   viewer: Viewer
   children: ReactNode
 }) {
-  const cookieStore = await cookies()
-  const sidebarOpen = cookieStore.get("sidebar_state")?.value !== "false"
   const since = viewer.member.createdAt
   // Alerts published after the count are news to this page, so they get a toast.
   const [unread, chatCount, tests] = await Promise.all([
@@ -43,7 +40,7 @@ export async function PortalShell({
         countedAtMs={unread.countedAt}
         initialUnread={unread.count}
       >
-        <PortalSidebarProvider serverOpen={sidebarOpen}>
+        <PortalSidebarProvider initialOpen={!viewer.member.sidebarCollapsed}>
           <a
             href="#main"
             className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:ring-3 focus:ring-ring/50"
