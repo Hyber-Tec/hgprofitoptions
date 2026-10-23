@@ -17,6 +17,7 @@
     "seed:demo": "tsx --env-file=.env.local scripts/seed-demo.ts",
     "import:source": "tsx --env-file=.env.local scripts/import-source-files.ts",
     "market:fake": "tsx --env-file=.env.local scripts/fake-market-data.ts",
+    "ai:fake": "tsx scripts/fake-ai.ts",
     "auth:totp": "tsx --env-file=.env.local scripts/enable-totp.ts",
     "auth:guard": "tsx scripts/enable-signup-guard.ts",
     "icons:swap": "tsx scripts/swap-icons.ts",
@@ -27,6 +28,7 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "~0.132.1",
     "@base-ui/react": "^1.8.0",
     "@date-fns/tz": "^1.5.0",
     "@hookform/resolvers": "^5.9.1",
@@ -36,6 +38,7 @@
     "country-flag-icons": "^1.6.20",
     "date-fns": "^4.4.0",
     "embla-carousel-react": "^8.6.0",
+    "fflate": "^0.8.3",
     "firebase": "^12.19.0",
     "firebase-admin": "^14.5.0",
     "lightweight-charts": "^5.2.1",

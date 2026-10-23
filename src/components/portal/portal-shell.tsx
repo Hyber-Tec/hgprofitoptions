@@ -5,6 +5,7 @@ import { membershipSummary } from "@/core/membership/summary"
 import type { Viewer } from "@/lib/auth/guards"
 import { countUnread } from "@/lib/data/alerts"
 import { chatBadge } from "@/lib/data/chat"
+import { countOpenAssignments } from "@/lib/data/quizzes"
 import { AreaTheme } from "@/components/shared/area-theme"
 import { SidebarInset } from "@/components/ui/sidebar"
 import { AppSidebar, type PortalArea } from "./app-sidebar"
@@ -26,9 +27,10 @@ export async function PortalShell({
   const sidebarOpen = cookieStore.get("sidebar_state")?.value !== "false"
   const since = viewer.member.createdAt
   // Alerts published after the count are news to this page, so they get a toast.
-  const [unread, chatCount] = await Promise.all([
+  const [unread, chatCount, tests] = await Promise.all([
     viewer.hasAccess ? countUnread(viewer.uid, since) : { count: 0, countedAt: 0 },
     chatBadge(viewer),
+    viewer.hasAccess ? countOpenAssignments(viewer.uid) : 0,
   ])
   const summary = membershipSummary(viewer.status)
   const person = { fullName: viewer.fullName, email: viewer.email, role: viewer.role }
@@ -55,6 +57,7 @@ export async function PortalShell({
             hasAccess={viewer.hasAccess}
             membership={summary}
             chat={{ count: chatCount, staff: answersQuestions(viewer.member) }}
+            tests={tests}
           />
           <SidebarInset className="min-w-0">
             <PortalHeader area={area} viewer={person} hasAccess={viewer.hasAccess} />

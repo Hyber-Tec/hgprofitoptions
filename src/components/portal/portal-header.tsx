@@ -32,8 +32,14 @@ const ADMIN_LABELS: Record<string, string> = {
   settings: "Settings",
   presentations: "Presentations",
   files: "Files",
+  quizzes: "Quizzes",
 }
-const NEW_LABELS: Record<string, string> = { members: "Add member", alerts: "New alert", targets: "New update" }
+const NEW_LABELS: Record<string, string> = {
+  members: "Add member",
+  alerts: "New alert",
+  targets: "New update",
+  quizzes: "New quiz",
+}
 
 function crumbLabel(segment: string, parent: string | undefined, area: PortalArea): string {
   if (area === "admin") {
@@ -42,6 +48,7 @@ function crumbLabel(segment: string, parent: string | undefined, area: PortalAre
     if (adminLabel) return adminLabel
     if (parent === "alerts") return "Alert"
     if (parent === "targets") return "Update"
+    if (parent === "quizzes") return "Quiz"
   }
   const known = SEGMENT_LABELS[segment]
   if (known) return known
@@ -51,20 +58,25 @@ function crumbLabel(segment: string, parent: string | undefined, area: PortalAre
   if (parent === "alerts") return "Alert"
   if (parent === "journal") return "Trade"
   if (parent === "chat") return "Question"
+  if (parent === "attempts") return "Quiz"
   if (parent === "members") return "Member"
   return decoded
 }
 
 /** Path prefixes with no page of their own: shown in the trail, but not as links. */
 const WITHOUT_PAGE = new Set(["/members/stocks"])
+/** Path prefixes left out of the trail entirely. */
+const HIDDEN = new Set(["/members/quizzes/attempts"])
 
 function Crumbs({ area }: { area: PortalArea }) {
   const pathname = usePathname()
   const segments = pathname.split("/").filter(Boolean)
-  const crumbs = segments.map((segment, i) => ({
-    href: `/${segments.slice(0, i + 1).join("/")}`,
-    label: crumbLabel(segment, segments[i - 1], area),
-  }))
+  const crumbs = segments
+    .map((segment, i) => ({
+      href: `/${segments.slice(0, i + 1).join("/")}`,
+      label: crumbLabel(segment, segments[i - 1], area),
+    }))
+    .filter((crumb) => !HIDDEN.has(crumb.href))
   // The area root is implied by the sidebar; start from the page's own section.
   const visible =
     crumbs.length > 1

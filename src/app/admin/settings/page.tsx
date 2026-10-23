@@ -27,7 +27,12 @@ export default async function AdminSettingsPage() {
     [
       "Market data",
       integrations.marketData,
-      "Daily prices, Key Market Data and medians. Without it, values come from imports and manual entry.",
+      "Daily prices, live quotes, Key Market Data and medians. Without it, values come from imports and manual entry.",
+    ],
+    [
+      "AI",
+      integrations.ai,
+      "Writes quiz questions from class documents. Without it, you write the questions yourself.",
     ],
   ]
   return (

@@ -40,6 +40,15 @@ export default defineConfig({
       stderr: "pipe",
     },
     {
+      // Quiz questions and class summaries come from a stand-in for the AI API.
+      command: "pnpm exec tsx scripts/fake-ai.ts --port=7658",
+      url: "http://127.0.0.1:7658/health",
+      timeout: 60_000,
+      reuseExistingServer: false,
+      stdout: "ignore",
+      stderr: "pipe",
+    },
+    {
       command: "pnpm exec next build && pnpm exec next start -p 3100",
       env: appEnv,
       url: "http://localhost:3100",

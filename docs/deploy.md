@@ -49,11 +49,15 @@ The hybertec.com organization changes two Google defaults, and the steps below a
    firebase functions:secrets:set SNAPTRADE_CONSUMER_KEY --project $P    # or none
    firebase functions:secrets:set SNAPTRADE_ENCRYPTION_KEY --project $P  # 32 random bytes, base64, or none
    firebase functions:secrets:set MARKET_DATA_API_KEY --project $P       # or none
+   firebase functions:secrets:set AI_API_KEY --project $P                # or none
    firebase apphosting:secrets:set FIREBASE_WEB_API_KEY --project $P     # Project settings > Your apps > apiKey
    firebase apphosting:secrets:set NEXT_SERVER_ACTIONS_ENCRYPTION_KEY --project $P
-   firebase apphosting:secrets:grantaccess FIREBASE_WEB_API_KEY,NEXT_SERVER_ACTIONS_ENCRYPTION_KEY,RESEND_API_KEY,SNAPTRADE_CONSUMER_KEY,SNAPTRADE_ENCRYPTION_KEY,MARKET_DATA_API_KEY \
+   firebase apphosting:secrets:grantaccess FIREBASE_WEB_API_KEY,NEXT_SERVER_ACTIONS_ENCRYPTION_KEY,RESEND_API_KEY,SNAPTRADE_CONSUMER_KEY,SNAPTRADE_ENCRYPTION_KEY,MARKET_DATA_API_KEY,AI_API_KEY \
      --backend hgprofitoptions --project $P
    ```
+
+   `AI_API_KEY` is added after the first launch; create it (`none` keeps quizzes to hand-written
+   questions) and grant the backend access before deploying a version that uses it.
 
    Generate key material with `openssl rand -base64 32`. The SnapTrade encryption key protects
    stored brokerage credentials: keep a copy somewhere safe, because changing it disconnects every

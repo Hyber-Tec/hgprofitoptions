@@ -7,6 +7,7 @@ import {
   LuChartCandlestick,
   LuChartLine,
   LuCircleHelp,
+  LuClipboardCheck,
   LuCrosshair,
   LuDatabase,
   LuFolder,
@@ -33,8 +34,11 @@ export interface NavItem {
   title: string
   href: Route
   icon: IconType
-  /** Shows the unread alerts count, or the chat count (waiting questions, or new answers to mine). */
-  badge?: "unread" | "chat"
+  /**
+   * Shows the unread alerts count, the chat count (waiting questions, or new answers to mine) or the
+   * number of tests waiting for this member.
+   */
+  badge?: "unread" | "chat" | "tests"
   /** Visible to members without an active quarter (their own data stays readable). */
   inactive?: boolean
 }
@@ -76,6 +80,7 @@ export const MEMBER_NAV: NavGroup[] = [
     items: [
       { title: "Presentations", href: "/members/presentations", icon: LuPresentation },
       { title: "Files", href: "/members/files", icon: LuFolder },
+      { title: "Quizzes", href: "/members/quizzes", icon: LuClipboardCheck, badge: "tests" },
       { title: "Classroom", href: "/members/classroom", icon: LuGraduationCap },
     ],
   },
@@ -113,6 +118,7 @@ export const ADMIN_NAV: NavGroup[] = [
     items: [
       { title: "Presentations", href: "/admin/presentations", icon: LuPresentation },
       { title: "Files", href: "/admin/files", icon: LuFolder },
+      { title: "Quizzes", href: "/admin/quizzes", icon: LuClipboardCheck },
       { title: "Testimonials", href: "/admin/testimonials", icon: LuQuote },
       { title: "FAQ", href: "/admin/faq", icon: LuCircleHelp },
     ],
@@ -144,6 +150,7 @@ export const SEGMENT_LABELS: Record<string, string> = {
   presentations: "Presentations",
   files: "Files",
   classroom: "Classroom",
+  quizzes: "Quizzes",
   settings: "Settings",
   notifications: "Notifications",
   brokerages: "Brokerages",

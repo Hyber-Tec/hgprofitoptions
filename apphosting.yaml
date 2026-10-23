@@ -60,3 +60,6 @@ env:
     secret: MARKET_DATA_API_KEY
   - variable: MARKET_DATA_BASE_URL
     value: https://api.massive.com
+  # AI for practice quizzes and class summaries.
+  - variable: AI_API_KEY
+    secret: AI_API_KEY

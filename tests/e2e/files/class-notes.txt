@@ -1,0 +1,10 @@
+Channels and BOC levels: class notes for the end-to-end tests
+
+A channel is the normal moving range of a stock, set by HG for each ticker.
+Channel lines sit one channel apart above and below the last close.
+The BOC level sits one BOC past each channel line, toward the next line.
+A break of a level only counts when the stock closes below it, not when it wicks through it.
+When a stock breaks below the break level, the play is the put at the put strike for the listed expiry.
+The five day median is the midpoint between the week's highest high and lowest low.
+Take profits at thirty percent instead of waiting for a perfect exit.
+Never risk more than you can afford to lose on a single options trade.

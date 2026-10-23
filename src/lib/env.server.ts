@@ -18,6 +18,8 @@ const schema = z.object({
   SNAPTRADE_ENCRYPTION_KEY: optional,
   MARKET_DATA_API_KEY: optional,
   MARKET_DATA_BASE_URL: optional,
+  AI_API_KEY: optional,
+  AI_BASE_URL: optional,
 })
 
 export const serverEnv = schema.parse(process.env)
@@ -29,6 +31,7 @@ export const integrations = {
     serverEnv.SNAPTRADE_CONSUMER_KEY !== null &&
     serverEnv.SNAPTRADE_ENCRYPTION_KEY !== null,
   marketData: serverEnv.MARKET_DATA_API_KEY !== null,
+  ai: serverEnv.AI_API_KEY !== null,
 }
 
 /** SnapTrade settings, or null when brokerage linking is not configured. */
@@ -45,6 +48,12 @@ export function brokerageConfig(): { clientId: string; consumerKey: string; encr
 export function marketDataConfig(): { apiKey: string; baseUrl: string } | null {
   const apiKey = serverEnv.MARKET_DATA_API_KEY
   return apiKey ? { apiKey, baseUrl: serverEnv.MARKET_DATA_BASE_URL ?? "https://api.massive.com" } : null
+}
+
+/** The AI that writes quiz questions and class summaries, or null when no key is configured. */
+export function aiConfig(): { apiKey: string; baseUrl: string | null } | null {
+  const apiKey = serverEnv.AI_API_KEY
+  return apiKey ? { apiKey, baseUrl: serverEnv.AI_BASE_URL } : null
 }
 
 /** Resend settings, or null when email is not configured. EMAIL_FROM must use a domain verified in Resend. */

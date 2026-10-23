@@ -26,6 +26,9 @@ export const COLLECTIONS = {
   jobRuns: "jobRuns",
   snaptradeUsers: "snaptradeUsers",
   threads: "threads",
+  quizzes: "quizzes",
+  quizAttempts: "quizAttempts",
+  quizAssignments: "quizAssignments",
 } as const
 
 export const MEMBER_SUBCOLLECTIONS = {
@@ -413,6 +416,91 @@ export const threadMessageSchema = z.object({
   removed: z.boolean().default(false),
 })
 export type ThreadMessageDoc = z.infer<typeof threadMessageSchema> & { id: string }
+
+// ---- Quizzes and tests --------------------------------------------------------------------------
+
+export const quizQuestionSchema = z.object({
+  id: z.string(),
+  prompt: z.string(),
+  choices: z.array(z.string()),
+  /** Index of the correct choice. Never sent to a browser before the member answers. */
+  answer: z.number().int(),
+  explanation: z.string(),
+})
+export type QuizQuestion = z.infer<typeof quizQuestionSchema>
+
+/**
+ * quizzes/{id}: a bank of questions written by AI from a class document (or by hand), published as a
+ * practice quiz for everyone or as a test an admin assigns. Server-only: the answers never reach a browser.
+ */
+export const quizSchema = z.object({
+  title: z.string(),
+  description: z.string().nullable().default(null),
+  kind: z.enum(["practice", "test"]),
+  status: z.enum(["draft", "published", "archived"]),
+  source: z
+    .object({ name: z.string(), path: z.string().nullable(), contentType: z.string().nullable() })
+    .nullable()
+    .default(null),
+  questions: z.array(quizQuestionSchema).default([]),
+  /** How many questions one attempt draws from the bank. */
+  perAttempt: z.number().int().min(1).max(100).default(10),
+  /** Tests: the share of correct answers needed to pass. */
+  passScore: z.number().min(0).max(1).default(0.8),
+  /** Tests: the level a passing beginner moves up to. */
+  awardsLevel: z.enum(TRADER_LEVELS).nullable().default(null),
+  /** The AI's work on this quiz: queued by an admin, done by a Cloud Function (or the web server locally). */
+  generation: z
+    .object({
+      status: z.enum(["pending", "running", "done", "failed"]),
+      count: z.number().int(),
+      message: z.string().nullable().default(null),
+      claimId: z.string().nullable().default(null),
+      requestedAt: timestamp,
+      finishedAt: optionalTimestamp,
+    })
+    .nullable()
+    .default(null),
+  createdAt: timestamp,
+  createdBy: z.string().nullable().default(null),
+  updatedAt: timestamp,
+  publishedAt: optionalTimestamp,
+})
+export type QuizDoc = z.infer<typeof quizSchema> & { id: string }
+
+/** quizAssignments/{id}: an admin asked a member to take a test. One attempt per assignment. */
+export const quizAssignmentSchema = z.object({
+  quizId: z.string(),
+  quizTitle: z.string(),
+  uid: z.string(),
+  memberName: z.string(),
+  status: z.enum(["assigned", "started", "completed", "cancelled"]),
+  assignedAt: timestamp,
+  assignedBy: z.string().nullable().default(null),
+  attemptId: z.string().nullable().default(null),
+  score: z.number().nullable().default(null),
+  passed: z.boolean().nullable().default(null),
+  completedAt: optionalTimestamp,
+})
+export type QuizAssignmentDoc = z.infer<typeof quizAssignmentSchema> & { id: string }
+
+/** quizAttempts/{id}: one run through a quiz, with the questions it drew and the member's answers. */
+export const quizAttemptSchema = z.object({
+  quizId: z.string(),
+  quizTitle: z.string(),
+  kind: z.enum(["practice", "test"]),
+  uid: z.string(),
+  memberName: z.string(),
+  assignmentId: z.string().nullable().default(null),
+  questionIds: z.array(z.string()),
+  answers: z.array(z.number().int().nullable()),
+  correct: z.number().int().default(0),
+  score: z.number().nullable().default(null),
+  passed: z.boolean().nullable().default(null),
+  startedAt: timestamp,
+  submittedAt: optionalTimestamp,
+})
+export type QuizAttemptDoc = z.infer<typeof quizAttemptSchema> & { id: string }
 
 // ---- Journal and brokerage ----------------------------------------------------------------------
 
