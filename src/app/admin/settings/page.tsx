@@ -1,8 +1,10 @@
 import type { Metadata } from "next"
 import { requireAdmin } from "@/lib/auth/guards"
 import { integrations } from "@/lib/env.server"
+import { getBillingSettings } from "@/lib/data/invoices"
 import { getSiteSettings } from "@/lib/data/public"
 import { getMemberSettings } from "@/lib/data/settings"
+import { BillingSettingsForm } from "@/components/admin/billing-form"
 import { MemberSettingsForm, SiteSettingsForm } from "@/components/admin/settings-forms"
 import { ToneBadge } from "@/components/portal/display"
 import { PageHeader } from "@/components/portal/page-header"
@@ -12,7 +14,7 @@ export const metadata: Metadata = { title: "Settings" }
 
 export default async function AdminSettingsPage() {
   await requireAdmin({ next: "/admin/settings" })
-  const [site, members] = await Promise.all([getSiteSettings(), getMemberSettings()])
+  const [site, members, billing] = await Promise.all([getSiteSettings(), getMemberSettings(), getBillingSettings()])
   const services: [string, boolean, string][] = [
     [
       "Email (Resend)",
@@ -27,12 +29,30 @@ export default async function AdminSettingsPage() {
     [
       "Market data",
       integrations.marketData,
-      "Daily prices, Key Market Data and medians. Without it, values come from imports and manual entry.",
+      "Daily prices, live quotes, Key Market Data and medians. Without it, values come from imports and manual entry.",
+    ],
+    [
+      "AI",
+      integrations.ai,
+      "Writes quiz questions from class documents and class recaps. Without it, you write quiz questions yourself.",
+    ],
+    [
+      "Zoom classes in the site",
+      integrations.zoomEmbed,
+      "Members join the weekly class without leaving the site. Without it, the class opens in the Zoom app.",
+    ],
+    [
+      "Zoom class recaps",
+      integrations.zoomRecaps,
+      "Zoom sends each recorded class's transcript for its AI recap. Without it, upload transcripts under Class recaps.",
     ],
   ]
   return (
     <>
-      <PageHeader title="Settings" description="Links, the class schedule and how the member area behaves." />
+      <PageHeader
+        title="Settings"
+        description="Links, the class schedule, how the member area behaves and what invoices say."
+      />
       <Card>
         <CardHeader>
           <CardTitle>Public site</CardTitle>
@@ -47,6 +67,17 @@ export default async function AdminSettingsPage() {
         </CardHeader>
         <CardContent>
           <MemberSettingsForm initial={members} />
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Billing</CardTitle>
+          <CardDescription>
+            What invoices say and how members pay. Issue an invoice from a member&apos;s Subscription tab.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <BillingSettingsForm initial={billing} />
         </CardContent>
       </Card>
       <Card>

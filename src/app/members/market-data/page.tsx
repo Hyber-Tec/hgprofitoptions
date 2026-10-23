@@ -33,7 +33,16 @@ function Definitions() {
         <dl className="flex flex-col gap-2 text-sm">
           <div>
             <dt className="font-medium">PFCP</dt>
-            <dd className="text-muted-foreground">Previous Friday close: the last close before the week started.</dd>
+            <dd className="text-muted-foreground">
+              Previous Friday close: the official 4 PM close of the last session before the week started.
+            </dd>
+          </div>
+          <div>
+            <dt className="font-medium">High, Low and Close</dt>
+            <dd className="text-muted-foreground">
+              The week&apos;s highest and lowest prices in regular trading hours (9:30 AM to 4 PM ET), and Friday&apos;s
+              official 4 PM close. Pre-market and after-hours trades are left out.
+            </dd>
           </div>
           <div>
             <dt className="font-medium">Range</dt>
@@ -48,10 +57,8 @@ function Definitions() {
             </dd>
           </div>
           <div>
-            <dt className="font-medium">In range</dt>
-            <dd className="text-muted-foreground">
-              Where Friday&apos;s close sits between the week&apos;s low (left) and high (right).
-            </dd>
+            <dt className="font-medium">Green and red</dt>
+            <dd className="text-muted-foreground">The week closed above (green) or below (red) the PFCP.</dd>
           </div>
         </dl>
       </PopoverContent>

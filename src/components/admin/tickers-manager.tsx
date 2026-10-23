@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react"
 import { LuDownload, LuPencil, LuPlus, LuSearch } from "react-icons/lu"
 import type { IsoDate } from "@/core/domain/types"
-import { formatDate, formatLevel, formatPrice } from "@/core/format"
+import { formatDate, formatLevel, formatPrice, plural } from "@/core/format"
 import { describePeriodRange } from "@/core/membership/quarters"
 import { createTicker, updateTicker } from "@/lib/actions/admin/market"
 import { Button } from "@/components/ui/button"
@@ -62,7 +62,7 @@ const levels = (text: string) =>
     .map(Number)
     .filter((n) => Number.isFinite(n) && n > 0)
 
-export function TickersManager({ rows }: { rows: TickerAdminRow[] }) {
+export function TickersManager({ rows, marketData }: { rows: TickerAdminRow[]; marketData: boolean }) {
   const [query, setQuery] = useState("")
   const [kind, setKind] = useState("stock")
   const dialog = useEditorDialog<TickerAdminRow>()
@@ -78,7 +78,7 @@ export function TickersManager({ rows }: { rows: TickerAdminRow[] }) {
     earningsEnd: "",
     notes: "",
   })
-  const [newTicker, setNewTicker] = useState({ symbol: "", name: "", kind: "stock" as "stock" | "etf" })
+  const [newTicker, setNewTicker] = useState({ symbol: "", ch: "" })
   const [pending, startTransition] = useTransition()
   const filtered = useMemo(() => {
     const q = query.trim().toUpperCase()
@@ -126,20 +126,26 @@ export function TickersManager({ rows }: { rows: TickerAdminRow[] }) {
     })
   const add = () =>
     startTransition(async () => {
-      const result = await createTicker({
-        symbol: newTicker.symbol,
-        name: newTicker.name || null,
-        kind: newTicker.kind,
-      })
-      toast.add(
-        result.ok
-          ? { title: `${newTicker.symbol.toUpperCase()} added`, type: "success" }
-          : { title: "Not added", description: result.message, type: "error" },
-      )
-      if (result.ok) {
-        setAdding(false)
-        setNewTicker({ symbol: "", name: "", kind: "stock" })
+      const symbol = newTicker.symbol.trim().toUpperCase()
+      const result = await createTicker({ symbol, channelSize: newTicker.ch ? Number(newTicker.ch) : null })
+      if (!result.ok) {
+        toast.add({ title: "Not added", description: result.message, type: "error" })
+        return
       }
+      const { name, bars, addedToWeek, priced } = result.data
+      toast.add({
+        title: `${symbol} added${name ? `: ${name}` : ""}`,
+        description: !priced
+          ? "Its prices arrive once market data is connected."
+          : bars === 0
+            ? "No prices yet. They arrive after the next close."
+            : addedToWeek
+              ? "Prices loaded. It is in Key Market Data and the Median & Channel Chart now."
+              : "Prices loaded. It joins Key Market Data with the next weekly update.",
+        type: "success",
+      })
+      setAdding(false)
+      setNewTicker({ symbol: "", ch: "" })
     })
   const exportCsv = () => {
     const header = "symbol,name,kind,active,ch,boc,fs,ss,earnings_start,earnings_end,last_close"
@@ -197,7 +203,7 @@ export function TickersManager({ rows }: { rows: TickerAdminRow[] }) {
               ))}
             </SelectContent>
           </Select>
-          <span className="text-sm text-muted-foreground tabular-nums">{filtered.length} tickers</span>
+          <span className="text-sm text-muted-foreground tabular-nums">{plural(filtered.length, "ticker")}</span>
         </div>
         <div className="flex gap-2">
           <Button size="sm" variant="outline" onClick={exportCsv}>
@@ -385,43 +391,58 @@ export function TickersManager({ rows }: { rows: TickerAdminRow[] }) {
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Add a ticker</DialogTitle>
-            <DialogDescription>Set its channel after adding it.</DialogDescription>
+            <DialogDescription>
+              {marketData
+                ? "Type the symbol. Its name and prices fill in by themselves."
+                : "Type the symbol. Prices fill in once market data is connected."}
+            </DialogDescription>
           </DialogHeader>
-          <FieldGroup>
-            <Field>
-              <FieldLabel htmlFor="n-symbol">Ticker</FieldLabel>
-              <Input
-                id="n-symbol"
-                value={newTicker.symbol}
-                onChange={(e) => setNewTicker({ ...newTicker, symbol: e.target.value.toUpperCase() })}
-                className="font-mono uppercase"
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="n-name">Company name</FieldLabel>
-              <Input
-                id="n-name"
-                value={newTicker.name}
-                onChange={(e) => setNewTicker({ ...newTicker, name: e.target.value })}
-              />
-            </Field>
-            <label className="flex items-center gap-2 text-sm">
-              <Switch
-                checked={newTicker.kind === "etf"}
-                onCheckedChange={(v) => setNewTicker({ ...newTicker, kind: v ? "etf" : "stock" })}
-              />
-              It is an ETF
-            </label>
-          </FieldGroup>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAdding(false)}>
-              Cancel
-            </Button>
-            <Button onClick={add} disabled={pending || newTicker.symbol.trim() === ""}>
-              {pending && <Spinner />}
-              Add
-            </Button>
-          </DialogFooter>
+          <form
+            className="flex flex-col gap-6"
+            onSubmit={(e) => {
+              e.preventDefault()
+              add()
+            }}
+          >
+            <FieldGroup>
+              <Field>
+                <FieldLabel htmlFor="n-symbol">Ticker</FieldLabel>
+                <Input
+                  id="n-symbol"
+                  value={newTicker.symbol}
+                  onChange={(e) => setNewTicker({ ...newTicker, symbol: e.target.value.toUpperCase() })}
+                  className="font-mono uppercase"
+                  autoComplete="off"
+                  autoFocus
+                />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="n-ch">Channel (optional)</FieldLabel>
+                <Input
+                  id="n-ch"
+                  type="number"
+                  step="any"
+                  min="0"
+                  inputMode="decimal"
+                  value={newTicker.ch}
+                  onChange={(e) => setNewTicker({ ...newTicker, ch: e.target.value })}
+                  placeholder="For example, 6.50"
+                />
+                <FieldDescription>
+                  The stock&apos;s normal moving range. BOC starts at half of it; both can be changed later.
+                </FieldDescription>
+              </Field>
+            </FieldGroup>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setAdding(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={pending || newTicker.symbol.trim() === ""}>
+                {pending && <Spinner />}
+                Add
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

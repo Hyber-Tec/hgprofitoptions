@@ -45,7 +45,6 @@ export interface GroupTab {
   shortName: string
   description: string | null
   count: number
-  hasWeights: boolean
 }
 
 /** Everything the Strike Price Targets table shows, joined with live closes, ETFs and open alerts. */
@@ -97,14 +96,12 @@ export async function buildTargetRows(
   )
   const groups: GroupTab[] = slugs.map((slug) => {
     const config = known.get(slug)
-    const inGroup = rows.filter((r) => r.group === slug)
     return {
       slug,
       name: config?.name ?? slug,
       shortName: config?.shortName ?? config?.name ?? slug,
       description: config?.description ?? null,
-      count: inGroup.length,
-      hasWeights: inGroup.some((r) => r.dowWeight !== null),
+      count: rows.filter((r) => r.group === slug).length,
     }
   })
 

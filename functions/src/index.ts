@@ -9,14 +9,17 @@
 import { initializeApp } from "firebase-admin/app"
 import { getFirestore, type Timestamp } from "firebase-admin/firestore"
 import { getMessaging } from "firebase-admin/messaging"
+import { getStorage } from "firebase-admin/storage"
 import { onDocumentWritten } from "firebase-functions/firestore"
 import { HttpsError, beforeUserCreated } from "firebase-functions/identity"
 import { setGlobalOptions } from "firebase-functions/options"
 import { defineSecret, defineString } from "firebase-functions/params"
 import { onSchedule } from "firebase-functions/scheduler"
 import { isIsoDate, todayInMarketZone } from "@/core/dates"
+import type { AiConfig } from "@/server/ai"
 import { deliverAlert, deliverStragglers, publishDueAlerts } from "@/server/alerts"
 import { syncAllBrokerages, type BrokerageConfig } from "@/server/brokerage/sync"
+import { runClassSummary } from "@/server/classes"
 import type { EmailConfig } from "@/server/email"
 import { pruneJobRuns, runJob, skipped, succeeded } from "@/server/jobs"
 import { finalizeWeek, ingestDailyBars } from "@/server/market/jobs"
@@ -24,7 +27,9 @@ import type { MarketDataConfig } from "@/server/market/provider"
 import { refreshAllAccess } from "@/server/members"
 import { COLLECTIONS } from "@/server/model"
 import { emailAdminsExpired, notifyTargetsOnce, sendMembershipReminders } from "@/server/notifications"
+import { runQuizGeneration } from "@/server/quizzes"
 import { computeStanding } from "@/server/standing"
+import type { ZoomApiConfig } from "@/server/zoom"
 
 initializeApp()
 // nam5 (US multi-region) Firestore triggers run in us-central1.
@@ -45,7 +50,12 @@ const SNAPTRADE_CLIENT_ID = defineString("SNAPTRADE_CLIENT_ID", { default: "none
 const SNAPTRADE_CONSUMER_KEY = defineSecret("SNAPTRADE_CONSUMER_KEY")
 const SNAPTRADE_ENCRYPTION_KEY = defineSecret("SNAPTRADE_ENCRYPTION_KEY")
 const MARKET_DATA_API_KEY = defineSecret("MARKET_DATA_API_KEY")
-const MARKET_DATA_BASE_URL = defineString("MARKET_DATA_BASE_URL", { default: "https://api.polygon.io" })
+const MARKET_DATA_BASE_URL = defineString("MARKET_DATA_BASE_URL", { default: "https://api.massive.com" })
+const AI_API_KEY = defineSecret("AI_API_KEY")
+const AI_BASE_URL = defineString("AI_BASE_URL", { default: "none" })
+const ZOOM_ACCOUNT_ID = defineString("ZOOM_ACCOUNT_ID", { default: "none" })
+const ZOOM_CLIENT_ID = defineString("ZOOM_CLIENT_ID", { default: "none" })
+const ZOOM_CLIENT_SECRET = defineSecret("ZOOM_CLIENT_SECRET")
 
 /** A configured value, or null for an integration that is turned off. */
 function configured(value: string): string | null {
@@ -69,6 +79,18 @@ function brokerageConfig(): BrokerageConfig | null {
 function marketConfig(): MarketDataConfig | null {
   const apiKey = configured(MARKET_DATA_API_KEY.value())
   return apiKey ? { apiKey, baseUrl: MARKET_DATA_BASE_URL.value() } : null
+}
+
+function aiConfig(): AiConfig | null {
+  const apiKey = configured(AI_API_KEY.value())
+  return apiKey ? { apiKey, baseUrl: configured(AI_BASE_URL.value()) } : null
+}
+
+function zoomConfig(): ZoomApiConfig | null {
+  const accountId = configured(ZOOM_ACCOUNT_ID.value())
+  const clientId = configured(ZOOM_CLIENT_ID.value())
+  const clientSecret = configured(ZOOM_CLIENT_SECRET.value())
+  return accountId && clientId && clientSecret ? { accountId, clientId, clientSecret } : null
 }
 
 const db = () => getFirestore()
@@ -104,6 +126,38 @@ export const publishScheduledAlerts = onSchedule(
   async () => {
     await publishDueAlerts(db())
     await deliverStragglers(db(), getMessaging(), { email: emailConfig(), siteUrl: siteUrl() })
+  },
+)
+
+// ---- AI -------------------------------------------------------------------------------------------
+
+/** Quiz questions written by AI from a class document, when an admin asks for them. */
+export const writeQuiz = onDocumentWritten(
+  { document: "quizzes/{quizId}", secrets: [AI_API_KEY], timeoutSeconds: 540, memory: "512MiB" },
+  async (event) => {
+    const after = event.data?.after
+    if (!after?.exists || after.get("generation.status") !== "pending") return
+    await runQuizGeneration(db(), getStorage().bucket(), aiConfig(), event.params.quizId, event.id)
+  },
+)
+
+/** The AI recap of a class, when Zoom's transcript arrives or an admin adds one or asks again. */
+export const summarizeClassRecap = onDocumentWritten(
+  {
+    document: "classRecaps/{recapId}",
+    secrets: [AI_API_KEY, ZOOM_CLIENT_SECRET],
+    timeoutSeconds: 540,
+    memory: "512MiB",
+  },
+  async (event) => {
+    const after = event.data?.after
+    if (!after?.exists || after.get("transcript.status") !== "pending") return
+    await runClassSummary(
+      db(),
+      { files: getStorage().bucket(), messaging: getMessaging(), ai: aiConfig(), zoom: zoomConfig() },
+      event.params.recapId,
+      event.id,
+    )
   },
 )
 
@@ -200,7 +254,9 @@ export const marketDaily = onSchedule(
       const result = await ingestDailyBars(db(), config, today)
       if (!result) return skipped(`No session on ${today}`)
       const missing = result.missing.length > 0 ? `; no data for ${result.missing.slice(0, 12).join(", ")}` : ""
-      return succeeded(`${result.updated} tickers${missing}`)
+      const resplit =
+        result.resplit.length > 0 ? `; history re-fetched after a split: ${result.resplit.join(", ")}` : ""
+      return succeeded(`${result.updated} tickers${missing}${resplit}`)
     })
   },
 )

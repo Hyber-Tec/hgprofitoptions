@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { useMemo, useState, useTransition } from "react"
 import { LuCalendarPlus, LuDownload, LuSearch } from "react-icons/lu"
+import { LEVEL_LABELS, TRADER_LEVELS, type TraderLevel } from "@/core/levels"
 import { renewNextQuarter } from "@/lib/actions/admin/members"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -21,6 +22,7 @@ export interface MemberListRow {
   email: string
   phone: string | null
   role: "admin" | "member"
+  level: TraderLevel
   statusKind: "admin" | "active" | "upcoming" | "expired" | "suspended" | "none"
   statusLabel: string
   tone: Tone
@@ -46,6 +48,10 @@ const STATUS_ITEMS = [
   { value: "suspended", label: "Suspended" },
   { value: "admin", label: "Admins" },
 ]
+const LEVEL_ITEMS = [
+  { value: "all", label: "Any level" },
+  ...TRADER_LEVELS.map((level) => ({ value: level, label: LEVEL_LABELS[level] })),
+]
 const LINK_ITEMS = [
   { value: "all", label: "Linked or not" },
   { value: "yes", label: "Linked" },
@@ -66,6 +72,7 @@ function toCsv(rows: MemberListRow[]): string {
     "email",
     "phone",
     "role",
+    "level",
     "status",
     "period",
     "end_date",
@@ -83,6 +90,7 @@ function toCsv(rows: MemberListRow[]): string {
         r.email,
         r.phone,
         r.role,
+        r.level,
         r.statusLabel,
         r.periodLabel,
         r.endDate,
@@ -113,6 +121,7 @@ export function MembersTable({
     STATUS_ITEMS.some((f) => f.value === initialStatus) ? initialStatus : "all",
   )
   const [linked, setLinked] = useState("all")
+  const [level, setLevel] = useState("all")
   const [quarter, setQuarter] = useState("all")
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [sort, setSort] = useState<SortState<SortKey>>({ key: "fullName", dir: 1 })
@@ -130,11 +139,12 @@ export function MembersTable({
         if (status === "expiring" && !(r.statusKind === "active" && r.tone === "warning")) return false
         if (status !== "all" && status !== "expiring" && r.statusKind !== status) return false
         if (linked !== "all" && r.linked !== linked) return false
+        if (level !== "all" && r.level !== level) return false
         if (quarter !== "all" && r.endsQuarter !== quarter) return false
         return true
       })
       .sort((a, b) => compareValues(a[sort.key] ?? "", b[sort.key] ?? "", sort.dir))
-  }, [rows, query, status, linked, quarter, sort])
+  }, [rows, query, status, linked, level, quarter, sort])
 
   const allSelected = filtered.length > 0 && filtered.every((r) => selected.has(r.uid))
   const toggleAll = (on: boolean) => setSelected(on ? new Set(filtered.map((r) => r.uid)) : new Set())
@@ -212,6 +222,7 @@ export function MembersTable({
             />
           </InputGroup>
           {select(STATUS_ITEMS, status, setStatus, "Status", "w-36")}
+          {select(LEVEL_ITEMS, level, setLevel, "Trader level", "w-32")}
           {select(quarterItems, quarter, setQuarter, "Ends in quarter", "w-44")}
           {select(LINK_ITEMS, linked, setLinked, "Brokerage", "w-44")}
         </div>
@@ -295,7 +306,9 @@ export function MembersTable({
                       className="rounded-sm outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
                     >
                       <span className="block font-medium">{r.fullName}</span>
-                      <span className="block text-xs text-muted-foreground">{r.email}</span>
+                      <span className="block text-xs text-muted-foreground">
+                        {r.email} · {LEVEL_LABELS[r.level]}
+                      </span>
                     </Link>
                   </TableCell>
                   <TableCell>

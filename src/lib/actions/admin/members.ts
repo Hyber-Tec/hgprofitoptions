@@ -5,6 +5,8 @@ import { refresh } from "next/cache"
 import { z } from "zod"
 import { isIsoDate, todayInMarketZone } from "@/core/dates"
 import type { ActionResult, IsoDate } from "@/core/domain/types"
+import { invoiceText, unprintable } from "@/core/invoice"
+import { TRADER_LEVELS, type TraderLevel } from "@/core/levels"
 import { describePeriodRange, isQuarter, nextRenewalQuarter, periodFromQuarters } from "@/core/membership/quarters"
 import { parseMembersCsv } from "@/core/parsers/members-csv"
 import { forgetSnapUser } from "@/server/brokerage/sync"
@@ -286,6 +288,12 @@ const profileInput = z.object({
   phone: z.string().trim().max(40).nullable(),
   whatsapp: z.string().trim().max(40).nullable(),
   location: z.string().trim().max(80).nullable(),
+  mailingAddress: z
+    .string()
+    .max(300)
+    .transform(invoiceText)
+    .refine((v) => unprintable(v).length === 0, "Invoices print Latin letters only. Write the address with them.")
+    .transform((v) => (v === "" ? null : v)),
   timezone: z.string().trim().max(60),
 })
 
@@ -297,7 +305,7 @@ export async function updateMemberProfile(uid: string, input: z.input<typeof pro
     return {
       ok: false,
       code: "validation",
-      message: "Check the fields.",
+      message: parsed.error.issues[0]?.message ?? "Check the fields.",
       fieldErrors: z.flattenError(parsed.error).fieldErrors,
     }
   if (!(await readMember(uid))) return { ok: false, code: "not-found", message: "This member no longer exists." }
@@ -362,6 +370,27 @@ export async function setMemberRole(uid: string, role: "admin" | "member"): Prom
     action: role === "admin" ? "member.promoted" : "member.demoted",
     targetType: "member",
     targetId: uid,
+  })
+  refresh()
+  return { ok: true, data: undefined }
+}
+
+/** An admin's choice of trader level always wins; a later passed test can only raise it. */
+export async function setMemberLevel(uid: string, level: TraderLevel): Promise<ActionResult> {
+  const viewer = await adminForAction()
+  if (!viewer) return forbidden
+  if (!TRADER_LEVELS.includes(level)) return { ok: false, code: "validation", message: "Pick a level." }
+  const target = await readMember(uid)
+  if (!target) return { ok: false, code: "not-found", message: "This member no longer exists." }
+  if (target.level === level) return { ok: true, data: undefined }
+  await member(uid).update({ level, levelSetBy: "admin", levelSetAt: Timestamp.now() })
+  await writeAudit(adminDb(), {
+    actorUid: viewer.uid,
+    actorEmail: viewer.email,
+    action: "member.level_changed",
+    targetType: "member",
+    targetId: uid,
+    detail: { from: target.level, to: level },
   })
   refresh()
   return { ok: true, data: undefined }

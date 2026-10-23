@@ -1,9 +1,8 @@
 "use client"
 
-import dynamic from "next/dynamic"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useEffect, useState } from "react"
+import { Suspense, lazy, useEffect, useState } from "react"
 import { LuArrowRight, LuCalendarCheck, LuLayoutDashboard, LuLogIn, LuMenu, LuShield } from "react-icons/lu"
 import { ThemeToggle } from "@/components/shared/theme-toggle"
 import { Button } from "@/components/ui/button"
@@ -17,9 +16,7 @@ import { Logo } from "./logo"
  * Signing out needs the Firebase Auth client, which is large. Loading the menu on demand keeps it
  * out of the public pages for visitors who are not signed in.
  */
-const UserMenu = dynamic(() => import("@/components/shared/user-menu").then((mod) => mod.UserMenu), {
-  loading: () => <span className="size-8" />,
-})
+const UserMenu = lazy(() => import("@/components/shared/user-menu").then((mod) => ({ default: mod.UserMenu })))
 
 const NAV = [
   { href: "/#program", label: "Program" },
@@ -92,7 +89,9 @@ export function SiteHeader({ viewer }: { viewer: HeaderViewer | null }) {
         <div className="ml-auto flex items-center gap-1.5">
           <ThemeToggle />
           {viewer ? (
-            <UserMenu viewer={viewer} />
+            <Suspense fallback={<span className="size-8" />}>
+              <UserMenu viewer={viewer} />
+            </Suspense>
           ) : (
             <ButtonLink variant="ghost" className="hidden rounded-full sm:inline-flex" href="/login">
               <LuLogIn data-icon="inline-start" />

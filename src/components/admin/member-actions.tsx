@@ -15,6 +15,7 @@ import {
   LuUserX,
 } from "react-icons/lu"
 import type { IsoDate, Quarter } from "@/core/domain/types"
+import { LEVEL_LABELS, TRADER_LEVELS, type TraderLevel } from "@/core/levels"
 import { describePeriodRange, periodFromQuarters, quarterRange } from "@/core/membership/quarters"
 import {
   addMemberPeriod,
@@ -23,6 +24,7 @@ import {
   removeMemberPeriod,
   renewNextQuarter,
   saveAdminNotes,
+  setMemberLevel,
   setMemberRole,
   setMemberSuspended,
   signOutMember,
@@ -174,6 +176,7 @@ export function AdminProfileForm({
     phone: string | null
     whatsapp: string | null
     location: string | null
+    mailingAddress: string | null
     timezone: string
   }
 }) {
@@ -182,6 +185,7 @@ export function AdminProfileForm({
     phone: initial.phone ?? "",
     whatsapp: initial.whatsapp ?? "",
     location: initial.location ?? "",
+    mailingAddress: initial.mailingAddress ?? "",
     timezone: initial.timezone,
   })
   const [pending, startTransition] = useTransition()
@@ -202,6 +206,7 @@ export function AdminProfileForm({
           phone: values.phone || null,
           whatsapp: values.whatsapp || null,
           location: values.location || null,
+          mailingAddress: values.mailingAddress,
         }),
         "Profile saved",
       ),
@@ -245,6 +250,15 @@ export function AdminProfileForm({
             </Select>
           </Field>
         </div>
+        <Field>
+          <FieldLabel htmlFor="a-mailingAddress">Mailing address</FieldLabel>
+          <Textarea
+            id="a-mailingAddress"
+            value={values.mailingAddress}
+            onChange={(e) => set("mailingAddress", e.target.value)}
+            placeholder={"Street\nCity, State ZIP\nCountry"}
+          />
+        </Field>
       </FieldGroup>
       <div>
         <Button type="submit" disabled={pending}>
@@ -448,6 +462,61 @@ export function PeriodManager({
           </Button>
         </div>
       </div>
+    </div>
+  )
+}
+
+/** The member's trader level. An admin's choice always wins; a passed test can only raise it. */
+export function TraderLevelControl({
+  uid,
+  level,
+  setBy,
+}: {
+  uid: string
+  level: TraderLevel
+  setBy: "default" | "test" | "admin"
+}) {
+  const [value, setValue] = useState(level)
+  const [pending, startTransition] = useTransition()
+  const change = (next: TraderLevel) => {
+    const before = value
+    setValue(next)
+    startTransition(async () => {
+      const result = await setMemberLevel(uid, next)
+      if (!result.ok) setValue(before)
+      report(result, `Now ${LEVEL_LABELS[next].toLowerCase()}`)
+    })
+  }
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center gap-2">
+        <ToggleGroup
+          variant="outline"
+          size="sm"
+          spacing={0}
+          value={[value]}
+          onValueChange={(v: string[]) => {
+            const next = v[0] as TraderLevel | undefined
+            if (next && next !== value) change(next)
+          }}
+          aria-label="Trader level"
+        >
+          {TRADER_LEVELS.map((l) => (
+            <ToggleGroupItem key={l} value={l} disabled={pending}>
+              {LEVEL_LABELS[l]}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
+        {pending && <Spinner className="text-muted-foreground" />}
+      </div>
+      <p className="text-xs text-muted-foreground">
+        {setBy === "test"
+          ? "Set by a passed test. "
+          : setBy === "admin"
+            ? "Set by an admin. "
+            : "Everyone starts as a beginner. "}
+        Experts answer questions in Chat.
+      </p>
     </div>
   )
 }

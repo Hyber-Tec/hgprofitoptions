@@ -1,5 +1,5 @@
 /**
- * Member notifications other than alerts: new strike targets and membership reminders.
+ * Member notifications other than alerts: new strike targets, class recaps and membership reminders.
  * Shared by Cloud Functions (scheduled and triggered) and, in local development, the web server.
  */
 import { Timestamp, type Firestore } from "firebase-admin/firestore"
@@ -78,6 +78,25 @@ export async function notifyTargetsOnce(
     return current
   })
   return revision === null ? null : notifyTargetsPublished(db, messaging, effectiveDate, revision)
+}
+
+/** "Class recap is ready" to members with access who keep that notification on. */
+export async function notifyClassRecap(
+  db: Firestore,
+  messaging: Messaging,
+  recap: { id: string; title: string; date: IsoDate },
+): Promise<number> {
+  const today = todayInMarketZone()
+  const recipients = (await activeMembers(db, today))
+    .filter(({ member, status }) => hasAccess(status) && member.prefs.classRecaps)
+    .map(({ member }) => member.uid)
+  const result = await sendToMembers(db, messaging, recipients, {
+    title: "Class recap is ready",
+    body: `${recap.title}, ${formatDate(recap.date)}: the key points, tickers and questions.`,
+    url: `/members/classroom/recaps/${recap.id}`,
+    tag: `recap-${recap.id}`,
+  })
+  return result.sent
 }
 
 /**

@@ -36,10 +36,3 @@ export function weeklyStats(bars: readonly DailyBar[], week: { start: IsoDate; e
     svi: svi(range, last.close),
   }
 }
-
-/** Where the close sits inside the week's range: 0 = at the low, 1 = at the high. */
-export function positionInRange(stats: Pick<WeeklyStats, "high" | "low" | "close">): number {
-  const span = stats.high - stats.low
-  if (span <= 0) return 0.5
-  return Math.min(1, Math.max(0, (stats.close - stats.low) / span))
-}

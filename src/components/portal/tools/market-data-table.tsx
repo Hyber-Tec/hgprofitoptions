@@ -3,70 +3,43 @@
 import Link from "next/link"
 import { useMemo, useState } from "react"
 import { LuSearch } from "react-icons/lu"
-import { formatLevel, formatPercent, formatSigned } from "@/core/format"
+import { formatLevel, formatPercent, formatSigned, plural } from "@/core/format"
 import type { WeekRow } from "@/lib/tools/market-data"
 import { cn } from "@/lib/utils"
 import { useResponsiveRows } from "@/hooks/use-responsive-rows"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Signed } from "../display"
+import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table"
 import { SortHead, compareValues, toggleSort, type SortState } from "./sort-head"
 
-type SortKey = "symbol" | "pfcp" | "high" | "low" | "close" | "change" | "changePct" | "range" | "svi" | "position"
+type SortKey = "symbol" | "pfcp" | "high" | "low" | "close" | "range" | "svi"
 
-const DIRECTION_ITEMS = [
-  { value: "all", label: "Up and down" },
-  { value: "up", label: "Closed up" },
-  { value: "down", label: "Closed down" },
-]
-
-/** Where the close sits in the week's high-low range, as a small bar with a marker. */
-function RangeBar({ position }: { position: number }) {
-  return (
-    <span
-      className="relative block h-1.5 w-20 rounded-full bg-muted"
-      role="img"
-      aria-label={`Closed at ${Math.round(position * 100)}% of the week's range`}
-    >
-      <span
-        className="absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-background bg-foreground"
-        style={{ left: `${position * 100}%` }}
-      />
-    </span>
-  )
-}
+/** Green when the week closed above the previous Friday's close, red when below. */
+const direction = (r: WeekRow) => (r.close > r.pfcp ? "text-positive" : r.close < r.pfcp ? "text-negative" : "")
 
 export function MarketDataTable({ rows, groups }: { rows: WeekRow[]; groups: { slug: string; shortName: string }[] }) {
   const [query, setQuery] = useState("")
   const [group, setGroup] = useState("all")
-  const [direction, setDirection] = useState("all")
-  const [sort, setSort] = useState<SortState<SortKey>>({ key: "svi", dir: -1 })
+  const [sort, setSort] = useState<SortState<SortKey>>({ key: "symbol", dir: 1 })
   const groupItems = useMemo(
     () => [{ value: "all", label: "All categories" }, ...groups.map((g) => ({ value: g.slug, label: g.shortName }))],
     [groups],
   )
-  const shortName = useMemo(() => new Map(groups.map((g) => [g.slug, g.shortName])), [groups])
 
   const filtered = useMemo(() => {
     const q = query.trim().toUpperCase()
     return rows
-      .filter(
-        (r) =>
-          (!q || r.symbol.includes(q)) &&
-          (group === "all" || r.categories.includes(group)) &&
-          (direction === "all" || (direction === "up" ? r.change >= 0 : r.change < 0)),
-      )
+      .filter((r) => (!q || r.symbol.includes(q)) && (group === "all" || r.categories.includes(group)))
       .sort((a, b) => compareValues(a[sort.key], b[sort.key], sort.dir))
-  }, [rows, query, group, direction, sort])
+  }, [rows, query, group, sort])
   const { table, cards } = useResponsiveRows(filtered, "md")
   const onSort = (key: SortKey) => setSort((s) => toggleSort(s, key))
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2">
-        <InputGroup className="h-8 w-full sm:w-44">
+        <InputGroup className="h-9 w-full sm:w-56">
           <InputGroupAddon>
             <LuSearch />
           </InputGroupAddon>
@@ -77,24 +50,19 @@ export function MarketDataTable({ rows, groups }: { rows: WeekRow[]; groups: { s
             aria-label="Search ticker"
           />
         </InputGroup>
-        {[
-          { items: groupItems, value: group, set: setGroup, label: "Category", width: "w-40" },
-          { items: DIRECTION_ITEMS, value: direction, set: setDirection, label: "Direction", width: "w-36" },
-        ].map((f) => (
-          <Select key={f.label} items={f.items} value={f.value} onValueChange={(v: string | null) => f.set(v ?? "all")}>
-            <SelectTrigger size="sm" className={f.width} aria-label={f.label}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {f.items.map((item) => (
-                <SelectItem key={item.value} value={item.value}>
-                  {item.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        ))}
-        <span className="text-sm text-muted-foreground tabular-nums">{filtered.length} tickers</span>
+        <Select items={groupItems} value={group} onValueChange={(v: string | null) => setGroup(v ?? "all")}>
+          <SelectTrigger className="w-44" aria-label="Category">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {groupItems.map((item) => (
+              <SelectItem key={item.value} value={item.value}>
+                {item.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <span className="text-sm text-muted-foreground tabular-nums">{plural(filtered.length, "ticker")}</span>
       </div>
       {filtered.length === 0 ? (
         <Empty className="border border-dashed py-12">
@@ -106,7 +74,7 @@ export function MarketDataTable({ rows, groups }: { rows: WeekRow[]; groups: { s
       ) : (
         <>
           <div className="hidden rounded-xl border md:block">
-            <Table>
+            <Table className="text-[15px]">
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <SortHead label="Ticker" sortKey="symbol" sort={sort} onSort={onSort} />
@@ -114,17 +82,13 @@ export function MarketDataTable({ rows, groups }: { rows: WeekRow[]; groups: { s
                   <SortHead label="High" sortKey="high" sort={sort} onSort={onSort} className="text-right" />
                   <SortHead label="Low" sortKey="low" sort={sort} onSort={onSort} className="text-right" />
                   <SortHead label="Close" sortKey="close" sort={sort} onSort={onSort} className="text-right" />
-                  <SortHead label="Chg" sortKey="change" sort={sort} onSort={onSort} className="text-right" />
-                  <SortHead label="Chg %" sortKey="changePct" sort={sort} onSort={onSort} className="text-right" />
                   <SortHead label="Range" sortKey="range" sort={sort} onSort={onSort} className="text-right" />
                   <SortHead label="SVI" sortKey="svi" sort={sort} onSort={onSort} className="text-right" />
-                  <SortHead label="In range" sortKey="position" sort={sort} onSort={onSort} />
-                  <TableHead>Category</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {table.map((r) => (
-                  <TableRow key={r.symbol}>
+                  <TableRow key={r.symbol} className="h-12">
                     <TableCell>
                       <Link
                         href={`/members/stocks/${r.symbol}`}
@@ -138,22 +102,14 @@ export function MarketDataTable({ rows, groups }: { rows: WeekRow[]; groups: { s
                     </TableCell>
                     <TableCell className="text-right tabular-nums">{formatLevel(r.high)}</TableCell>
                     <TableCell className="text-right tabular-nums">{formatLevel(r.low)}</TableCell>
-                    <TableCell className="text-right font-medium tabular-nums">{formatLevel(r.close)}</TableCell>
-                    <TableCell className="text-right">
-                      <Signed value={r.change} as="number" icon={false} />
+                    <TableCell className={cn("text-right font-semibold tabular-nums", direction(r))}>
+                      {formatLevel(r.close)}
                     </TableCell>
-                    <TableCell className="text-right">
-                      <Signed value={r.changePct} />
+                    <TableCell className={cn("text-right tabular-nums", direction(r))}>
+                      {formatSigned(r.range)}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">{formatSigned(r.range)}</TableCell>
-                    <TableCell className="text-right">
-                      <Signed value={r.svi} digits={2} />
-                    </TableCell>
-                    <TableCell>
-                      <RangeBar position={r.position} />
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {r.categories.map((c) => shortName.get(c) ?? c).join(", ") || "-"}
+                    <TableCell className={cn("text-right tabular-nums", direction(r))}>
+                      {formatPercent(r.svi)}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -174,14 +130,13 @@ export function MarketDataTable({ rows, groups }: { rows: WeekRow[]; groups: { s
                     {r.symbol}
                   </Link>
                   <span className="text-xs text-muted-foreground tabular-nums">
-                    H {formatLevel(r.high)} · L {formatLevel(r.low)} · Range {formatSigned(r.range)}
+                    PFCP {formatLevel(r.pfcp)} · H {formatLevel(r.high)} · L {formatLevel(r.low)}
                   </span>
                 </div>
-                <div className={cn("flex flex-col items-end gap-1")}>
-                  <span className="font-medium tabular-nums">{formatLevel(r.close)}</span>
-                  <span className="flex items-center gap-2 text-xs">
-                    <Signed value={r.changePct} />
-                    <span className="text-muted-foreground">SVI {formatPercent(r.svi)}</span>
+                <div className={cn("flex flex-col items-end gap-1 tabular-nums", direction(r))}>
+                  <span className="font-semibold">{formatLevel(r.close)}</span>
+                  <span className="text-xs">
+                    {formatSigned(r.range)} · SVI {formatPercent(r.svi)}
                   </span>
                 </div>
               </li>

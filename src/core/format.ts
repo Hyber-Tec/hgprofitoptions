@@ -38,6 +38,18 @@ export function formatLevel(value: number | null | undefined): string {
   return Math.abs(value) < 1 && value !== 0 ? num4.format(value) : num2.format(value)
 }
 
+/** Two decimals at any size, as in HG's sheets: "0.30", "1,630.84". */
+export function formatFixed(value: number | null | undefined): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) return "-"
+  return num2.format(value)
+}
+
+/** A hand-typed level as written, without trailing zeros: "270", "8.1", "13.38". */
+export function formatPlain(value: number | null | undefined): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) return "-"
+  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(value)
+}
+
 /** "+78.94" / "-17.18" / "0.00". */
 export function formatSigned(value: number | null | undefined, digits = 2): string {
   if (value === null || value === undefined || !Number.isFinite(value)) return "-"

@@ -1,10 +1,9 @@
 import { LogoMark } from "@/components/site/logo"
-import { AreaTheme } from "@/components/shared/area-theme"
 import { ButtonLink } from "@/components/shared/button-link"
 
 export default function NotFound() {
   return (
-    <AreaTheme defaultTheme="light">
+    <>
       <main className="flex flex-1 flex-col items-center justify-center gap-6 px-4 py-24 text-center">
         <LogoMark className="size-12 text-muted-foreground" />
         <div className="flex flex-col gap-2">
@@ -14,6 +13,6 @@ export default function NotFound() {
         </div>
         <ButtonLink href="/">Back to the home page</ButtonLink>
       </main>
-    </AreaTheme>
+    </>
   )
 }

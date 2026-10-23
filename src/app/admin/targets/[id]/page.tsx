@@ -3,6 +3,7 @@ import { notFound } from "next/navigation"
 import { LuArrowUpRight, LuPencil } from "react-icons/lu"
 import { formatDateTimeET, formatDateWithWeekday } from "@/core/format"
 import { requireAdmin } from "@/lib/auth/guards"
+import { integrations } from "@/lib/env.server"
 import { listTargetUpdates } from "@/lib/data/tools"
 import { buildTargetRows } from "@/lib/tools/targets"
 import {
@@ -112,7 +113,7 @@ export default async function AdminTargetUpdatePage({ params, searchParams }: Pa
           </>
         }
       />
-      <TargetsTable rows={rows} removed={removed} groups={groups} />
+      <TargetsTable rows={rows} removed={removed} groups={groups} live={integrations.marketData} />
       <Card className="max-w-2xl">
         <CardHeader>
           <CardTitle>History</CardTitle>

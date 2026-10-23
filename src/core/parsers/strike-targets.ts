@@ -159,6 +159,29 @@ function normalizeLine(raw: string): Normalized {
   return { text, issues }
 }
 
+/** True when one swapped, missing, extra or wrong letter turns `a` into `b`. */
+function oneEditApart(a: string, b: string): boolean {
+  if (a === b || Math.abs(a.length - b.length) > 1) return false
+  if (a.length === b.length) {
+    // Tickers are ASCII letters, so comparing code units is safe.
+    const diffs = Array.from({ length: a.length }, (_, i) => i).filter((i) => a[i] !== b[i])
+    if (diffs.length === 1) return true
+    const [i, j] = diffs
+    return diffs.length === 2 && i !== undefined && j === i + 1 && a[i] === b[j] && a[j] === b[i]
+  }
+  const [short, long] = a.length < b.length ? [a, b] : [b, a]
+  for (let i = 0; i < long.length; i++) if (short === long.slice(0, i) + long.slice(i + 1)) return true
+  return false
+}
+
+/** Known tickers one typo away from `symbol` (APPL -> AAPL, APP), same length first, at most three. */
+export function similarTickers(symbol: string, known: ReadonlySet<string>): string[] {
+  return [...known]
+    .filter((k) => oneEditApart(symbol, k))
+    .sort((a, b) => Number(a.length !== symbol.length) - Number(b.length !== symbol.length) || a.localeCompare(b))
+    .slice(0, 3)
+}
+
 function toNumber(value: string | undefined): number | null {
   if (value === undefined) return null
   const n = Number(value)
@@ -300,8 +323,11 @@ export function parseStrikeTargets(text: string, options: ParseOptions): ParsedU
     if (dayOfWeek(expiry) !== 5) report("warning", "expiry-not-friday", `The expiry ${expiry} is not a Friday.`)
     if (daysBetween(effectiveDate, expiry) > maxExpiryDays)
       report("warning", "expiry-too-far", `The expiry ${expiry} is more than ${maxExpiryDays} days out.`)
-    if (knownTickers && !knownTickers.has(symbol))
-      report("warning", "unknown-ticker", `${symbol} is not in the ticker universe yet.`)
+    if (knownTickers && !knownTickers.has(symbol)) {
+      const similar = similarTickers(symbol, knownTickers)
+      const hint = similar.length > 0 ? ` Did you mean ${similar.join(" or ")}?` : ""
+      report("warning", "unknown-ticker", `${symbol} is not in the ticker universe yet.${hint}`)
+    }
     const previous = seen.get(symbol)
     if (previous !== undefined) report("warning", "duplicate-ticker", `${symbol} already appears on line ${previous}.`)
     seen.set(symbol, line)

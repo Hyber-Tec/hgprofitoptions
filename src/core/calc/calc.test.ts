@@ -3,7 +3,7 @@ import type { DailyBar, Fill, Instrument, IsoDate } from "../domain/types"
 import { mergeBars } from "./bars"
 import { channelLadder, nearestLevel, nearestLevels } from "./channels"
 import { journalStats } from "./journal-stats"
-import { positionInRange, signedRange, svi, weeklyStats } from "./kmd"
+import { signedRange, svi, weeklyStats } from "./kmd"
 import { medians, midRange, tickerMetrics } from "./medians"
 import { combineSnapshots, maxDrawdown, periodReturn, timeWeightedReturn } from "./returns"
 import { alertReturn, communityStanding, median, trackRecord } from "./standing"
@@ -55,11 +55,6 @@ describe("key market data", () => {
 
   it("returns null without enough data", () => {
     expect(weeklyStats([bar("2026-09-28", 1, 1, 1)], { start: d("2026-09-28"), end: d("2026-10-02") })).toBeNull()
-  })
-
-  it("places the close inside the range", () => {
-    expect(positionInRange({ high: 110, low: 100, close: 105 })).toBe(0.5)
-    expect(positionInRange({ high: 100, low: 100, close: 100 })).toBe(0.5)
   })
 })
 

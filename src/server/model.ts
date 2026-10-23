@@ -5,6 +5,7 @@
  */
 import { z } from "zod"
 import { isIsoDate } from "@/core/dates"
+import { TRADER_LEVELS } from "@/core/levels"
 
 export const COLLECTIONS = {
   members: "members",
@@ -24,6 +25,14 @@ export const COLLECTIONS = {
   auditLog: "auditLog",
   jobRuns: "jobRuns",
   snaptradeUsers: "snaptradeUsers",
+  threads: "threads",
+  quizzes: "quizzes",
+  quizAttempts: "quizAttempts",
+  quizAssignments: "quizAssignments",
+  classRecaps: "classRecaps",
+  invoices: "invoices",
+  /** counters/invoices: the last invoice number used each year ({ "2026": 7 }). */
+  counters: "counters",
 } as const
 
 export const MEMBER_SUBCOLLECTIONS = {
@@ -38,6 +47,7 @@ export const MEMBER_SUBCOLLECTIONS = {
   connections: "connections",
   accounts: "accounts",
   adminNotes: "adminNotes",
+  threadReads: "threadReads",
 } as const
 
 export const ACCOUNT_SUBCOLLECTIONS = {
@@ -48,6 +58,9 @@ export const ACCOUNT_SUBCOLLECTIONS = {
 
 /** Subcollections of alerts/{id} and targetUpdates/{id} that keep earlier published versions. */
 export const REVISIONS = "revisions"
+
+/** threads/{id}/messages. */
+export const MESSAGES = "messages"
 
 const timestampLike = z.custom<{ toDate: () => Date }>(
   (v) => typeof v === "object" && v !== null && "toDate" in v && typeof v.toDate === "function",
@@ -73,6 +86,10 @@ export const notificationPrefsSchema = z.object({
   mutedSymbols: z.array(z.string()).default([]),
   targetsPublished: z.boolean().default(true),
   membershipReminders: z.boolean().default(true),
+  /** Chat: answers to my questions (experts and admins: new questions). */
+  chat: z.boolean().default(true),
+  /** The AI recap of a class is ready. */
+  classRecaps: z.boolean().default(true),
 })
 export type NotificationPrefs = z.infer<typeof notificationPrefsSchema>
 export const DEFAULT_PREFS: NotificationPrefs = notificationPrefsSchema.parse({})
@@ -84,9 +101,15 @@ export const memberSchema = z.object({
   phone: z.string().nullable().default(null),
   whatsapp: z.string().nullable().default(null),
   location: z.string().nullable().default(null),
+  /** Shown on their invoices; several lines. */
+  mailingAddress: z.string().nullable().default(null),
   timezone: z.string().default("America/New_York"),
   role: roleSchema,
   status: memberStatusSchema,
+  /** Beginner until a passed test or an admin says otherwise. */
+  level: z.enum(TRADER_LEVELS).default("beginner"),
+  levelSetBy: z.enum(["default", "test", "admin"]).default("default"),
+  levelSetAt: optionalTimestamp,
   access: z
     .object({ from: timestamp, until: timestamp, fromDate: isoDate, untilExclusiveDate: isoDate })
     .nullable()
@@ -221,7 +244,13 @@ export const barSchema = z.object({
   volume: z.number().nullable(),
 })
 /** tickerBars/{SYMBOL}: about 18 months of daily bars in one document (one read per chart). */
-export const tickerBarsSchema = z.object({ symbol: z.string(), bars: z.array(barSchema), updatedAt: timestamp })
+export const tickerBarsSchema = z.object({
+  symbol: z.string(),
+  bars: z.array(barSchema),
+  /** The execution date of the newest split already reflected in the (split-adjusted) bars. */
+  lastSplit: isoDate.nullable().default(null),
+  updatedAt: timestamp,
+})
 export type TickerBars = z.infer<typeof tickerBarsSchema>
 
 export const weekRowSchema = z.object({
@@ -364,6 +393,167 @@ export const fcmTokenSchema = z.object({
   lastSeenAt: timestamp,
 })
 export type FcmTokenDoc = z.infer<typeof fcmTokenSchema> & { id: string }
+
+// ---- Chat ---------------------------------------------------------------------------------------
+
+/** threads/{id}: one question and its answers. Written by the server; members read them live. */
+export const threadSchema = z.object({
+  askerUid: z.string(),
+  askerName: z.string(),
+  /** "class": every member with access reads it; "staff": only the asker, experts and admins. */
+  visibility: z.enum(["class", "staff"]),
+  title: z.string(),
+  /** "answered" once an expert or admin replied after the last question from the asker. */
+  status: z.enum(["open", "answered"]),
+  createdAt: timestamp,
+  lastMessageAt: timestamp,
+  lastMessageBy: z.string(),
+  lastMessagePreview: z.string(),
+  messageCount: z.number().int(),
+})
+export type ThreadDoc = z.infer<typeof threadSchema> & { id: string }
+
+export const threadMessageSchema = z.object({
+  authorUid: z.string(),
+  authorName: z.string(),
+  authorRole: roleSchema,
+  authorLevel: z.enum(TRADER_LEVELS),
+  body: z.string(),
+  createdAt: timestamp,
+  /** Set when an admin removes the message; the text is cleared. */
+  removed: z.boolean().default(false),
+})
+export type ThreadMessageDoc = z.infer<typeof threadMessageSchema> & { id: string }
+
+// ---- Quizzes and tests --------------------------------------------------------------------------
+
+export const quizQuestionSchema = z.object({
+  id: z.string(),
+  prompt: z.string(),
+  choices: z.array(z.string()),
+  /** Index of the correct choice. Never sent to a browser before the member answers. */
+  answer: z.number().int(),
+  explanation: z.string(),
+})
+export type QuizQuestion = z.infer<typeof quizQuestionSchema>
+
+/**
+ * quizzes/{id}: a bank of questions written by AI from a class document (or by hand), published as a
+ * practice quiz for everyone or as a test an admin assigns. Server-only: the answers never reach a browser.
+ */
+export const quizSchema = z.object({
+  title: z.string(),
+  description: z.string().nullable().default(null),
+  kind: z.enum(["practice", "test"]),
+  status: z.enum(["draft", "published", "archived"]),
+  source: z
+    .object({ name: z.string(), path: z.string().nullable(), contentType: z.string().nullable() })
+    .nullable()
+    .default(null),
+  questions: z.array(quizQuestionSchema).default([]),
+  /** How many questions one attempt draws from the bank. */
+  perAttempt: z.number().int().min(1).max(100).default(10),
+  /** Tests: the share of correct answers needed to pass. */
+  passScore: z.number().min(0).max(1).default(0.8),
+  /** Tests: the level a passing beginner moves up to. */
+  awardsLevel: z.enum(TRADER_LEVELS).nullable().default(null),
+  /** The AI's work on this quiz: queued by an admin, done by a Cloud Function (or the web server locally). */
+  generation: z
+    .object({
+      status: z.enum(["pending", "running", "done", "failed"]),
+      count: z.number().int(),
+      message: z.string().nullable().default(null),
+      claimId: z.string().nullable().default(null),
+      requestedAt: timestamp,
+      finishedAt: optionalTimestamp,
+    })
+    .nullable()
+    .default(null),
+  createdAt: timestamp,
+  createdBy: z.string().nullable().default(null),
+  updatedAt: timestamp,
+  publishedAt: optionalTimestamp,
+})
+export type QuizDoc = z.infer<typeof quizSchema> & { id: string }
+
+/** quizAssignments/{id}: an admin asked a member to take a test. One attempt per assignment. */
+export const quizAssignmentSchema = z.object({
+  quizId: z.string(),
+  quizTitle: z.string(),
+  uid: z.string(),
+  memberName: z.string(),
+  status: z.enum(["assigned", "started", "completed", "cancelled"]),
+  assignedAt: timestamp,
+  assignedBy: z.string().nullable().default(null),
+  attemptId: z.string().nullable().default(null),
+  score: z.number().nullable().default(null),
+  passed: z.boolean().nullable().default(null),
+  completedAt: optionalTimestamp,
+})
+export type QuizAssignmentDoc = z.infer<typeof quizAssignmentSchema> & { id: string }
+
+/** quizAttempts/{id}: one run through a quiz, with the questions it drew and the member's answers. */
+export const quizAttemptSchema = z.object({
+  quizId: z.string(),
+  quizTitle: z.string(),
+  kind: z.enum(["practice", "test"]),
+  uid: z.string(),
+  memberName: z.string(),
+  assignmentId: z.string().nullable().default(null),
+  questionIds: z.array(z.string()),
+  answers: z.array(z.number().int().nullable()),
+  correct: z.number().int().default(0),
+  score: z.number().nullable().default(null),
+  passed: z.boolean().nullable().default(null),
+  startedAt: timestamp,
+  submittedAt: optionalTimestamp,
+})
+export type QuizAttemptDoc = z.infer<typeof quizAttemptSchema> & { id: string }
+
+// ---- Class recaps -------------------------------------------------------------------------------
+
+export const classSummaryDocSchema = z.object({
+  overview: z.string(),
+  keyPoints: z.array(z.string()),
+  tickers: z.array(z.object({ symbol: z.string(), note: z.string() })),
+  actionItems: z.array(z.string()),
+  questions: z.array(z.object({ question: z.string(), answer: z.string() })),
+})
+export type ClassSummaryDoc = z.infer<typeof classSummaryDocSchema>
+
+/**
+ * classRecaps/{id}: one class with the AI summary members read in place of Zoom's. Zoom's webhook
+ * creates one when the weekly class's cloud recording transcript is ready; an admin can add one with a
+ * transcript file. Only the server reads them; transcripts stay with the admins.
+ */
+export const classRecapSchema = z.object({
+  title: z.string(),
+  date: isoDate,
+  /** Zoom's id for this occurrence of the meeting, so an event sent twice makes one recap. */
+  zoomMeetingUuid: z.string().nullable().default(null),
+  transcript: z.object({
+    status: z.enum(["pending", "running", "done", "failed"]),
+    source: z.enum(["zoom", "upload"]),
+    /** The transcript in Cloud Storage (content/...), once there is one. */
+    path: z.string().nullable().default(null),
+    name: z.string().nullable().default(null),
+    contentType: z.string().nullable().default(null),
+    /** Zoom's transcript files, until they are downloaded, with the event's short-lived token. */
+    downloadUrls: z.array(z.string()).default([]),
+    downloadToken: z.string().nullable().default(null),
+    message: z.string().nullable().default(null),
+    claimId: z.string().nullable().default(null),
+    requestedAt: timestamp,
+    finishedAt: optionalTimestamp,
+  }),
+  summary: classSummaryDocSchema.nullable().default(null),
+  published: z.boolean().default(false),
+  /** Members were told about it: once, the first time it is published. */
+  notifiedAt: optionalTimestamp,
+  createdAt: timestamp,
+  updatedAt: timestamp,
+})
+export type ClassRecapDoc = z.infer<typeof classRecapSchema> & { id: string }
 
 // ---- Journal and brokerage ----------------------------------------------------------------------
 
@@ -609,6 +799,14 @@ export type SiteSettings = z.infer<typeof siteSettingsSchema>
 
 export const memberSettingsSchema = z.object({
   zoomUrl: z.url().nullable().default(null),
+  /**
+   * The weekly class's Zoom meeting (digits only; the class link's when empty) and its passcode, so
+   * members can join inside the site and recaps are made of this meeting only.
+   */
+  zoomMeetingId: z.string().nullable().default(null),
+  zoomPasscode: z.string().nullable().default(null),
+  /** Class recaps go to members as soon as the AI writes them; off, an admin publishes each one. */
+  recapsAutoPublish: z.boolean().default(true),
   whatsappUrl: z.url().nullable().default(null),
   oneOnOneUrl: z.url().nullable().default(null),
   setupTags: z.array(z.string()).default(["Channel break", "BOC bounce", "Median reclaim", "Earnings play", "Other"]),
@@ -624,6 +822,86 @@ export const memberSettingsSchema = z.object({
     .default({ showDollars: false, showPositions: false, showClosedTrades: true, positionDelayHours: 0 }),
 })
 export type MemberSettings = z.infer<typeof memberSettingsSchema>
+
+/** How members pay, on every invoice. */
+export const wireDetailsSchema = z.object({
+  bank: z.string(),
+  bankAddress: z.string(),
+  swift: z.string(),
+  routing: z.string(),
+  beneficiary: z.string(),
+  beneficiaryAddress: z.string(),
+  account: z.string(),
+})
+export type WireDetails = z.infer<typeof wireDetailsSchema>
+
+export const paymentDetailsSchema = z.object({
+  terms: z.string(),
+  cashApp: z.string().nullable(),
+  wise: z.string().nullable(),
+  /** Null until HG enters the bank details. */
+  wire: wireDetailsSchema.nullable(),
+})
+export type PaymentDetails = z.infer<typeof paymentDetailsSchema>
+
+/**
+ * settings/billing: who invoices come from, what they say and how to pay. Bank details live here, in
+ * Firestore, never in the repository; only the server reads this document.
+ */
+export const billingSettingsSchema = z.object({
+  name: z.string().default("Hubert Gaffney"),
+  address: z.string().default(""),
+  phone: z.string().nullable().default(null),
+  email: z.string().nullable().default(null),
+  /** One quarter of membership, in cents: what a new invoice starts with. */
+  quarterPrice: z.number().int().nonnegative().nullable().default(null),
+  program: z.string().default("Beginner options and stock strategies, group format. Instructor: Hubert Gaffney."),
+  notes: z
+    .array(z.string())
+    .default([
+      "Three one-on-one sessions with HG are included in the enrollment.",
+      "Zoom Pro fees are paid by the instructor, at no charge to you.",
+    ]),
+  payment: paymentDetailsSchema.default({
+    terms: "Pay in US dollars by wire transfer, Cash App, or Wise for international payments.",
+    cashApp: null,
+    wise: null,
+    wire: null,
+  }),
+})
+export type BillingSettings = z.infer<typeof billingSettingsSchema>
+
+/** invoices/{id}: an issued invoice. What it says is kept as issued; only its status changes. */
+export const invoiceSchema = z.object({
+  number: z.string(),
+  uid: z.string(),
+  status: z.enum(["open", "paid", "void"]),
+  issuedOn: isoDate,
+  dueOn: isoDate.nullable().default(null),
+  from: z.object({
+    name: z.string(),
+    address: z.string(),
+    phone: z.string().nullable(),
+    email: z.string().nullable(),
+  }),
+  billTo: z.object({
+    name: z.string(),
+    address: z.string(),
+    email: z.string(),
+    phone: z.string().nullable(),
+  }),
+  program: z.string(),
+  lines: z.array(z.object({ description: z.string(), period: z.string().nullable(), amount: z.number().int() })),
+  notes: z.array(z.string()),
+  /** In cents. */
+  total: z.number().int(),
+  payment: paymentDetailsSchema,
+  paidOn: isoDate.nullable().default(null),
+  createdAt: timestamp,
+  createdBy: z.string(),
+  updatedAt: timestamp,
+})
+export type InvoiceDoc = z.infer<typeof invoiceSchema> & { id: string }
 
 export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   bookingUrl: "https://scheduler.zoom.us/hubert-gaffney/welcome-to-your-meeting-to-join-our-profit-options-team",
@@ -663,6 +941,22 @@ export const auditSchema = z.object({
   createdAt: timestamp,
 })
 export type AuditEntry = z.infer<typeof auditSchema> & { id: string }
+
+/**
+ * True for a string that names one document: ids from requests are checked with this before use, since
+ * a "/" would make Firestore address a document somewhere else.
+ */
+export function isDocId(id: unknown): id is string {
+  return (
+    typeof id === "string" &&
+    id.length > 0 &&
+    id.length <= 200 &&
+    !id.includes("/") &&
+    id !== "." &&
+    id !== ".." &&
+    !/^__.*__$/.test(id)
+  )
+}
 
 /** Parses a document, attaching its id; returns null (and logs) when the data does not match. */
 export function parseDoc<S extends z.ZodType>(

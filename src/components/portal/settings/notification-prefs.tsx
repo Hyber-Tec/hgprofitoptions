@@ -19,6 +19,8 @@ export interface PrefsValues {
   mutedSymbols: string[]
   targetsPublished: boolean
   membershipReminders: boolean
+  chat: boolean
+  classRecaps: boolean
 }
 
 export function NotificationPrefs({ initial, emailAvailable }: { initial: PrefsValues; emailAvailable: boolean }) {
@@ -159,6 +161,24 @@ export function NotificationPrefs({ initial, emailAvailable }: { initial: PrefsV
             checked={prefs.membershipReminders}
             onCheckedChange={(v) => setPrefs((p) => ({ ...p, membershipReminders: v }))}
           />
+        </label>
+        <label className="flex items-start justify-between gap-4">
+          <span>
+            <span className="block text-sm font-medium">Chat</span>
+            <span className="block text-sm text-muted-foreground">
+              Answers to your questions. Experts and admins also hear about new questions.
+            </span>
+          </span>
+          <Switch checked={prefs.chat} onCheckedChange={(v) => setPrefs((p) => ({ ...p, chat: v }))} />
+        </label>
+        <label className="flex items-start justify-between gap-4">
+          <span>
+            <span className="block text-sm font-medium">Class recaps</span>
+            <span className="block text-sm text-muted-foreground">
+              When the recap of a class is ready: the key points, tickers and questions.
+            </span>
+          </span>
+          <Switch checked={prefs.classRecaps} onCheckedChange={(v) => setPrefs((p) => ({ ...p, classRecaps: v }))} />
         </label>
       </section>
 

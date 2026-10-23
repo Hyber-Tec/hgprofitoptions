@@ -4,12 +4,13 @@
 export const auditCategory = (action: string): string => action.split(".")[0] ?? action
 
 export const AUDIT_FILTERS = [
-  { value: "members", label: "Members", categories: ["member", "period", "invite"] },
+  { value: "members", label: "Members", categories: ["member", "period", "invite", "invoice"] },
   { value: "alerts", label: "Alerts", categories: ["alert"] },
   { value: "targets", label: "Strike targets", categories: ["targets"] },
   { value: "market", label: "Market data", categories: ["ticker", "etfs", "market"] },
-  { value: "content", label: "Content", categories: ["presentation", "file", "testimonial", "faq"] },
+  { value: "content", label: "Content", categories: ["presentation", "file", "recap", "testimonial", "faq"] },
   { value: "settings", label: "Settings", categories: ["settings", "hg"] },
+  { value: "community", label: "Chat and quizzes", categories: ["chat", "quiz"] },
 ] as const
 
 export type AuditFilter = (typeof AUDIT_FILTERS)[number]["value"]
@@ -21,6 +22,7 @@ const ACTION_LABELS: Record<string, string> = {
   "member.reinstated": "Reinstated",
   "member.promoted": "Made an admin",
   "member.demoted": "Admin access removed",
+  "member.level_changed": "Trader level changed",
   "member.deleted": "Member deleted",
   "member.password_reset": "Password reset link created",
   "member.signed_out": "Signed out everywhere",
@@ -55,13 +57,36 @@ const ACTION_LABELS: Record<string, string> = {
   "presentation.deleted": "Presentation deleted",
   "file.created": "File added",
   "file.updated": "File updated",
+  "invoice.created": "Invoice issued",
+  "invoice.paid": "Invoice marked as paid",
+  "invoice.reopened": "Invoice marked as unpaid",
+  "invoice.voided": "Invoice cancelled",
+  "settings.billing_updated": "Billing details changed",
   "file.deleted": "File deleted",
+  "recap.created": "Class recap added",
+  "recap.rewritten": "Class recap written again",
+  "recap.transcript_uploaded": "Class transcript uploaded",
+  "recap.edited": "Class recap edited",
+  "recap.published": "Class recap published",
+  "recap.hidden": "Class recap hidden",
+  "recap.deleted": "Class recap deleted",
   "testimonial.created": "Testimonial added",
   "testimonial.updated": "Testimonial updated",
   "testimonial.deleted": "Testimonial deleted",
   "faq.created": "Question added",
   "faq.updated": "Question updated",
   "faq.deleted": "Question deleted",
+  "chat.message_removed": "Chat message removed",
+  "chat.thread_deleted": "Chat thread deleted",
+  "quiz.created": "Quiz created",
+  "quiz.updated": "Quiz settings changed",
+  "quiz.published": "Quiz published",
+  "quiz.draft": "Quiz unpublished",
+  "quiz.archived": "Quiz archived",
+  "quiz.assigned": "Test assigned",
+  "quiz.assignment_cancelled": "Test assignment cancelled",
+  "quiz.passed": "Test passed",
+  "quiz.failed": "Test not passed",
 }
 
 export function describeAuditAction(action: string): string {

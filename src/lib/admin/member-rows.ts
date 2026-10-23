@@ -27,6 +27,7 @@ export function toMemberListRow({ member, periods, status }: MemberRow): MemberL
     email: member.email,
     phone: member.phone,
     role: member.role,
+    level: member.level,
     statusKind: status.kind,
     statusLabel: summary.status,
     tone: TONES[summary.tone],

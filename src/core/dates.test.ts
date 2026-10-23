@@ -6,6 +6,7 @@ import {
   daysBetween,
   isIsoDate,
   isoDateInZone,
+  lastClosedSession,
   lastCompletedWeek,
   mondayOf,
   nextFriday,
@@ -66,5 +67,14 @@ describe("calendar dates", () => {
   it("reads the New York calendar date of an instant", () => {
     expect(isoDateInZone(new Date("2027-01-01T04:59:00Z"))).toBe("2026-12-31")
     expect(isoDateInZone(new Date("2027-01-01T05:00:00Z"))).toBe("2027-01-01")
+  })
+})
+
+describe("last closed session", () => {
+  it("is today once the 4 PM close has settled in New York, else yesterday", () => {
+    expect(lastClosedSession(new Date("2026-10-21T20:30:00Z"))).toBe("2026-10-21") // 4:30 PM EDT
+    expect(lastClosedSession(new Date("2026-10-21T19:59:00Z"))).toBe("2026-10-20") // 3:59 PM EDT
+    expect(lastClosedSession(new Date("2026-12-14T21:25:00Z"))).toBe("2026-12-14") // 4:25 PM EST
+    expect(lastClosedSession(new Date("2026-10-22T03:00:00Z"))).toBe("2026-10-21") // 11 PM the day before
   })
 })

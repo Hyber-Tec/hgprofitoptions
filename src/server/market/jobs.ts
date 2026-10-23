@@ -1,15 +1,19 @@
 /**
  * Scheduled market data work, shared by the Cloud Functions and scripts: store each session's bars,
- * refresh the tickers' high/low windows, and build Key Market Data when a week ends.
+ * refresh the tickers' high/low windows, and build Key Market Data when a week ends. Adding a ticker
+ * fetches its history at once, so it shows up in every tool the same day.
  */
-import { Timestamp, type Firestore } from "firebase-admin/firestore"
+import { FieldPath, Timestamp, type Firestore } from "firebase-admin/firestore"
 import { mergeBars } from "@/core/calc/bars"
 import { weeklyStats } from "@/core/calc/kmd"
 import { tickerMetrics } from "@/core/calc/medians"
-import { lastCompletedWeek } from "@/core/dates"
+import { addDays, lastCompletedWeek } from "@/core/dates"
 import type { DailyBar, IsoDate } from "@/core/domain/types"
 import { COLLECTIONS, parseDoc, tickerBarsSchema, tickerSchema, type Ticker } from "../model"
-import { fetchGroupedDaily, type MarketDataConfig } from "./provider"
+import { fetchDailyRange, fetchGroupedDaily, fetchSplits, type MarketDataConfig } from "./provider"
+
+/** Calendar days of history fetched for a new ticker or after a split: about 400 sessions. */
+const HISTORY_DAYS = 600
 
 async function activeTickers(db: Firestore): Promise<Ticker[]> {
   const snap = await db.collection(COLLECTIONS.tickers).where("active", "==", true).get()
@@ -18,15 +22,21 @@ async function activeTickers(db: Firestore): Promise<Ticker[]> {
     .filter((t): t is Ticker & { id: string } => t !== null && t.kind !== "index")
 }
 
-async function readBars(db: Firestore, symbols: readonly string[]): Promise<Map<string, DailyBar[]>> {
-  const out = new Map<string, DailyBar[]>()
+interface StoredBars {
+  bars: DailyBar[]
+  /** The newest split already reflected in the bars. */
+  lastSplit: IsoDate | null
+}
+
+async function readBars(db: Firestore, symbols: readonly string[]): Promise<Map<string, StoredBars>> {
+  const out = new Map<string, StoredBars>()
   for (let i = 0; i < symbols.length; i += 100) {
     const refs = symbols.slice(i, i + 100).map((s) => db.collection(COLLECTIONS.tickerBars).doc(s))
     if (refs.length === 0) continue
     for (const snap of await db.getAll(...refs)) {
       if (!snap.exists) continue
       const doc = parseDoc(tickerBarsSchema, snap.id, snap.data())
-      if (doc) out.set(snap.id, doc.bars)
+      if (doc) out.set(snap.id, { bars: doc.bars, lastSplit: doc.lastSplit })
     }
   }
   return out
@@ -37,13 +47,17 @@ const providerMetrics = (bars: readonly DailyBar[], asOf: IsoDate, week: { start
   return metrics ? { ...metrics, price: null, source: "provider" as const } : null
 }
 
-/** Adds one session's bars for every active ticker and refreshes its metrics. Null on a market holiday. */
+/**
+ * Adds one session's bars for every active ticker and refreshes its metrics. A ticker whose split took
+ * effect in the last week gets its whole split-adjusted history again, so the weeks around the split
+ * never mix old and new share prices. Null on a market holiday.
+ */
 export async function ingestDailyBars(
   db: Firestore,
   config: MarketDataConfig,
   date: IsoDate,
   fetchImpl?: typeof fetch,
-): Promise<{ updated: number; missing: string[] } | null> {
+): Promise<{ updated: number; missing: string[]; resplit: string[] } | null> {
   const session = await fetchGroupedDaily(config, date, fetchImpl)
   if (session.size === 0) return null
   const tickers = await activeTickers(db)
@@ -51,9 +65,20 @@ export async function ingestDailyBars(
     db,
     tickers.map((t) => t.symbol),
   )
+  const splits = await fetchSplits(config, addDays(date, -7), date, fetchImpl)
+  const universe = new Set(tickers.map((t) => t.symbol))
+  const pendingSplit = new Map<string, IsoDate>()
+  for (const s of splits) {
+    if (!universe.has(s.symbol) || s.executionDate > date) continue
+    const applied = history.get(s.symbol)?.lastSplit ?? null
+    if (applied !== null && applied >= s.executionDate) continue
+    if ((pendingSplit.get(s.symbol) ?? "") < s.executionDate) pendingSplit.set(s.symbol, s.executionDate)
+  }
+
   const week = lastCompletedWeek(date)
   const writer = db.bulkWriter()
   const missing: string[] = []
+  const resplit: string[] = []
   let updated = 0
   for (const t of tickers) {
     const bar = session.get(t.symbol)
@@ -61,10 +86,20 @@ export async function ingestDailyBars(
       missing.push(t.symbol)
       continue
     }
-    const bars = mergeBars(history.get(t.symbol) ?? [], [bar])
+    const stored = history.get(t.symbol)
+    const split = pendingSplit.get(t.symbol) ?? null
+    let bars: DailyBar[]
+    if (split) {
+      const adjusted = await fetchDailyRange(config, t.symbol, addDays(date, -HISTORY_DAYS), date, fetchImpl)
+      bars = mergeBars(adjusted, [bar])
+      resplit.push(t.symbol)
+    } else {
+      bars = mergeBars(stored?.bars ?? [], [bar])
+    }
     void writer.set(db.collection(COLLECTIONS.tickerBars).doc(t.symbol), {
       symbol: t.symbol,
       bars,
+      lastSplit: split ?? stored?.lastSplit ?? null,
       updatedAt: Timestamp.now(),
     })
     const metrics = providerMetrics(bars, date, week)
@@ -72,7 +107,7 @@ export async function ingestDailyBars(
     updated++
   }
   await writer.close()
-  return { updated, missing }
+  return { updated, missing, resplit }
 }
 
 /**
@@ -90,7 +125,7 @@ export async function finalizeWeek(db: Firestore, today: IsoDate): Promise<{ wee
     {}
   const writer = db.bulkWriter()
   for (const t of tickers) {
-    const bars = history.get(t.symbol)
+    const bars = history.get(t.symbol)?.bars
     const last = bars?.at(-1)
     if (!bars || !last) continue
     const stats = weeklyStats(bars, week)
@@ -113,4 +148,36 @@ export async function finalizeWeek(db: Firestore, today: IsoDate): Promise<{ wee
       )
   }
   return { weekStart: week.start, rows: count }
+}
+
+/**
+ * A new ticker's history (about 18 months up to `lastSession`), its metrics, and its row in the latest
+ * Key Market Data week on file when that week is the last completed one.
+ */
+export async function backfillTicker(
+  db: Firestore,
+  config: MarketDataConfig,
+  symbol: string,
+  lastSession: IsoDate,
+  fetchImpl?: typeof fetch,
+): Promise<{ bars: number; addedToWeek: IsoDate | null }> {
+  const fetched = await fetchDailyRange(config, symbol, addDays(lastSession, -HISTORY_DAYS), lastSession, fetchImpl)
+  const bars = mergeBars([], fetched)
+  const last = bars.at(-1)
+  if (!last) return { bars: 0, addedToWeek: null }
+  const week = lastCompletedWeek(addDays(lastSession, 1))
+  await db
+    .collection(COLLECTIONS.tickerBars)
+    .doc(symbol)
+    .set({ symbol, bars, lastSplit: null, updatedAt: Timestamp.now() })
+  const metrics = providerMetrics(bars, last.date, week)
+  if (metrics) await db.collection(COLLECTIONS.tickers).doc(symbol).update({ metrics })
+
+  const stats = weeklyStats(bars, week)
+  const weekRef = db.collection(COLLECTIONS.weeks).doc(week.start)
+  if (!stats || !(await weekRef.get()).exists) return { bars: bars.length, addedToWeek: null }
+  const { pfcp, high, low, close, range, svi } = stats
+  // A FieldPath, so a symbol with a dot (BRK.B) stays one key.
+  await weekRef.update(new FieldPath("rows", symbol), { pfcp, high, low, close, range, svi })
+  return { bars: bars.length, addedToWeek: week.start }
 }

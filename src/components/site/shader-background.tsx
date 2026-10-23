@@ -8,7 +8,7 @@
  * so the parent's own background shows instead.
  */
 
-import { useTheme } from "next-themes"
+import { useTheme } from "@/components/shared/theme"
 import { useEffect, useRef } from "react"
 import { cn } from "@/lib/utils"
 

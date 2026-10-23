@@ -4,12 +4,15 @@ import { Timestamp } from "firebase-admin/firestore"
 import { refresh } from "next/cache"
 import { z } from "zod"
 import { signedRange, svi } from "@/core/calc/kmd"
-import { addDays, isIsoDate } from "@/core/dates"
+import { addDays, isIsoDate, lastClosedSession } from "@/core/dates"
 import type { ActionResult } from "@/core/domain/types"
+import { backfillTicker } from "@/server/market/jobs"
+import { fetchTickerDetails } from "@/server/market/provider"
 import { writeAudit } from "@/server/members"
 import { COLLECTIONS } from "@/server/model"
 import { adminForAction } from "@/lib/auth/guards"
 import { invalidate } from "@/lib/data/cache"
+import { marketDataConfig } from "@/lib/env.server"
 import { adminDb } from "@/lib/firebase/admin"
 
 const forbidden = {
@@ -82,24 +85,43 @@ export async function updateTicker(rawSymbol: string, input: TickerInput): Promi
   return { ok: true, data: undefined }
 }
 
+/**
+ * Adds a ticker from its symbol alone. With market data connected, its name and kind come from the
+ * provider and about 18 months of prices are fetched at once, so it shows up in Key Market Data and the
+ * Median & Channel Chart right away. BOC starts at half the channel (HG's usual setting).
+ */
 export async function createTicker(input: {
   symbol: string
-  name: string | null
-  kind: "stock" | "etf"
-}): Promise<ActionResult> {
+  channelSize: number | null
+}): Promise<ActionResult<{ name: string | null; bars: number; addedToWeek: string | null; priced: boolean }>> {
   const viewer = await adminForAction()
   if (!viewer) return forbidden
   const sym = symbol.safeParse(input.symbol)
   if (!sym.success) return { ok: false, code: "validation", message: "Use a ticker like TSM." }
+  const channel = z.number().positive().nullable().safeParse(input.channelSize)
+  if (!channel.success) return { ok: false, code: "validation", message: "The channel must be a positive number." }
   const ref = adminDb().collection(COLLECTIONS.tickers).doc(sym.data)
   if ((await ref.get()).exists) return { ok: false, code: "conflict", message: `${sym.data} is already in the list.` }
+
+  const market = marketDataConfig()
+  let details: Awaited<ReturnType<typeof fetchTickerDetails>> = null
+  if (market) {
+    try {
+      details = await fetchTickerDetails(market, sym.data)
+      if (!details)
+        return { ok: false, code: "not-found", message: `${sym.data} was not found. Check the symbol and try again.` }
+    } catch (error) {
+      console.error(`Ticker details for ${sym.data}:`, error instanceof Error ? error.message : error)
+    }
+  }
+  const ch = channel.data
   await ref.set({
     symbol: sym.data,
-    name: input.name?.trim() || null,
-    kind: input.kind,
+    name: details?.name ?? null,
+    kind: details?.kind ?? "stock",
     active: true,
-    channelSize: null,
-    bocSize: null,
+    channelSize: ch,
+    bocSize: ch === null ? null : Math.round((ch / 2) * 10000) / 10000,
     fsLevels: [],
     ssLevels: [],
     earningsStart: null,
@@ -111,16 +133,34 @@ export async function createTicker(input: {
     updatedAt: Timestamp.now(),
     updatedBy: viewer.uid,
   })
+
+  let backfill = { bars: 0, addedToWeek: null as string | null }
+  if (market) {
+    try {
+      backfill = await backfillTicker(adminDb(), market, sym.data, lastClosedSession())
+    } catch (error) {
+      console.error(`Price history for ${sym.data}:`, error instanceof Error ? error.message : error)
+    }
+  }
   await writeAudit(adminDb(), {
     actorUid: viewer.uid,
     actorEmail: viewer.email,
     action: "ticker.created",
     targetType: "ticker",
     targetId: sym.data,
+    detail: { bars: backfill.bars },
   })
   invalidate("tools:")
   refresh()
-  return { ok: true, data: undefined }
+  return {
+    ok: true,
+    data: {
+      name: details?.name ?? null,
+      bars: backfill.bars,
+      addedToWeek: backfill.addedToWeek,
+      priced: market !== null,
+    },
+  }
 }
 
 const etfInput = z.object({

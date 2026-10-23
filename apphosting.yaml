@@ -59,4 +59,15 @@ env:
   - variable: MARKET_DATA_API_KEY
     secret: MARKET_DATA_API_KEY
   - variable: MARKET_DATA_BASE_URL
-    value: https://api.polygon.io
+    value: https://api.massive.com
+  # AI for practice quizzes and class summaries.
+  - variable: AI_API_KEY
+    secret: AI_API_KEY
+  # Zoom. The Meeting SDK app lets members join the weekly class inside the site; the webhook's
+  # secret token checks Zoom's "transcript ready" events (the Cloud Function downloads them).
+  - variable: ZOOM_SDK_KEY
+    value: none
+  - variable: ZOOM_SDK_SECRET
+    secret: ZOOM_SDK_SECRET
+  - variable: ZOOM_WEBHOOK_SECRET
+    secret: ZOOM_WEBHOOK_SECRET

@@ -1,6 +1,5 @@
 import type { Viewport } from "next"
 import type { ReactNode } from "react"
-import { AreaTheme } from "@/components/shared/area-theme"
 import { SiteMotion } from "@/components/site/motion"
 import { SiteFooter } from "@/components/site/site-footer"
 import { SiteHeader } from "@/components/site/site-header"
@@ -13,7 +12,7 @@ export const viewport: Viewport = { themeColor: "#f6f8fc" }
 export default async function SiteLayout({ children }: { children: ReactNode }) {
   const [viewer, settings] = await Promise.all([getViewer(), getSiteSettings()])
   return (
-    <AreaTheme defaultTheme="light">
+    <>
       <div data-site className="contents">
         <SiteMotion>
           <a
@@ -29,6 +28,6 @@ export default async function SiteLayout({ children }: { children: ReactNode }) 
           <SiteFooter settings={settings} />
         </SiteMotion>
       </div>
-    </AreaTheme>
+    </>
   )
 }

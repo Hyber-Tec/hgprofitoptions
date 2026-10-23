@@ -1,6 +1,6 @@
 "use client"
 
-import { useTheme } from "next-themes"
+import { useTheme } from "@/components/shared/theme"
 import { LuMoon, LuSun } from "react-icons/lu"
 import { Button } from "@/components/ui/button"
 

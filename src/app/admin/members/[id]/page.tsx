@@ -2,13 +2,15 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { after } from "next/server"
-import { LuMail, LuMapPin, LuPhone } from "react-icons/lu"
+import { LuMail, LuMapPin, LuPhone, LuReceiptText } from "react-icons/lu"
 import { SiWhatsapp } from "react-icons/si"
 import { alertInstrument } from "@/core/alerts"
 import { describeAuditAction, formatAuditDetail } from "@/core/audit"
 import { growthIndex } from "@/core/calc/returns"
 import { isoDateInZone, todayInMarketZone } from "@/core/dates"
+import { LEVEL_LABELS } from "@/core/levels"
 import { formatDate, formatDateTimeET, formatInstrument, formatPrice } from "@/core/format"
+import { formatCents } from "@/core/invoice"
 import { nextRenewalQuarter } from "@/core/membership/quarters"
 import { membershipSummary } from "@/core/membership/summary"
 import { writeAudit } from "@/server/members"
@@ -22,21 +24,25 @@ import {
 } from "@/server/portfolio"
 import { requireAdmin } from "@/lib/auth/guards"
 import { getAdminNotes, getMemberRow, listAudit, listLogins } from "@/lib/data/admin"
+import { listInvoicesFor } from "@/lib/data/invoices"
 import { adminDb } from "@/lib/firebase/admin"
 import { cn } from "@/lib/utils"
+import { InvoiceActions } from "@/components/admin/invoice-actions"
 import {
   AdminNotesEditor,
   AdminProfileForm,
   DeleteMemberButton,
   MemberActionsMenu,
   PeriodManager,
+  TraderLevelControl,
 } from "@/components/admin/member-actions"
 import { EquityCurve } from "@/components/portal/charts"
 import { Signed, Stat, ToneBadge, type Tone } from "@/components/portal/display"
 import { JournalStatsView, PnlHeatmap } from "@/components/portal/journal/journal-stats"
 import { PageHeader } from "@/components/portal/page-header"
+import { ButtonLink } from "@/components/shared/button-link"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 export const metadata: Metadata = { title: "Member" }
@@ -87,6 +93,7 @@ export default async function AdminMemberPage({ params, searchParams }: PageProp
           <>
             <ToneBadge tone={TONES[summary.tone] ?? "muted"}>{summary.status}</ToneBadge>
             {member.role === "admin" && <ToneBadge tone="neutral">Admin</ToneBadge>}
+            <ToneBadge tone="muted">{LEVEL_LABELS[member.level]}</ToneBadge>
             <span>
               {summary.label} · {summary.detail}
             </span>
@@ -145,12 +152,21 @@ export default async function AdminMemberPage({ params, searchParams }: PageProp
                   phone: member.phone,
                   whatsapp: member.whatsapp,
                   location: member.location,
+                  mailingAddress: member.mailingAddress,
                   timezone: member.timezone,
                 }}
               />
             </CardContent>
           </Card>
           <div className="flex flex-col gap-6">
+            <Card size="sm">
+              <CardHeader>
+                <CardTitle>Trader level</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <TraderLevelControl uid={id} level={member.level} setBy={member.levelSetBy} />
+              </CardContent>
+            </Card>
             <Card size="sm">
               <CardHeader>
                 <CardTitle>Contact</CardTitle>
@@ -206,30 +222,33 @@ export default async function AdminMemberPage({ params, searchParams }: PageProp
       )}
 
       {tab === "subscription" && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Membership periods</CardTitle>
-            <CardDescription>
-              Access runs from midnight on the start date to the end of the end date, New York time. Back-to-back
-              periods count as one stretch.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <PeriodManager
-              uid={id}
-              defaultYear={year}
-              defaultQuarter={q}
-              periods={periods.map((p) => ({
-                id: p.id,
-                label: p.label,
-                start: p.start,
-                end: p.end,
-                note: p.note,
-                state: p.end < today ? "Ended" : p.start > today ? "Upcoming" : "Current",
-              }))}
-            />
-          </CardContent>
-        </Card>
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle>Membership periods</CardTitle>
+              <CardDescription>
+                Access runs from midnight on the start date to the end of the end date, New York time. Back-to-back
+                periods count as one stretch.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <PeriodManager
+                uid={id}
+                defaultYear={year}
+                defaultQuarter={q}
+                periods={periods.map((p) => ({
+                  id: p.id,
+                  label: p.label,
+                  start: p.start,
+                  end: p.end,
+                  note: p.note,
+                  state: p.end < today ? "Ended" : p.start > today ? "Upcoming" : "Current",
+                }))}
+              />
+            </CardContent>
+          </Card>
+          <InvoicesCard uid={id} />
+        </>
       )}
 
       {tab === "performance" && <PerformanceTab uid={id} />}
@@ -237,6 +256,79 @@ export default async function AdminMemberPage({ params, searchParams }: PageProp
       {tab === "activity" && <ActivityTab uid={id} />}
       {tab === "notes" && <NotesTab uid={id} />}
     </>
+  )
+}
+
+const INVOICE_STATUS = {
+  open: { label: "Unpaid", tone: "warning" },
+  paid: { label: "Paid", tone: "positive" },
+  void: { label: "Cancelled", tone: "muted" },
+} as const
+
+async function InvoicesCard({ uid }: { uid: string }) {
+  const invoices = await listInvoicesFor(uid)
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Invoices</CardTitle>
+        <CardDescription>
+          The member sees their invoices in their settings and gets a notification for each.
+        </CardDescription>
+        <CardAction>
+          <ButtonLink size="sm" href={`/admin/members/${uid}/invoice`}>
+            <LuReceiptText />
+            New invoice
+          </ButtonLink>
+        </CardAction>
+      </CardHeader>
+      <CardContent className={invoices.length > 0 ? "px-0" : undefined}>
+        {invoices.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No invoices yet.</p>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="pl-6">Invoice</TableHead>
+                <TableHead className="hidden sm:table-cell">Issued</TableHead>
+                <TableHead className="text-right">Total</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="w-12 pr-6" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {invoices.map((invoice) => (
+                <TableRow key={invoice.id}>
+                  <TableCell className="pl-6">
+                    <a
+                      href={`/members/invoices/${invoice.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="rounded-sm font-medium tabular-nums outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
+                    >
+                      {invoice.number}
+                    </a>
+                  </TableCell>
+                  <TableCell className="hidden text-sm text-muted-foreground sm:table-cell">
+                    {formatDate(invoice.issuedOn)}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">{formatCents(invoice.total)}</TableCell>
+                  <TableCell>
+                    <ToneBadge tone={INVOICE_STATUS[invoice.status].tone}>
+                      {invoice.status === "paid" && invoice.paidOn
+                        ? `Paid ${formatDate(invoice.paidOn)}`
+                        : INVOICE_STATUS[invoice.status].label}
+                    </ToneBadge>
+                  </TableCell>
+                  <TableCell className="pr-6 text-right">
+                    <InvoiceActions id={invoice.id} number={invoice.number} status={invoice.status} />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
   )
 }
 

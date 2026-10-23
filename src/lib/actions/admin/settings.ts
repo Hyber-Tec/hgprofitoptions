@@ -4,6 +4,7 @@ import { refresh } from "next/cache"
 import { z } from "zod"
 import { todayInMarketZone } from "@/core/dates"
 import type { ActionResult } from "@/core/domain/types"
+import { normalizeMeetingId } from "@/core/zoom"
 import { writeAudit } from "@/server/members"
 import { COLLECTIONS, MEMBER_SUBCOLLECTIONS } from "@/server/model"
 import { computeStanding } from "@/server/standing"
@@ -64,8 +65,21 @@ export async function updateSiteSettings(input: z.input<typeof siteInput>): Prom
   return { ok: true, data: undefined }
 }
 
+const meetingId = z
+  .string()
+  .trim()
+  .refine((v) => v === "" || normalizeMeetingId(v) !== null, "Enter the meeting ID from the Zoom invitation")
+  .transform((v) => (v === "" ? null : normalizeMeetingId(v)))
+
 const memberInput = z.object({
   zoomUrl: url,
+  zoomMeetingId: meetingId,
+  zoomPasscode: z
+    .string()
+    .trim()
+    .max(32, "Zoom passcodes are 32 characters at most")
+    .transform((v) => (v === "" ? null : v)),
+  recapsAutoPublish: z.boolean(),
   whatsappUrl: url,
   oneOnOneUrl: url,
   expiringSoonDays: z.number().int().min(1).max(60),

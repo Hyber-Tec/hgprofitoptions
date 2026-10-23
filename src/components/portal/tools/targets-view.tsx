@@ -1,10 +1,11 @@
-import { LuDownload } from "react-icons/lu"
+import { LuDownload, LuPencil } from "react-icons/lu"
 import { formatDate, formatDateWithWeekday } from "@/core/format"
 import type { Viewer } from "@/lib/auth/guards"
 import { listTargetUpdates } from "@/lib/data/tools"
+import { integrations } from "@/lib/env.server"
 import { buildTargetRows } from "@/lib/tools/targets"
 import type { TargetUpdate } from "@/server/model"
-import { ButtonAnchor } from "@/components/shared/button-link"
+import { ButtonAnchor, ButtonLink } from "@/components/shared/button-link"
 import { AsOf, PageHeader } from "../page-header"
 import { ToneBadge } from "../display"
 import { Watermark } from "../watermark"
@@ -41,7 +42,11 @@ export async function TargetsView({
                 Corrected (version {update.revision}){update.changeNote ? `: ${update.changeNote}` : ""}
               </span>
             )}
-            {lastClose && <AsOf>Prices as of the {formatDate(lastClose)} close</AsOf>}
+            {integrations.marketData ? (
+              <AsOf>Live prices</AsOf>
+            ) : (
+              lastClose && <AsOf>Prices as of the {formatDate(lastClose)} close</AsOf>
+            )}
             {update.effectiveDate !== latest && (
               <span className="font-medium text-warning">You are viewing an older update</span>
             )}
@@ -60,16 +65,22 @@ export async function TargetsView({
               <LuDownload />
               PDF
             </ButtonAnchor>
+            {viewer.role === "admin" && (
+              <ButtonLink size="sm" className="print:hidden" href={`/admin/targets/${update.effectiveDate}?edit=1`}>
+                <LuPencil />
+                Edit
+              </ButtonLink>
+            )}
           </>
         }
       />
-      <TargetsTable rows={rows} removed={removed} groups={groups} />
+      <TargetsTable rows={rows} removed={removed} groups={groups} live={integrations.marketData} />
       <p className="hidden text-xs text-muted-foreground print:block">
         Printed for {viewer.fullName} ({viewer.email}). HG Profit Options member content. Do not share.
       </p>
       <p className="text-xs text-muted-foreground print:hidden">
-        Status compares the last close with the target and break level. Educational content, not personalized investment
-        advice.
+        {integrations.marketData ? "Tap a ticker for its order book." : "Tap a ticker for its details."} Status compares
+        the latest price with the target and break levels. Educational content, not personalized investment advice.
       </p>
     </>
   )

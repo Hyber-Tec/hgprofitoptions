@@ -3,8 +3,10 @@ import type { IsoDate } from "./domain/types"
 import {
   formatDate,
   formatExpiry,
+  formatFixed,
   formatInstrument,
   formatLevel,
+  formatPlain,
   formatPercent,
   formatPrice,
   formatRelative,
@@ -20,6 +22,15 @@ describe("formatters", () => {
     expect(formatPrice(0.6648)).toBe("$0.6648")
     expect(formatPrice(null)).toBe("-")
     expect(formatLevel(472.5)).toBe("472.50")
+  })
+
+  it("formats sheet values with two decimals and typed levels as written", () => {
+    expect(formatFixed(0.3)).toBe("0.30")
+    expect(formatFixed(1630.84)).toBe("1,630.84")
+    expect(formatFixed(3.375)).toBe("3.38")
+    expect(formatPlain(270)).toBe("270")
+    expect(formatPlain(8.1)).toBe("8.1")
+    expect(formatPlain(null)).toBe("-")
   })
 
   it("formats signed values and money", () => {
