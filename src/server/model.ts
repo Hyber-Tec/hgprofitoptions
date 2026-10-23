@@ -30,6 +30,9 @@ export const COLLECTIONS = {
   quizAttempts: "quizAttempts",
   quizAssignments: "quizAssignments",
   classRecaps: "classRecaps",
+  invoices: "invoices",
+  /** counters/invoices: the last invoice number used each year ({ "2026": 7 }). */
+  counters: "counters",
 } as const
 
 export const MEMBER_SUBCOLLECTIONS = {
@@ -98,6 +101,8 @@ export const memberSchema = z.object({
   phone: z.string().nullable().default(null),
   whatsapp: z.string().nullable().default(null),
   location: z.string().nullable().default(null),
+  /** Shown on their invoices; several lines. */
+  mailingAddress: z.string().nullable().default(null),
   timezone: z.string().default("America/New_York"),
   role: roleSchema,
   status: memberStatusSchema,
@@ -817,6 +822,86 @@ export const memberSettingsSchema = z.object({
     .default({ showDollars: false, showPositions: false, showClosedTrades: true, positionDelayHours: 0 }),
 })
 export type MemberSettings = z.infer<typeof memberSettingsSchema>
+
+/** How members pay, on every invoice. */
+export const wireDetailsSchema = z.object({
+  bank: z.string(),
+  bankAddress: z.string(),
+  swift: z.string(),
+  routing: z.string(),
+  beneficiary: z.string(),
+  beneficiaryAddress: z.string(),
+  account: z.string(),
+})
+export type WireDetails = z.infer<typeof wireDetailsSchema>
+
+export const paymentDetailsSchema = z.object({
+  terms: z.string(),
+  cashApp: z.string().nullable(),
+  wise: z.string().nullable(),
+  /** Null until HG enters the bank details. */
+  wire: wireDetailsSchema.nullable(),
+})
+export type PaymentDetails = z.infer<typeof paymentDetailsSchema>
+
+/**
+ * settings/billing: who invoices come from, what they say and how to pay. Bank details live here, in
+ * Firestore, never in the repository; only the server reads this document.
+ */
+export const billingSettingsSchema = z.object({
+  name: z.string().default("Hubert Gaffney"),
+  address: z.string().default(""),
+  phone: z.string().nullable().default(null),
+  email: z.string().nullable().default(null),
+  /** One quarter of membership, in cents: what a new invoice starts with. */
+  quarterPrice: z.number().int().nonnegative().nullable().default(null),
+  program: z.string().default("Beginner options and stock strategies, group format. Instructor: Hubert Gaffney."),
+  notes: z
+    .array(z.string())
+    .default([
+      "Three one-on-one sessions with HG are included in the enrollment.",
+      "Zoom Pro fees are paid by the instructor, at no charge to you.",
+    ]),
+  payment: paymentDetailsSchema.default({
+    terms: "Pay in US dollars by wire transfer, Cash App, or Wise for international payments.",
+    cashApp: null,
+    wise: null,
+    wire: null,
+  }),
+})
+export type BillingSettings = z.infer<typeof billingSettingsSchema>
+
+/** invoices/{id}: an issued invoice. What it says is kept as issued; only its status changes. */
+export const invoiceSchema = z.object({
+  number: z.string(),
+  uid: z.string(),
+  status: z.enum(["open", "paid", "void"]),
+  issuedOn: isoDate,
+  dueOn: isoDate.nullable().default(null),
+  from: z.object({
+    name: z.string(),
+    address: z.string(),
+    phone: z.string().nullable(),
+    email: z.string().nullable(),
+  }),
+  billTo: z.object({
+    name: z.string(),
+    address: z.string(),
+    email: z.string(),
+    phone: z.string().nullable(),
+  }),
+  program: z.string(),
+  lines: z.array(z.object({ description: z.string(), period: z.string().nullable(), amount: z.number().int() })),
+  notes: z.array(z.string()),
+  /** In cents. */
+  total: z.number().int(),
+  payment: paymentDetailsSchema,
+  paidOn: isoDate.nullable().default(null),
+  createdAt: timestamp,
+  createdBy: z.string(),
+  updatedAt: timestamp,
+})
+export type InvoiceDoc = z.infer<typeof invoiceSchema> & { id: string }
 
 export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   bookingUrl: "https://scheduler.zoom.us/hubert-gaffney/welcome-to-your-meeting-to-join-our-profit-options-team",

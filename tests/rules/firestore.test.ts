@@ -201,6 +201,10 @@ describe("server-only collections", () => {
       "quizAttempts/a1",
       "quizAssignments/a1",
       "classRecaps/r1",
+      // Invoices and HG's bank details too.
+      "invoices/i1",
+      "counters/invoices",
+      "settings/billing",
     ])
       await assertFails(getDoc(doc(as("hg", true), path)))
   })

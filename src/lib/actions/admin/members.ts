@@ -5,6 +5,7 @@ import { refresh } from "next/cache"
 import { z } from "zod"
 import { isIsoDate, todayInMarketZone } from "@/core/dates"
 import type { ActionResult, IsoDate } from "@/core/domain/types"
+import { invoiceText, unprintable } from "@/core/invoice"
 import { TRADER_LEVELS, type TraderLevel } from "@/core/levels"
 import { describePeriodRange, isQuarter, nextRenewalQuarter, periodFromQuarters } from "@/core/membership/quarters"
 import { parseMembersCsv } from "@/core/parsers/members-csv"
@@ -287,6 +288,12 @@ const profileInput = z.object({
   phone: z.string().trim().max(40).nullable(),
   whatsapp: z.string().trim().max(40).nullable(),
   location: z.string().trim().max(80).nullable(),
+  mailingAddress: z
+    .string()
+    .max(300)
+    .transform(invoiceText)
+    .refine((v) => unprintable(v).length === 0, "Invoices print Latin letters only. Write the address with them.")
+    .transform((v) => (v === "" ? null : v)),
   timezone: z.string().trim().max(60),
 })
 
@@ -298,7 +305,7 @@ export async function updateMemberProfile(uid: string, input: z.input<typeof pro
     return {
       ok: false,
       code: "validation",
-      message: "Check the fields.",
+      message: parsed.error.issues[0]?.message ?? "Check the fields.",
       fieldErrors: z.flattenError(parsed.error).fieldErrors,
     }
   if (!(await readMember(uid))) return { ok: false, code: "not-found", message: "This member no longer exists." }

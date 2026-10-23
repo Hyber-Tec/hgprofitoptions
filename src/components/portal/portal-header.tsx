@@ -34,6 +34,7 @@ const ADMIN_LABELS: Record<string, string> = {
   files: "Files",
   quizzes: "Quizzes",
   recaps: "Class recaps",
+  invoice: "New invoice",
 }
 const NEW_LABELS: Record<string, string> = {
   members: "Add member",

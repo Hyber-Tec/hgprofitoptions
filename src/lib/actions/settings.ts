@@ -4,6 +4,7 @@ import { FieldValue, Timestamp } from "firebase-admin/firestore"
 import { refresh } from "next/cache"
 import { z } from "zod"
 import type { ActionResult } from "@/core/domain/types"
+import { invoiceText, unprintable } from "@/core/invoice"
 import { writeAudit } from "@/server/members"
 import { COLLECTIONS, MEMBER_SUBCOLLECTIONS, alertKindSchema } from "@/server/model"
 import { getViewer } from "@/lib/auth/guards"
@@ -30,6 +31,12 @@ const profileInput = z.object({
   phone: optional(40),
   whatsapp: optional(40),
   location: optional(80),
+  mailingAddress: z
+    .string()
+    .max(300)
+    .transform(invoiceText)
+    .refine((v) => unprintable(v).length === 0, "Invoices print Latin letters only. Write the address with them.")
+    .transform((v) => (v === "" ? null : v)),
   timezone: z.string().refine((tz) => {
     try {
       new Intl.DateTimeFormat("en-US", { timeZone: tz })

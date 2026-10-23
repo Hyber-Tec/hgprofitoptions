@@ -176,6 +176,7 @@ export function AdminProfileForm({
     phone: string | null
     whatsapp: string | null
     location: string | null
+    mailingAddress: string | null
     timezone: string
   }
 }) {
@@ -184,6 +185,7 @@ export function AdminProfileForm({
     phone: initial.phone ?? "",
     whatsapp: initial.whatsapp ?? "",
     location: initial.location ?? "",
+    mailingAddress: initial.mailingAddress ?? "",
     timezone: initial.timezone,
   })
   const [pending, startTransition] = useTransition()
@@ -204,6 +206,7 @@ export function AdminProfileForm({
           phone: values.phone || null,
           whatsapp: values.whatsapp || null,
           location: values.location || null,
+          mailingAddress: values.mailingAddress,
         }),
         "Profile saved",
       ),
@@ -247,6 +250,15 @@ export function AdminProfileForm({
             </Select>
           </Field>
         </div>
+        <Field>
+          <FieldLabel htmlFor="a-mailingAddress">Mailing address</FieldLabel>
+          <Textarea
+            id="a-mailingAddress"
+            value={values.mailingAddress}
+            onChange={(e) => set("mailingAddress", e.target.value)}
+            placeholder={"Street\nCity, State ZIP\nCountry"}
+          />
+        </Field>
       </FieldGroup>
       <div>
         <Button type="submit" disabled={pending}>

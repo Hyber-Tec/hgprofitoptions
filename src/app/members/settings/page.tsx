@@ -1,11 +1,13 @@
 import type { Metadata } from "next"
-import { LuDownload } from "react-icons/lu"
+import { LuDownload, LuFileText } from "react-icons/lu"
 import { todayInMarketZone } from "@/core/dates"
 import { formatDate } from "@/core/format"
+import { formatCents } from "@/core/invoice"
 import { LEVEL_LABELS } from "@/core/levels"
 import { describePeriodRange } from "@/core/membership/quarters"
 import { membershipSummary } from "@/core/membership/summary"
 import { requireViewer } from "@/lib/auth/guards"
+import { listInvoicesFor } from "@/lib/data/invoices"
 import { adminAuth } from "@/lib/firebase/admin"
 import { ToneBadge, type Tone } from "@/components/portal/display"
 import { PageHeader } from "@/components/portal/page-header"
@@ -23,7 +25,8 @@ const TONE: Record<string, Tone> = { positive: "positive", warning: "warning", m
 
 export default async function SettingsPage() {
   const viewer = await requireViewer("/members/settings")
-  const user = await adminAuth().getUser(viewer.uid)
+  const [user, invoices] = await Promise.all([adminAuth().getUser(viewer.uid), listInvoicesFor(viewer.uid)])
+  const visibleInvoices = invoices.filter((i) => i.status !== "void")
   const hasPassword = user.providerData.some((p) => p.providerId === "password")
   const summary = membershipSummary(viewer.status)
   const today = todayInMarketZone()
@@ -48,6 +51,7 @@ export default async function SettingsPage() {
                   phone: viewer.member.phone,
                   whatsapp: viewer.member.whatsapp,
                   location: viewer.member.location,
+                  mailingAddress: viewer.member.mailingAddress,
                   timezone: viewer.member.timezone,
                 }}
               />
@@ -118,6 +122,39 @@ export default async function SettingsPage() {
               <p className="text-xs text-muted-foreground">To renew or change your membership, book a call with HG.</p>
             </CardContent>
           </Card>
+          {visibleInvoices.length > 0 && (
+            <Card id="invoices" className="scroll-mt-20">
+              <CardHeader>
+                <CardTitle>Invoices</CardTitle>
+                <CardDescription>Each one says how to pay. Include its number with your payment.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ul className="flex flex-col divide-y rounded-lg border text-sm">
+                  {visibleInvoices.map((invoice) => (
+                    <li key={invoice.id} className="flex items-center justify-between gap-3 px-3 py-2">
+                      <a
+                        href={`/members/invoices/${invoice.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex min-w-0 items-center gap-2 rounded-sm outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
+                      >
+                        <LuFileText className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                        <span className="min-w-0">
+                          <span className="block font-medium tabular-nums">{invoice.number}</span>
+                          <span className="block text-xs text-muted-foreground">
+                            {formatDate(invoice.issuedOn)} · {formatCents(invoice.total)}
+                          </span>
+                        </span>
+                      </a>
+                      <ToneBadge tone={invoice.status === "paid" ? "positive" : "warning"}>
+                        {invoice.status === "paid" ? "Paid" : "Unpaid"}
+                      </ToneBadge>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
           <Card>
             <CardHeader>
               <CardTitle>Your data</CardTitle>

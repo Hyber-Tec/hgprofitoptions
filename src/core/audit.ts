@@ -4,7 +4,7 @@
 export const auditCategory = (action: string): string => action.split(".")[0] ?? action
 
 export const AUDIT_FILTERS = [
-  { value: "members", label: "Members", categories: ["member", "period", "invite"] },
+  { value: "members", label: "Members", categories: ["member", "period", "invite", "invoice"] },
   { value: "alerts", label: "Alerts", categories: ["alert"] },
   { value: "targets", label: "Strike targets", categories: ["targets"] },
   { value: "market", label: "Market data", categories: ["ticker", "etfs", "market"] },
@@ -57,6 +57,11 @@ const ACTION_LABELS: Record<string, string> = {
   "presentation.deleted": "Presentation deleted",
   "file.created": "File added",
   "file.updated": "File updated",
+  "invoice.created": "Invoice issued",
+  "invoice.paid": "Invoice marked as paid",
+  "invoice.reopened": "Invoice marked as unpaid",
+  "invoice.voided": "Invoice cancelled",
+  "settings.billing_updated": "Billing details changed",
   "file.deleted": "File deleted",
   "recap.created": "Class recap added",
   "recap.rewritten": "Class recap written again",

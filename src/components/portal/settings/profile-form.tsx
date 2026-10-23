@@ -4,8 +4,9 @@ import { useMemo, useState, useTransition, type ComponentProps, type SubmitEvent
 import { LuSave } from "react-icons/lu"
 import { updateProfile } from "@/lib/actions/settings"
 import { Button } from "@/components/ui/button"
-import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Spinner } from "@/components/ui/spinner"
 import { toast } from "@/components/ui/toast"
@@ -16,6 +17,7 @@ export interface ProfileValues {
   phone: string | null
   whatsapp: string | null
   location: string | null
+  mailingAddress: string | null
   timezone: string
 }
 
@@ -41,6 +43,7 @@ export function ProfileForm({ initial }: { initial: ProfileValues }) {
         phone: values.phone ?? "",
         whatsapp: values.whatsapp ?? "",
         location: values.location ?? "",
+        mailingAddress: values.mailingAddress ?? "",
         timezone: values.timezone,
       })
       setErrors(result.ok ? {} : (result.fieldErrors ?? {}))
@@ -98,6 +101,19 @@ export function ProfileForm({ initial }: { initial: ProfileValues }) {
             </Select>
           </Field>
         </div>
+        <Field data-invalid={Boolean(errors.mailingAddress)}>
+          <FieldLabel htmlFor="p-mailingAddress">Mailing address</FieldLabel>
+          <Textarea
+            id="p-mailingAddress"
+            value={values.mailingAddress ?? ""}
+            onChange={(e) => set("mailingAddress", e.target.value)}
+            autoComplete="street-address"
+            placeholder={"Street\nCity, State ZIP\nCountry"}
+            aria-invalid={Boolean(errors.mailingAddress)}
+          />
+          <FieldDescription>Printed on your invoices.</FieldDescription>
+          <FieldError errors={errors.mailingAddress?.map((message) => ({ message }))} />
+        </Field>
       </FieldGroup>
       <div>
         <Button type="submit" disabled={pending}>

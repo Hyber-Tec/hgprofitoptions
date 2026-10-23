@@ -14,9 +14,10 @@ membership by calendar quarter.
   link), portfolio performance, HG's standing, a chat where experts and admins answer, practice
   quizzes and assigned tests that move beginners up a level, class presentations and files, the
   classroom (the weekly class on Zoom without leaving the site, and AI recaps of each class) and
-  account settings.
-- **Admin console** (`/admin`): members and invitations with quarterly periods and trader levels,
-  member performance, alerts with buy and sell points, the strike target editor, HG's house portfolio,
+  account settings with their invoices.
+- **Admin console** (`/admin`): members and invitations with quarterly periods, trader levels and
+  invoices (numbered PDFs with HG's payment details, which are kept in the database), member
+  performance, alerts with buy and sell points, the strike target editor, HG's house portfolio,
   tickers and channel settings, market data, content, quizzes written by AI from class documents,
   class recaps, settings, the audit log and two-step verification.
 - **Cloud Functions**: alert, chat and strike-target notifications, AI quiz questions and class recaps,
