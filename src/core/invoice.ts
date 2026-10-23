@@ -81,7 +81,9 @@ export function billingPeriod<T extends Period>(periods: readonly T[], today: Is
 }
 
 /** Beyond ASCII and Latin-1, the PDF font (Helvetica, WinAnsi) has these: euro, quotes, dashes, bullet and a few more. */
-const WIN_ANSI_EXTRA = new Set("€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ")
+const WIN_ANSI_EXTRA = new Set(
+  "\u20ac\u201a\u0192\u201e\u2026\u2020\u2021\u02c6\u2030\u0160\u2039\u0152\u017d\u2018\u2019\u201c\u201d\u2022\u2013\u2014\u02dc\u2122\u0161\u203a\u0153\u017e\u0178",
+)
 
 /** Characters in `text` the invoice cannot print, each once. Line breaks are fine. */
 export function unprintable(text: string): string[] {

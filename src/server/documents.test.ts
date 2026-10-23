@@ -17,9 +17,9 @@ describe("Word documents", () => {
     const data = docx(
       `<w:p><w:r><w:t>Channels &amp; BOC</w:t></w:r></w:p>` +
         `<w:p><w:r><w:t xml:space="preserve">A channel is </w:t></w:r><w:r><w:t>6.50</w:t></w:r><w:r><w:tab/><w:t>wide</w:t></w:r></w:p>` +
-        `<w:p><w:r><w:t>Line one</w:t><w:br/><w:t>line two &#8212; done</w:t></w:r></w:p>`,
+        `<w:p><w:r><w:t>Line one</w:t><w:br/><w:t>line two &#233;t&#233; done</w:t></w:r></w:p>`,
     )
-    expect(docxText(data)).toBe("Channels & BOC\nA channel is 6.50\twide\nLine one\nline two — done")
+    expect(docxText(data)).toBe("Channels & BOC\nA channel is 6.50\twide\nLine one\nline two été done")
   })
 
   it("explains a file that is not a Word document", () => {
