@@ -2,7 +2,6 @@ import type { Viewport } from "next"
 import type { ReactNode } from "react"
 import { LogoMark, Logo } from "@/components/site/logo"
 import { ShaderBackground } from "@/components/site/shader-background"
-import { AreaTheme } from "@/components/shared/area-theme"
 import { ThemeToggle } from "@/components/shared/theme-toggle"
 
 export const viewport: Viewport = { themeColor: "#f6f8fc" }
@@ -13,7 +12,7 @@ export const viewport: Viewport = { themeColor: "#f6f8fc" }
  */
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
-    <AreaTheme defaultTheme="light">
+    <>
       <div data-site className="grid min-h-svh flex-1 *:min-w-0 lg:grid-cols-[1fr_1.1fr]">
         <aside className="relative isolate hidden overflow-hidden border-r lg:flex lg:flex-col lg:justify-between lg:p-10">
           <ShaderBackground still className="absolute inset-0 -z-10" />
@@ -43,6 +42,6 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
           </main>
         </div>
       </div>
-    </AreaTheme>
+    </>
   )
 }

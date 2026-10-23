@@ -10,7 +10,7 @@ import {
   type SeriesMarker,
   type Time,
 } from "lightweight-charts"
-import { useTheme } from "next-themes"
+import { useTheme } from "@/components/shared/theme"
 import { useEffect, useRef } from "react"
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]

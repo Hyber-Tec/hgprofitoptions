@@ -3,12 +3,15 @@
 import type { ReactNode } from "react"
 import { Toaster } from "@/components/ui/toast"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { ThemeProvider } from "./theme"
 
-/** App-wide providers. Each area sets its own theme with AreaTheme. */
+/** App-wide providers. */
 export function Providers({ children }: { children: ReactNode }) {
   return (
-    <TooltipProvider>
-      <Toaster>{children}</Toaster>
-    </TooltipProvider>
+    <ThemeProvider>
+      <TooltipProvider>
+        <Toaster>{children}</Toaster>
+      </TooltipProvider>
+    </ThemeProvider>
   )
 }

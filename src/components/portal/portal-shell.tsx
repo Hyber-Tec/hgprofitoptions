@@ -6,7 +6,6 @@ import type { Viewer } from "@/lib/auth/guards"
 import { countUnread } from "@/lib/data/alerts"
 import { chatBadge } from "@/lib/data/chat"
 import { countOpenAssignments } from "@/lib/data/quizzes"
-import { AreaTheme } from "@/components/shared/area-theme"
 import { SidebarInset } from "@/components/ui/sidebar"
 import { AppSidebar, type PortalArea } from "./app-sidebar"
 import { LiveAlertsProvider } from "./live-alerts"
@@ -36,7 +35,7 @@ export async function PortalShell({
   const person = { fullName: viewer.fullName, email: viewer.email, role: viewer.role }
 
   return (
-    <AreaTheme defaultTheme="dark">
+    <>
       <LiveAlertsProvider
         uid={viewer.uid}
         enabled={viewer.hasAccess}
@@ -67,6 +66,6 @@ export async function PortalShell({
           </SidebarInset>
         </PortalSidebarProvider>
       </LiveAlertsProvider>
-    </AreaTheme>
+    </>
   )
 }
