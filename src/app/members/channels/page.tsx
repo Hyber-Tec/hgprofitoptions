@@ -7,7 +7,6 @@ import { integrations } from "@/lib/env.server"
 import { buildChannelRows } from "@/lib/tools/channels"
 import { AsOf, PageHeader } from "@/components/portal/page-header"
 import { ChannelsTable } from "@/components/portal/tools/channels-table"
-import { Watermark } from "@/components/portal/watermark"
 import { ButtonLink } from "@/components/shared/button-link"
 import { Button } from "@/components/ui/button"
 import {
@@ -27,7 +26,6 @@ export default async function ChannelsPage() {
   const asOf = rows[0]?.asOf ?? null
   return (
     <>
-      <Watermark text={viewer.email} />
       <PageHeader
         title="Median & Channel Chart"
         description="Each stock's channel lines up and down from its last close, with the BOC levels and the 5, 30 and 90-day medians."
