@@ -18,8 +18,8 @@ if (process.env.E2E_EMULATORS !== "1") {
   const quoted = forwarded.map((a) => `'${a.replace(/'/g, "'\\''")}'`).join(" ")
   run("pnpm", [
     "exec",
-    "firebase",
-    "emulators:exec",
+    "tsx",
+    "scripts/emulators-exec.ts",
     "--config",
     "firebase.test.json",
     "--only",
