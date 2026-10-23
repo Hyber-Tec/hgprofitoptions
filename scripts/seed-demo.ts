@@ -74,6 +74,20 @@ const at = (day: IsoDate, hours: number, minutes = 0) =>
   new Date(zonedStartOfDay(day).getTime() + (hours * 60 + minutes) * 60_000)
 const ts = (date: Date) => Timestamp.fromDate(date)
 
+/** The last market day (Monday to Friday) on or before `day`. */
+function weekdayOnOrBefore(day: IsoDate): IsoDate {
+  let d = day
+  while (isWeekend(d)) d = addDays(d, -1)
+  return d
+}
+
+/** The first market day on or after `day`. */
+function weekdayOnOrAfter(day: IsoDate): IsoDate {
+  let d = day
+  while (isWeekend(d)) d = addDays(d, 1)
+  return d
+}
+
 function tradingDaysBack(end: IsoDate, count: number): IsoDate[] {
   const days: IsoDate[] = []
   for (let d = end; days.length < count; d = addDays(d, -1)) if (!isWeekend(d)) days.unshift(d)
@@ -529,8 +543,8 @@ function optionAlert(
   const followUps: DemoAlert[] = []
   let exitDay = day
   outcome.forEach((multiple, i) => {
-    exitDay = addDays(exitDay, 1 + Math.floor(rand() * 3))
-    if (exitDay >= today) exitDay = addDays(today, -1)
+    exitDay = weekdayOnOrAfter(addDays(exitDay, 1 + Math.floor(rand() * 3)))
+    if (exitDay >= today) exitDay = weekdayOnOrBefore(addDays(today, -1))
     const price = round2(premium * multiple)
     const portion = outcome.length === 1 ? 1 : 0.5
     const when = at(exitDay, 11, 5 + i * 7)
@@ -629,6 +643,12 @@ function demoFills(
   const fills: Fill[] = []
   const alertByKey = new Map<string, string>()
   let n = 0
+  // A trade closes on a market day before today, and after it opened.
+  const closing = (opened: Date, day: IsoDate, hours: number, minutes: number): Date => {
+    const closeDay = weekdayOnOrBefore(day < today ? day : addDays(today, -1))
+    const when = at(closeDay, hours, minutes)
+    return when > opened ? when : at(closeDay, 15, 55)
+  }
   const add = (instrument: Instrument, side: "buy" | "sell", quantity: number, price: number, when: Date) => {
     fills.push({
       id: `${m.key}-f${++n}`,
@@ -690,8 +710,7 @@ function demoFills(
   for (let i = 0; i < tradeCount; i++) {
     const ticker = pick(universe)
     const close = ticker.metrics?.lastClose ?? 100
-    let day = addDays(today, -Math.floor(between(2, 100)))
-    while (isWeekend(day)) day = addDays(day, -1)
+    const day = weekdayOnOrBefore(addDays(today, -Math.floor(between(2, 100))))
     const opened = at(day, 10 + Math.floor(rand() * 5), Math.floor(rand() * 60))
     const won = rand() < m.skill
     const isOption = rand() < 0.8
@@ -710,13 +729,7 @@ function demoFills(
       if (!stillOpen) {
         const move = won ? Math.abs(normal(0.32, 0.25)) + 0.05 : -Math.abs(normal(0.3, 0.15)) - 0.05
         const closeDay = addDays(day, 1 + Math.floor(rand() * 6))
-        add(
-          instrument,
-          "sell",
-          qty,
-          premium * (1 + move),
-          at(closeDay < today ? closeDay : addDays(today, -1), 14, Math.floor(rand() * 60)),
-        )
+        add(instrument, "sell", qty, premium * (1 + move), closing(opened, closeDay, 14, Math.floor(rand() * 60)))
       }
     } else {
       const instrument: Instrument = { assetType: "stock", symbol: ticker.symbol }
@@ -726,13 +739,7 @@ function demoFills(
       if (!stillOpen) {
         const move = won ? Math.abs(normal(0.03, 0.02)) + 0.005 : -Math.abs(normal(0.025, 0.015)) - 0.004
         const closeDay = addDays(day, 2 + Math.floor(rand() * 15))
-        add(
-          instrument,
-          "sell",
-          qty,
-          price * (1 + move),
-          at(closeDay < today ? closeDay : addDays(today, -1), 15, Math.floor(rand() * 50)),
-        )
+        add(instrument, "sell", qty, price * (1 + move), closing(opened, closeDay, 15, Math.floor(rand() * 50)))
       }
     }
   }
@@ -1084,8 +1091,7 @@ async function main(): Promise<void> {
   const alerts: DemoAlert[] = []
   outcomes.forEach((outcome, i) => {
     const daysAgo = outcome ? 40 - i * 5 : 3 - (i - 7)
-    let day = addDays(today, -daysAgo)
-    while (isWeekend(day)) day = addDays(day, -1)
+    const day = weekdayOnOrBefore(addDays(today, -daysAgo))
     alerts.push(...optionAlert(`demo-a${i + 1}`, pick(stocks), day, round2(between(2.2, 6.8)), outcome, today))
   })
   const watch = pick(stocks)
@@ -1272,8 +1278,7 @@ async function main(): Promise<void> {
   // Ava's market diary.
   const diary = db.collection(COLLECTIONS.members).doc(uidOf("ava")).collection(MEMBER_SUBCOLLECTIONS.journalDays)
   for (let i = 1; i <= 6; i++) {
-    let day = addDays(today, -i * 2)
-    while (isWeekend(day)) day = addDays(day, -1)
+    const day = weekdayOnOrBefore(addDays(today, -i * 2))
     await diary.doc(day).set({
       date: day,
       body: pick([
