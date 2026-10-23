@@ -102,11 +102,14 @@ export function AppSidebar({
   isAdmin,
   hasAccess,
   membership,
+  chat,
 }: {
   area: PortalArea
   isAdmin: boolean
   hasAccess: boolean
   membership: MembershipSummary
+  /** Questions waiting for an answer (experts and admins) or new answers to mine (everyone else). */
+  chat: { count: number; staff: boolean }
 }) {
   const pathname = usePathname()
   const { unread } = useLiveAlerts()
@@ -148,6 +151,12 @@ export function AppSidebar({
                     <SidebarMenuBadge className="rounded-full bg-sidebar-primary px-1.5 text-sidebar-primary-foreground tabular-nums">
                       <span className="sr-only">Unread alerts: </span>
                       {unread > 9 ? "9+" : unread}
+                    </SidebarMenuBadge>
+                  )}
+                  {item.badge === "chat" && chat.count > 0 && (
+                    <SidebarMenuBadge className="rounded-full bg-sidebar-accent px-1.5 text-sidebar-accent-foreground tabular-nums">
+                      <span className="sr-only">{chat.staff ? "Questions waiting: " : "New answers: "}</span>
+                      {chat.count > 9 ? "9+" : chat.count}
                     </SidebarMenuBadge>
                   )}
                 </SidebarMenuItem>

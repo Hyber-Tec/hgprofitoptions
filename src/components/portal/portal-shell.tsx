@@ -1,8 +1,10 @@
 import { cookies } from "next/headers"
 import type { ReactNode } from "react"
+import { answersQuestions } from "@/core/levels"
 import { membershipSummary } from "@/core/membership/summary"
 import type { Viewer } from "@/lib/auth/guards"
 import { countUnread } from "@/lib/data/alerts"
+import { chatBadge } from "@/lib/data/chat"
 import { AreaTheme } from "@/components/shared/area-theme"
 import { SidebarInset } from "@/components/ui/sidebar"
 import { AppSidebar, type PortalArea } from "./app-sidebar"
@@ -24,7 +26,10 @@ export async function PortalShell({
   const sidebarOpen = cookieStore.get("sidebar_state")?.value !== "false"
   const since = viewer.member.createdAt
   // Alerts published after the count are news to this page, so they get a toast.
-  const unread = viewer.hasAccess ? await countUnread(viewer.uid, since) : { count: 0, countedAt: 0 }
+  const [unread, chatCount] = await Promise.all([
+    viewer.hasAccess ? countUnread(viewer.uid, since) : { count: 0, countedAt: 0 },
+    chatBadge(viewer),
+  ])
   const summary = membershipSummary(viewer.status)
   const person = { fullName: viewer.fullName, email: viewer.email, role: viewer.role }
 
@@ -44,7 +49,13 @@ export async function PortalShell({
           >
             Skip to content
           </a>
-          <AppSidebar area={area} isAdmin={viewer.role === "admin"} hasAccess={viewer.hasAccess} membership={summary} />
+          <AppSidebar
+            area={area}
+            isAdmin={viewer.role === "admin"}
+            hasAccess={viewer.hasAccess}
+            membership={summary}
+            chat={{ count: chatCount, staff: answersQuestions(viewer.member) }}
+          />
           <SidebarInset className="min-w-0">
             <PortalHeader area={area} viewer={person} hasAccess={viewer.hasAccess} />
             <div id="main" tabIndex={-1} className="flex min-w-0 flex-1 flex-col gap-6 p-4 outline-none sm:p-6 lg:p-8">

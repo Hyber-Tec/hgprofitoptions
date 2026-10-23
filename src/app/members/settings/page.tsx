@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { LuDownload } from "react-icons/lu"
 import { todayInMarketZone } from "@/core/dates"
 import { formatDate } from "@/core/format"
+import { LEVEL_LABELS } from "@/core/levels"
 import { describePeriodRange } from "@/core/membership/quarters"
 import { membershipSummary } from "@/core/membership/summary"
 import { requireViewer } from "@/lib/auth/guards"
@@ -79,6 +80,14 @@ export default async function SettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
+              <p className="flex flex-wrap items-center gap-2 text-sm">
+                Trader level <ToneBadge tone="neutral">{LEVEL_LABELS[viewer.member.level]}</ToneBadge>
+                {viewer.member.level === "beginner" && viewer.role !== "admin" && (
+                  <span className="text-xs text-muted-foreground">
+                    HG assigns the Advanced test when you are ready.
+                  </span>
+                )}
+              </p>
               {viewer.member.memberSince && (
                 <p className="text-sm text-muted-foreground">Member since {formatDate(viewer.member.memberSince)}</p>
               )}

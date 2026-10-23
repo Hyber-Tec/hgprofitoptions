@@ -10,6 +10,7 @@ export const AUDIT_FILTERS = [
   { value: "market", label: "Market data", categories: ["ticker", "etfs", "market"] },
   { value: "content", label: "Content", categories: ["presentation", "file", "testimonial", "faq"] },
   { value: "settings", label: "Settings", categories: ["settings", "hg"] },
+  { value: "community", label: "Chat", categories: ["chat"] },
 ] as const
 
 export type AuditFilter = (typeof AUDIT_FILTERS)[number]["value"]
@@ -21,6 +22,7 @@ const ACTION_LABELS: Record<string, string> = {
   "member.reinstated": "Reinstated",
   "member.promoted": "Made an admin",
   "member.demoted": "Admin access removed",
+  "member.level_changed": "Trader level changed",
   "member.deleted": "Member deleted",
   "member.password_reset": "Password reset link created",
   "member.signed_out": "Signed out everywhere",
@@ -62,6 +64,8 @@ const ACTION_LABELS: Record<string, string> = {
   "faq.created": "Question added",
   "faq.updated": "Question updated",
   "faq.deleted": "Question deleted",
+  "chat.message_removed": "Chat message removed",
+  "chat.thread_deleted": "Chat thread deleted",
 }
 
 export function describeAuditAction(action: string): string {

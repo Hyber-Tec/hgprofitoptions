@@ -298,6 +298,8 @@ interface DemoMember {
   email: string
   fullName: string
   role: "admin" | "member"
+  /** Trader level; everyone else is a beginner. */
+  level?: "advanced" | "expert"
   status?: "active" | "suspended"
   /** [year, quarter, count, customStart?] */
   periods: [number, Quarter, number, IsoDate?][]
@@ -410,6 +412,7 @@ const MEMBERS: DemoMember[] = [
     email: "george.okafor@example.com",
     fullName: "George Okafor",
     role: "member",
+    level: "expert",
     periods: [[...q(-1), 2]],
     linked: true,
     location: "Kigali, Rwanda",
@@ -432,6 +435,7 @@ const MEMBERS: DemoMember[] = [
     email: "ivan.petrov@example.com",
     fullName: "Ivan Petrov",
     role: "member",
+    level: "advanced",
     periods: [[...q(0), 2]],
     linked: true,
     location: "Sofia, Bulgaria",
@@ -1207,6 +1211,8 @@ async function main(): Promise<void> {
       location: m.location,
       timezone: m.timezone,
       role: m.role,
+      level: m.level ?? "beginner",
+      levelSetBy: m.level ? "admin" : "default",
       status: m.status ?? "active",
       access: null,
       memberSince: null,

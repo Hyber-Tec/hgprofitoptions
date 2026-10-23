@@ -36,6 +36,15 @@ service cloud.firestore {
       );
     }
 
+    // Experts and admins answer questions in Chat and read every thread.
+    function answersQuestions() {
+      return isAdmin() || (hasAccess() && memberData().get('level', 'beginner') == 'expert');
+    }
+
+    function canReadThread(thread) {
+      return thread.visibility == 'class' || thread.askerUid == request.auth.uid || answersQuestions();
+    }
+
     // ---- Public content ---------------------------------------------------------------------
     match /testimonials/{id} {
       allow read: if resource.data.published == true;
@@ -92,6 +101,18 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ---- Chat (written by the server only) ------------------------------------------------
+    // Class threads are open to every member with access; staff-only ones to the asker, experts and admins.
+    match /threads/{threadId} {
+      allow read: if hasAccess() && canReadThread(resource.data);
+      allow write: if false;
+      match /messages/{messageId} {
+        allow read: if hasAccess()
+          && canReadThread(get(/databases/$(database)/documents/threads/$(threadId)).data);
+        allow write: if false;
+      }
+    }
+
     // ---- Members -------------------------------------------------------------------------------
     match /members/{uid} {
       allow read: if isSelf(uid) || isAdmin();
@@ -110,6 +131,12 @@ service cloud.firestore {
 
       // Read receipts for alerts (written by the server when an alert is opened).
       match /alertReads/{alertId} {
+        allow read: if isSelf(uid);
+        allow write: if false;
+      }
+
+      // When the member last saw each chat thread (written by the server).
+      match /threadReads/{threadId} {
         allow read: if isSelf(uid);
         allow write: if false;
       }

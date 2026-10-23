@@ -8,6 +8,7 @@ import { alertInstrument } from "@/core/alerts"
 import { describeAuditAction, formatAuditDetail } from "@/core/audit"
 import { growthIndex } from "@/core/calc/returns"
 import { isoDateInZone, todayInMarketZone } from "@/core/dates"
+import { LEVEL_LABELS } from "@/core/levels"
 import { formatDate, formatDateTimeET, formatInstrument, formatPrice } from "@/core/format"
 import { nextRenewalQuarter } from "@/core/membership/quarters"
 import { membershipSummary } from "@/core/membership/summary"
@@ -30,6 +31,7 @@ import {
   DeleteMemberButton,
   MemberActionsMenu,
   PeriodManager,
+  TraderLevelControl,
 } from "@/components/admin/member-actions"
 import { EquityCurve } from "@/components/portal/charts"
 import { Signed, Stat, ToneBadge, type Tone } from "@/components/portal/display"
@@ -87,6 +89,7 @@ export default async function AdminMemberPage({ params, searchParams }: PageProp
           <>
             <ToneBadge tone={TONES[summary.tone] ?? "muted"}>{summary.status}</ToneBadge>
             {member.role === "admin" && <ToneBadge tone="neutral">Admin</ToneBadge>}
+            <ToneBadge tone="muted">{LEVEL_LABELS[member.level]}</ToneBadge>
             <span>
               {summary.label} · {summary.detail}
             </span>
@@ -151,6 +154,14 @@ export default async function AdminMemberPage({ params, searchParams }: PageProp
             </CardContent>
           </Card>
           <div className="flex flex-col gap-6">
+            <Card size="sm">
+              <CardHeader>
+                <CardTitle>Trader level</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <TraderLevelControl uid={id} level={member.level} setBy={member.levelSetBy} />
+              </CardContent>
+            </Card>
             <Card size="sm">
               <CardHeader>
                 <CardTitle>Contact</CardTitle>

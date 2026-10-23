@@ -5,7 +5,19 @@ import {
   initializeTestEnvironment,
   type RulesTestEnvironment,
 } from "@firebase/rules-unit-testing"
-import { Timestamp, doc, getDoc, serverTimestamp, setDoc, updateDoc } from "firebase/firestore"
+import {
+  Timestamp,
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  orderBy,
+  query,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+  where,
+} from "firebase/firestore"
 import { afterAll, beforeAll, beforeEach, describe, it } from "vitest"
 
 let env: RulesTestEnvironment
@@ -54,6 +66,25 @@ beforeEach(async () => {
     await setDoc(doc(db, "members/active/alertReads/live"), { alertId: "live" })
     await setDoc(doc(db, "members/active/privateNotes/t1"), { body: "mine", updatedAt: Timestamp.now() })
     await setDoc(doc(db, "snaptradeUsers/active"), { userSecret: "sealed" })
+    await setDoc(doc(db, "members/other"), { status: "active", role: "member", access: window(10, 30) })
+    await setDoc(doc(db, "members/expert"), {
+      status: "active",
+      role: "member",
+      level: "expert",
+      access: window(10, 30),
+    })
+    const thread = (askerUid: string, visibility: string) => ({
+      askerUid,
+      visibility,
+      title: "When does a break count?",
+      status: "open",
+      lastMessageAt: Timestamp.now(),
+    })
+    await setDoc(doc(db, "threads/class"), thread("other", "class"))
+    await setDoc(doc(db, "threads/private"), thread("other", "staff"))
+    await setDoc(doc(db, "threads/class/messages/m1"), { authorUid: "other", body: "Question" })
+    await setDoc(doc(db, "threads/private/messages/m1"), { authorUid: "other", body: "Question" })
+    await setDoc(doc(db, "members/other/threadReads/class"), { lastReadAt: Timestamp.now() })
   })
 })
 
@@ -163,5 +194,42 @@ describe("server-only collections", () => {
   it("are closed to everyone, admins included", async () => {
     for (const path of ["invites/someone@example.com", "auditLog/a1", "snaptradeUsers/active"])
       await assertFails(getDoc(doc(as("hg", true), path)))
+  })
+})
+
+describe("chat", () => {
+  it("lets members with access read class threads and their messages, but write nothing", async () => {
+    await assertSucceeds(getDoc(doc(as("active"), "threads/class")))
+    await assertSucceeds(getDoc(doc(as("active"), "threads/class/messages/m1")))
+    await assertFails(setDoc(doc(as("active"), "threads/new"), { askerUid: "active", visibility: "class" }))
+    await assertFails(setDoc(doc(as("active"), "threads/class/messages/m2"), { body: "Hi" }))
+  })
+
+  it("keeps staff-only threads between the asker, experts and admins", async () => {
+    await assertFails(getDoc(doc(as("active"), "threads/private")))
+    await assertFails(getDoc(doc(as("active"), "threads/private/messages/m1")))
+    await assertSucceeds(getDoc(doc(as("other"), "threads/private")))
+    await assertSucceeds(getDoc(doc(as("other"), "threads/private/messages/m1")))
+    await assertSucceeds(getDoc(doc(as("expert"), "threads/private/messages/m1")))
+    await assertSucceeds(getDoc(doc(as("hg", true), "threads/private")))
+  })
+
+  it("allows the queries the chat page runs, and no wider ones for members", async () => {
+    const member = as("active")
+    const threads = collection(member, "threads")
+    await assertSucceeds(getDocs(query(threads, where("visibility", "==", "class"), orderBy("lastMessageAt", "desc"))))
+    await assertSucceeds(getDocs(query(threads, where("askerUid", "==", "active"), orderBy("lastMessageAt", "desc"))))
+    await assertFails(getDocs(query(threads, orderBy("lastMessageAt", "desc"))))
+    await assertSucceeds(getDocs(query(collection(as("expert"), "threads"), orderBy("lastMessageAt", "desc"))))
+  })
+
+  it("locks chat for members without access", async () => {
+    await assertFails(getDoc(doc(as("expired"), "threads/class")))
+    await assertFails(getDoc(doc(anonymous(), "threads/class")))
+  })
+
+  it("shows members only their own read markers", async () => {
+    await assertSucceeds(getDoc(doc(as("other"), "members/other/threadReads/class")))
+    await assertFails(getDoc(doc(as("active"), "members/other/threadReads/class")))
   })
 })

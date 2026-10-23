@@ -50,6 +50,7 @@ function crumbLabel(segment: string, parent: string | undefined, area: PortalAre
   if (parent === "targets" && isIsoDate(decoded)) return formatDate(decoded)
   if (parent === "alerts") return "Alert"
   if (parent === "journal") return "Trade"
+  if (parent === "chat") return "Question"
   if (parent === "members") return "Member"
   return decoded
 }

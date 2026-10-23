@@ -70,6 +70,7 @@ const prefsInput = z.object({
     .max(200),
   targetsPublished: z.boolean(),
   membershipReminders: z.boolean(),
+  chat: z.boolean(),
 })
 
 export async function updateNotificationPrefs(input: z.input<typeof prefsInput>): Promise<ActionResult> {

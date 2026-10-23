@@ -14,6 +14,7 @@ import {
   LuLayers,
   LuLayoutDashboard,
   LuListOrdered,
+  LuMessagesSquare,
   LuNotebookPen,
   LuPresentation,
   LuQuote,
@@ -32,8 +33,8 @@ export interface NavItem {
   title: string
   href: Route
   icon: IconType
-  /** Shows the unread alerts count. */
-  badge?: "unread"
+  /** Shows the unread alerts count, or the chat count (waiting questions, or new answers to mine). */
+  badge?: "unread" | "chat"
   /** Visible to members without an active quarter (their own data stays readable). */
   inactive?: boolean
 }
@@ -50,6 +51,7 @@ export const MEMBER_NAV: NavGroup[] = [
       { title: "Dashboard", href: "/members", icon: LuLayoutDashboard },
       { title: "Membership", href: "/members/inactive", icon: LuUserRound, inactive: true },
       { title: "Alerts", href: "/members/alerts", icon: LuBell, badge: "unread" },
+      { title: "Chat", href: "/members/chat", icon: LuMessagesSquare, badge: "chat" },
     ],
   },
   {
@@ -87,6 +89,7 @@ export const ADMIN_NAV: NavGroup[] = [
     items: [
       { title: "Members", href: "/admin/members", icon: LuUsers },
       { title: "Performance", href: "/admin/performance", icon: LuChartLine },
+      { title: "Chat", href: "/members/chat", icon: LuMessagesSquare, badge: "chat" },
     ],
   },
   {
@@ -129,6 +132,7 @@ export const SEGMENT_LABELS: Record<string, string> = {
   members: "Member area",
   admin: "Admin",
   alerts: "Alerts",
+  chat: "Chat",
   portfolio: "Portfolio",
   journal: "Journal",
   standing: "HG standing",

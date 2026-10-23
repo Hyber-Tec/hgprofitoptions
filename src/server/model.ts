@@ -5,6 +5,7 @@
  */
 import { z } from "zod"
 import { isIsoDate } from "@/core/dates"
+import { TRADER_LEVELS } from "@/core/levels"
 
 export const COLLECTIONS = {
   members: "members",
@@ -24,6 +25,7 @@ export const COLLECTIONS = {
   auditLog: "auditLog",
   jobRuns: "jobRuns",
   snaptradeUsers: "snaptradeUsers",
+  threads: "threads",
 } as const
 
 export const MEMBER_SUBCOLLECTIONS = {
@@ -38,6 +40,7 @@ export const MEMBER_SUBCOLLECTIONS = {
   connections: "connections",
   accounts: "accounts",
   adminNotes: "adminNotes",
+  threadReads: "threadReads",
 } as const
 
 export const ACCOUNT_SUBCOLLECTIONS = {
@@ -48,6 +51,9 @@ export const ACCOUNT_SUBCOLLECTIONS = {
 
 /** Subcollections of alerts/{id} and targetUpdates/{id} that keep earlier published versions. */
 export const REVISIONS = "revisions"
+
+/** threads/{id}/messages. */
+export const MESSAGES = "messages"
 
 const timestampLike = z.custom<{ toDate: () => Date }>(
   (v) => typeof v === "object" && v !== null && "toDate" in v && typeof v.toDate === "function",
@@ -73,6 +79,8 @@ export const notificationPrefsSchema = z.object({
   mutedSymbols: z.array(z.string()).default([]),
   targetsPublished: z.boolean().default(true),
   membershipReminders: z.boolean().default(true),
+  /** Chat: answers to my questions (experts and admins: new questions). */
+  chat: z.boolean().default(true),
 })
 export type NotificationPrefs = z.infer<typeof notificationPrefsSchema>
 export const DEFAULT_PREFS: NotificationPrefs = notificationPrefsSchema.parse({})
@@ -87,6 +95,10 @@ export const memberSchema = z.object({
   timezone: z.string().default("America/New_York"),
   role: roleSchema,
   status: memberStatusSchema,
+  /** Beginner until a passed test or an admin says otherwise. */
+  level: z.enum(TRADER_LEVELS).default("beginner"),
+  levelSetBy: z.enum(["default", "test", "admin"]).default("default"),
+  levelSetAt: optionalTimestamp,
   access: z
     .object({ from: timestamp, until: timestamp, fromDate: isoDate, untilExclusiveDate: isoDate })
     .nullable()
@@ -370,6 +382,37 @@ export const fcmTokenSchema = z.object({
   lastSeenAt: timestamp,
 })
 export type FcmTokenDoc = z.infer<typeof fcmTokenSchema> & { id: string }
+
+// ---- Chat ---------------------------------------------------------------------------------------
+
+/** threads/{id}: one question and its answers. Written by the server; members read them live. */
+export const threadSchema = z.object({
+  askerUid: z.string(),
+  askerName: z.string(),
+  /** "class": every member with access reads it; "staff": only the asker, experts and admins. */
+  visibility: z.enum(["class", "staff"]),
+  title: z.string(),
+  /** "answered" once an expert or admin replied after the last question from the asker. */
+  status: z.enum(["open", "answered"]),
+  createdAt: timestamp,
+  lastMessageAt: timestamp,
+  lastMessageBy: z.string(),
+  lastMessagePreview: z.string(),
+  messageCount: z.number().int(),
+})
+export type ThreadDoc = z.infer<typeof threadSchema> & { id: string }
+
+export const threadMessageSchema = z.object({
+  authorUid: z.string(),
+  authorName: z.string(),
+  authorRole: roleSchema,
+  authorLevel: z.enum(TRADER_LEVELS),
+  body: z.string(),
+  createdAt: timestamp,
+  /** Set when an admin removes the message; the text is cleared. */
+  removed: z.boolean().default(false),
+})
+export type ThreadMessageDoc = z.infer<typeof threadMessageSchema> & { id: string }
 
 // ---- Journal and brokerage ----------------------------------------------------------------------
 
