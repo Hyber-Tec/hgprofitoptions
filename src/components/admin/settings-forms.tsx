@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react"
 import { LuPlus, LuRefreshCw, LuSave, LuTrash2 } from "react-icons/lu"
 import { WEEKDAYS } from "@/core/schedule"
+import { formatMeetingId, zoomMeetingNumber } from "@/core/zoom"
 import {
   recomputeStanding,
   setHouseConnection,
@@ -191,6 +192,9 @@ export function MemberSettingsForm({
 }: {
   initial: {
     zoomUrl: string | null
+    zoomMeetingId: string | null
+    zoomPasscode: string | null
+    recapsAutoPublish: boolean
     whatsappUrl: string | null
     oneOnOneUrl: string | null
     expiringSoonDays: number
@@ -200,19 +204,23 @@ export function MemberSettingsForm({
 }) {
   const [form, setForm] = useState({
     zoomUrl: initial.zoomUrl ?? "",
+    zoomMeetingId: initial.zoomMeetingId ? formatMeetingId(initial.zoomMeetingId) : "",
+    zoomPasscode: initial.zoomPasscode ?? "",
     whatsappUrl: initial.whatsappUrl ?? "",
     oneOnOneUrl: initial.oneOnOneUrl ?? "",
     expiringSoonDays: String(initial.expiringSoonDays),
     sessionLimit: String(initial.sessionLimit),
     setupTags: initial.setupTags.join(", "),
   })
+  const [autoPublish, setAutoPublish] = useState(initial.recapsAutoPublish)
   const [pending, startTransition] = useTransition()
   const set = (key: keyof typeof form, value: string) => setForm((f) => ({ ...f, [key]: value }))
+  const linkMeeting = zoomMeetingNumber(form.zoomUrl)
   return (
     <FieldGroup>
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]">
         <Field>
-          <FieldLabel htmlFor="m-zoom">Zoom link</FieldLabel>
+          <FieldLabel htmlFor="m-zoom">Class Zoom link</FieldLabel>
           <Input
             id="m-zoom"
             value={form.zoomUrl}
@@ -220,6 +228,40 @@ export function MemberSettingsForm({
             placeholder="https://zoom.us/j/..."
           />
         </Field>
+        <Field>
+          <FieldLabel htmlFor="m-zoom-id">Meeting ID</FieldLabel>
+          <Input
+            id="m-zoom-id"
+            inputMode="numeric"
+            value={form.zoomMeetingId}
+            onChange={(e) => set("zoomMeetingId", e.target.value)}
+            placeholder={linkMeeting ? formatMeetingId(linkMeeting) : "812 3456 7890"}
+          />
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="m-zoom-pass">Passcode</FieldLabel>
+          <Input
+            id="m-zoom-pass"
+            value={form.zoomPasscode}
+            onChange={(e) => set("zoomPasscode", e.target.value)}
+            autoComplete="off"
+          />
+        </Field>
+      </div>
+      <FieldDescription className="-mt-3">
+        From the weekly class&apos;s Zoom invitation. Members join the class inside the site with the meeting ID and
+        passcode, and AI recaps are made of this meeting only. The ID in the link is used when the field is empty.
+      </FieldDescription>
+      <label className="flex items-start justify-between gap-4 rounded-lg border p-3">
+        <span>
+          <span className="block text-sm font-medium">Share class recaps as soon as they are written</span>
+          <span className="block text-sm text-muted-foreground">
+            Off: each recap waits for you to check it and publish it under Class recaps.
+          </span>
+        </span>
+        <Switch checked={autoPublish} onCheckedChange={setAutoPublish} aria-label="Share class recaps right away" />
+      </label>
+      <div className="grid gap-4 sm:grid-cols-2">
         <Field>
           <FieldLabel htmlFor="m-wa">WhatsApp group link</FieldLabel>
           <Input
@@ -279,6 +321,9 @@ export function MemberSettingsForm({
                 void done(
                   await updateMemberSettings({
                     zoomUrl: form.zoomUrl,
+                    zoomMeetingId: form.zoomMeetingId,
+                    zoomPasscode: form.zoomPasscode,
+                    recapsAutoPublish: autoPublish,
                     whatsappUrl: form.whatsappUrl,
                     oneOnOneUrl: form.oneOnOneUrl,
                     expiringSoonDays: Number(form.expiringSoonDays),

@@ -29,6 +29,7 @@ export const COLLECTIONS = {
   quizzes: "quizzes",
   quizAttempts: "quizAttempts",
   quizAssignments: "quizAssignments",
+  classRecaps: "classRecaps",
 } as const
 
 export const MEMBER_SUBCOLLECTIONS = {
@@ -84,6 +85,8 @@ export const notificationPrefsSchema = z.object({
   membershipReminders: z.boolean().default(true),
   /** Chat: answers to my questions (experts and admins: new questions). */
   chat: z.boolean().default(true),
+  /** The AI recap of a class is ready. */
+  classRecaps: z.boolean().default(true),
 })
 export type NotificationPrefs = z.infer<typeof notificationPrefsSchema>
 export const DEFAULT_PREFS: NotificationPrefs = notificationPrefsSchema.parse({})
@@ -502,6 +505,51 @@ export const quizAttemptSchema = z.object({
 })
 export type QuizAttemptDoc = z.infer<typeof quizAttemptSchema> & { id: string }
 
+// ---- Class recaps -------------------------------------------------------------------------------
+
+export const classSummaryDocSchema = z.object({
+  overview: z.string(),
+  keyPoints: z.array(z.string()),
+  tickers: z.array(z.object({ symbol: z.string(), note: z.string() })),
+  actionItems: z.array(z.string()),
+  questions: z.array(z.object({ question: z.string(), answer: z.string() })),
+})
+export type ClassSummaryDoc = z.infer<typeof classSummaryDocSchema>
+
+/**
+ * classRecaps/{id}: one class with the AI summary members read in place of Zoom's. Zoom's webhook
+ * creates one when the weekly class's cloud recording transcript is ready; an admin can add one with a
+ * transcript file. Only the server reads them; transcripts stay with the admins.
+ */
+export const classRecapSchema = z.object({
+  title: z.string(),
+  date: isoDate,
+  /** Zoom's id for this occurrence of the meeting, so an event sent twice makes one recap. */
+  zoomMeetingUuid: z.string().nullable().default(null),
+  transcript: z.object({
+    status: z.enum(["pending", "running", "done", "failed"]),
+    source: z.enum(["zoom", "upload"]),
+    /** The transcript in Cloud Storage (content/...), once there is one. */
+    path: z.string().nullable().default(null),
+    name: z.string().nullable().default(null),
+    contentType: z.string().nullable().default(null),
+    /** Zoom's transcript files, until they are downloaded, with the event's short-lived token. */
+    downloadUrls: z.array(z.string()).default([]),
+    downloadToken: z.string().nullable().default(null),
+    message: z.string().nullable().default(null),
+    claimId: z.string().nullable().default(null),
+    requestedAt: timestamp,
+    finishedAt: optionalTimestamp,
+  }),
+  summary: classSummaryDocSchema.nullable().default(null),
+  published: z.boolean().default(false),
+  /** Members were told about it: once, the first time it is published. */
+  notifiedAt: optionalTimestamp,
+  createdAt: timestamp,
+  updatedAt: timestamp,
+})
+export type ClassRecapDoc = z.infer<typeof classRecapSchema> & { id: string }
+
 // ---- Journal and brokerage ----------------------------------------------------------------------
 
 export const tradeSchema = z.object({
@@ -746,6 +794,14 @@ export type SiteSettings = z.infer<typeof siteSettingsSchema>
 
 export const memberSettingsSchema = z.object({
   zoomUrl: z.url().nullable().default(null),
+  /**
+   * The weekly class's Zoom meeting (digits only; the class link's when empty) and its passcode, so
+   * members can join inside the site and recaps are made of this meeting only.
+   */
+  zoomMeetingId: z.string().nullable().default(null),
+  zoomPasscode: z.string().nullable().default(null),
+  /** Class recaps go to members as soon as the AI writes them; off, an admin publishes each one. */
+  recapsAutoPublish: z.boolean().default(true),
   whatsappUrl: z.url().nullable().default(null),
   oneOnOneUrl: z.url().nullable().default(null),
   setupTags: z.array(z.string()).default(["Channel break", "BOC bounce", "Median reclaim", "Earnings play", "Other"]),

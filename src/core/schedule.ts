@@ -61,6 +61,11 @@ export function zoneAbbreviation(instant: Date, timeZone: string): string {
 
 export const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"] as const
 
+/** "Saturday class": what a class is called in its recap. */
+export function classTitle(date: IsoDate): string {
+  return `${WEEKDAYS[dayOfWeek(date)] ?? "Weekly"} class`
+}
+
 /** Regular US market hours (9:30 AM to 4:00 PM ET on weekdays). Exchange holidays are not included. */
 export function isMarketOpen(now: Date = new Date()): boolean {
   const day = dayOfWeek(isoDateInZone(now, MARKET_TZ))

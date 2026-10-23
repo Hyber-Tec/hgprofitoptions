@@ -30,6 +30,8 @@ const prefs = {
   mutedSymbols: [],
   targetsPublished: true,
   membershipReminders: true,
+  chat: true,
+  classRecaps: true,
 }
 
 async function member(uid: string, role: "admin" | "member") {

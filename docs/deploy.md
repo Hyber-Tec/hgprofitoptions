@@ -50,14 +50,17 @@ The hybertec.com organization changes two Google defaults, and the steps below a
    firebase functions:secrets:set SNAPTRADE_ENCRYPTION_KEY --project $P  # 32 random bytes, base64, or none
    firebase functions:secrets:set MARKET_DATA_API_KEY --project $P       # or none
    firebase functions:secrets:set AI_API_KEY --project $P                # or none
+   firebase functions:secrets:set ZOOM_CLIENT_SECRET --project $P        # or none
+   firebase apphosting:secrets:set ZOOM_SDK_SECRET --project $P          # or none
+   firebase apphosting:secrets:set ZOOM_WEBHOOK_SECRET --project $P      # or none
    firebase apphosting:secrets:set FIREBASE_WEB_API_KEY --project $P     # Project settings > Your apps > apiKey
    firebase apphosting:secrets:set NEXT_SERVER_ACTIONS_ENCRYPTION_KEY --project $P
-   firebase apphosting:secrets:grantaccess FIREBASE_WEB_API_KEY,NEXT_SERVER_ACTIONS_ENCRYPTION_KEY,RESEND_API_KEY,SNAPTRADE_CONSUMER_KEY,SNAPTRADE_ENCRYPTION_KEY,MARKET_DATA_API_KEY,AI_API_KEY \
+   firebase apphosting:secrets:grantaccess FIREBASE_WEB_API_KEY,NEXT_SERVER_ACTIONS_ENCRYPTION_KEY,RESEND_API_KEY,SNAPTRADE_CONSUMER_KEY,SNAPTRADE_ENCRYPTION_KEY,MARKET_DATA_API_KEY,AI_API_KEY,ZOOM_SDK_SECRET,ZOOM_WEBHOOK_SECRET \
      --backend hgprofitoptions --project $P
    ```
 
-   `AI_API_KEY` is added after the first launch; create it (`none` keeps quizzes to hand-written
-   questions) and grant the backend access before deploying a version that uses it.
+   The AI and Zoom secrets were added after the first launch: create them (`none` keeps that
+   integration off) and grant the backend access before deploying a version that uses them.
 
    Generate key material with `openssl rand -base64 32`. The SnapTrade encryption key protects
    stored brokerage credentials: keep a copy somewhere safe, because changing it disconnects every
@@ -95,9 +98,31 @@ Deploy from an up-to-date `main` after the pull request is merged.
 | Hosting rewrite  | `firebase deploy --only hosting --project hgprofitoptions-hybertec`                           |
 
 Turning on an integration: set its secret (and `EMAIL_FROM` or `SNAPTRADE_CLIENT_ID` in both
-`apphosting.yaml` and the functions settings), then deploy the app and the functions. Admin > Settings
+`apphosting.yaml` and the functions settings), then deploy the app and the functions. The Connected
+services card in Admin > Settings shows what is on, and Admin > Market data lists every scheduled job
+run.
 
-> Connected services shows what is on, and Admin > Market data lists every scheduled job run.
+## Zoom classes and recaps
+
+Members join the weekly class inside the site, and after each recorded class the AI writes its recap
+in place of Zoom's own summary. Both use one app on the Zoom App Marketplace, made in the Zoom account
+that hosts the class (an app joining another account's meetings needs Zoom's review first).
+
+1. **Joining in the site**: in the app, turn on the Meeting SDK (Embed). Its Client ID goes in
+   `ZOOM_SDK_KEY` in `apphosting.yaml` and its Client Secret in the `ZOOM_SDK_SECRET` secret. In
+   Admin > Settings > Member area, enter the class's Zoom link, meeting ID and passcode. Members then
+   see Join class in the Classroom; the Zoom app stays available as a second button.
+2. **Recaps**: in Zoom's settings for the host, turn on cloud recording with audio transcripts
+   (a paid plan), and record the class to the cloud. In the app, add an event subscription for
+   "Recording transcript files have completed" sent to
+   `https://hgprofitoptions.web.app/api/zoom/webhook`; its secret token goes in the
+   `ZOOM_WEBHOOK_SECRET` secret. Deploy the app first, because Zoom checks the address when the
+   subscription is saved. Only the class meeting gets recaps, never one-on-ones.
+3. **When events come without a download token**, the Cloud Function downloads transcripts with a
+   Server-to-Server OAuth app (scope to read cloud recordings) instead: `ZOOM_ACCOUNT_ID` and
+   `ZOOM_CLIENT_ID` in `functions/.env.hgprofitoptions-hybertec`, and the `ZOOM_CLIENT_SECRET` secret.
+
+Without Zoom, admins can still add a recap with a transcript file under Admin > Class recaps.
 
 ## Serving the app at hgprofitoptions.web.app
 

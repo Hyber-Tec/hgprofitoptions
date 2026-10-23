@@ -117,10 +117,29 @@ describe("class summaries", () => {
     const summary = await summarizeClass(config, {
       title: "Saturday class",
       date: "Oct 24, 2026",
-      transcript: "HG: Today we look at TSM and the 465 break. ".repeat(10),
+      transcript: {
+        kind: "text",
+        name: "transcript.vtt",
+        text: "HG: Today we look at TSM and the 465 break. ".repeat(10),
+      },
       tickers: ["TSM", "NVDA"],
     })
     expect(summary.tickers).toEqual([{ symbol: "TSM", note: "Watching 465." }])
-    expect(JSON.stringify(requests[0]?.body.messages)).toContain("Tickers the class follows: TSM, NVDA")
+    const sent = JSON.stringify(requests[0]?.body.messages)
+    expect(sent).toContain("Tickers the class follows: TSM, NVDA")
+    expect(sent).toContain('"title":"Saturday class, Oct 24, 2026"')
+  })
+
+  it("refuses a transcript too short to summarize", async () => {
+    const { config, requests } = fakeAi({})
+    await expect(
+      summarizeClass(config, {
+        title: "Saturday class",
+        date: "Oct 24, 2026",
+        transcript: { kind: "text", name: "t.txt", text: "HG: Hello." },
+        tickers: [],
+      }),
+    ).rejects.toThrow("too little text")
+    expect(requests).toHaveLength(0)
   })
 })

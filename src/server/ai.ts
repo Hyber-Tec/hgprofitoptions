@@ -42,8 +42,7 @@ function documentBlock(doc: AiDocument): Anthropic.Beta.BetaContentBlockParam {
       source: { type: "base64", media_type: "application/pdf", data: Buffer.from(doc.data).toString("base64") },
     }
   }
-  if (doc.text.trim().length < 200)
-    throw new AiError("This document has too little text to write questions from.", false)
+  if (doc.text.trim().length < 200) throw new AiError("This file has too little text to work from.", false)
   return { type: "document", title: doc.name, source: { type: "text", media_type: "text/plain", data: doc.text } }
 }
 
@@ -56,6 +55,8 @@ async function ask<T>(
     content: Anthropic.Beta.BetaContentBlockParam[]
     effort: "medium" | "high"
     maxTokens: number
+    /** What to tell the admin when the AI cannot read what it was sent. */
+    unreadable: string
   },
 ): Promise<T> {
   const client = new Anthropic({
@@ -87,8 +88,7 @@ async function ask<T>(
       throw new AiError("The AI is busy right now. Try again in a few minutes.", true)
     if (error instanceof Anthropic.AuthenticationError || error instanceof Anthropic.PermissionDeniedError)
       throw new AiError("The AI is not set up correctly. Check the AI key in the server settings.", false)
-    if (error instanceof Anthropic.BadRequestError)
-      throw new AiError("The AI could not read this. Try a PDF or Word file under 24 MB.", false)
+    if (error instanceof Anthropic.BadRequestError) throw new AiError(request.unreadable, false)
     throw new AiError("The AI could not finish. Try again.", true)
   }
   if (response.stop_reason === "refusal") throw new AiError("The AI declined this document.", false)
@@ -145,6 +145,7 @@ export async function writeQuizQuestions(
     ],
     effort: "high",
     maxTokens: 16000,
+    unreadable: "The AI could not read this. Try a PDF or Word file under 24 MB.",
   })
   const random = options.random ?? Math.random
   return bank.questions
@@ -190,27 +191,32 @@ const SUMMARY_SYSTEM = `You summarize the live classes of HG Profit Options, an 
 
 Report what was said in class in plain English; do not add trading advice of your own.`
 
+/** Summarizes a class from its transcript: text (cleaned up by transcriptText) or a PDF. */
 export async function summarizeClass(
   config: AiConfig,
-  input: { title: string; date: string; transcript: string; tickers: readonly string[] },
+  input: { title: string; date: string; transcript: AiDocument; tickers: readonly string[] },
 ): Promise<ClassSummary> {
-  if (input.transcript.trim().length < 200) throw new AiError("The transcript is too short to summarize.", false)
   const summary = await ask(config, classSummarySchema, {
     system: SUMMARY_SYSTEM,
     content: [
       { type: "text", text: `Tickers the class follows: ${input.tickers.join(", ")}` },
-      {
-        type: "document",
-        title: `${input.title}, ${input.date}`,
-        source: { type: "text", media_type: "text/plain", data: input.transcript },
-      },
+      documentBlock({ ...input.transcript, name: `${input.title}, ${input.date}` }),
       { type: "text", text: "Summarize this class." },
     ],
     effort: "medium",
     maxTokens: 16000,
+    unreadable: "The AI could not read this transcript. Upload it as a text, Word or PDF file and try again.",
   })
+  const clean = (list: string[]) => list.map((item) => item.trim()).filter((item) => item !== "")
   return {
-    ...summary,
-    tickers: summary.tickers.map((t) => ({ symbol: t.symbol.trim().toUpperCase(), note: t.note.trim() })),
+    overview: summary.overview.trim(),
+    keyPoints: clean(summary.keyPoints),
+    tickers: summary.tickers
+      .map((t) => ({ symbol: t.symbol.trim().toUpperCase(), note: t.note.trim() }))
+      .filter((t) => t.symbol !== ""),
+    actionItems: clean(summary.actionItems),
+    questions: summary.questions
+      .map((q) => ({ question: q.question.trim(), answer: q.answer.trim() }))
+      .filter((q) => q.question !== ""),
   }
 }

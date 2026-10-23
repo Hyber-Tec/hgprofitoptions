@@ -33,12 +33,14 @@ const ADMIN_LABELS: Record<string, string> = {
   presentations: "Presentations",
   files: "Files",
   quizzes: "Quizzes",
+  recaps: "Class recaps",
 }
 const NEW_LABELS: Record<string, string> = {
   members: "Add member",
   alerts: "New alert",
   targets: "New update",
   quizzes: "New quiz",
+  recaps: "Add a recap",
 }
 
 function crumbLabel(segment: string, parent: string | undefined, area: PortalArea): string {
@@ -49,6 +51,7 @@ function crumbLabel(segment: string, parent: string | undefined, area: PortalAre
     if (parent === "alerts") return "Alert"
     if (parent === "targets") return "Update"
     if (parent === "quizzes") return "Quiz"
+    if (parent === "recaps") return "Recap"
   }
   const known = SEGMENT_LABELS[segment]
   if (known) return known
@@ -59,6 +62,7 @@ function crumbLabel(segment: string, parent: string | undefined, area: PortalAre
   if (parent === "journal") return "Trade"
   if (parent === "chat") return "Question"
   if (parent === "attempts") return "Quiz"
+  if (parent === "recaps") return "Recap"
   if (parent === "members") return "Member"
   return decoded
 }

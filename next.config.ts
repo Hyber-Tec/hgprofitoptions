@@ -10,8 +10,12 @@ const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "X-Frame-Options", value: "DENY" },
-  { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=()" },
+  // The live class (Zoom in the site) uses the camera, microphone and screen sharing.
+  { key: "Permissions-Policy", value: "camera=(self), microphone=(self), display-capture=(self), geolocation=()" },
 ]
+
+/** The live class page frames Zoom's web client, served from this site. */
+const liveClassFrame = [{ key: "X-Frame-Options", value: "SAMEORIGIN" }]
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
@@ -34,7 +38,11 @@ const nextConfig: NextConfig = {
     },
   },
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }]
+    // When two entries set the same header, the later one wins.
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      { source: "/members/classroom/live/:part(frame|left)", headers: liveClassFrame },
+    ]
   },
 }
 

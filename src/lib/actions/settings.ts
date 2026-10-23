@@ -71,6 +71,7 @@ const prefsInput = z.object({
   targetsPublished: z.boolean(),
   membershipReminders: z.boolean(),
   chat: z.boolean(),
+  classRecaps: z.boolean(),
 })
 
 export async function updateNotificationPrefs(input: z.input<typeof prefsInput>): Promise<ActionResult> {

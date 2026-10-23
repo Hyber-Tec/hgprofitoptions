@@ -90,6 +90,19 @@ function quiz(request: Request): unknown {
   return { questions }
 }
 
+/** Who said each sentence of a transcript ("Speaker: words" lines), in order. */
+function spoken(transcript: string): { speaker: string; sentence: string }[] {
+  return transcript.split("\n").flatMap((line) => {
+    const match = /^([^:]{1,40}):\s*(.*)$/.exec(line.trim())
+    const speaker = match?.[1] ?? ""
+    return (match?.[2] ?? line)
+      .split(/(?<=[.!?])\s+/)
+      .map((sentence) => sentence.trim())
+      .filter((sentence) => sentence.length > 0)
+      .map((sentence) => ({ speaker, sentence }))
+  })
+}
+
 function summary(request: Request): unknown {
   const content = request.messages?.at(-1)?.content
   const blocks = Array.isArray(content) ? content : []
@@ -101,22 +114,44 @@ function summary(request: Request): unknown {
       .filter(Boolean),
   )
   const transcript = blocks.find((b) => b.type === "document")?.source?.data ?? ""
-  const lines = transcript
-    .split("\n")
-    .map((l) => l.replace(/^[^:]{1,40}:\s*/, "").trim())
-    .filter((l) => l.length > 0)
-  const mentioned = [...new Set(transcript.match(/\b[A-Z]{1,5}\b/g) ?? [])].filter((t) => known.has(t))
+  const said = spoken(transcript)
+  const teacher = said[0]?.speaker
+  const taught = said.filter((s) => s.speaker === teacher && !s.sentence.endsWith("?"))
+  const lessons = taught.filter((s) => s.sentence.length > 40 && !/welcome|good evening/i.test(s.sentence))
+  const mentioned = [...new Set(transcript.match(/\b[A-Z]{2,5}\b/g) ?? [])].filter((t) => known.has(t))
   return {
-    overview: lines.slice(0, 2).join(" ") || "The class reviewed the week's setups.",
-    keyPoints: lines.filter((l) => l.length > 30).slice(0, 4),
+    overview:
+      lessons
+        .slice(0, 2)
+        .map((s) => s.sentence)
+        .join(" ") || "The class reviewed the week's setups.",
+    keyPoints: lessons
+      .filter((s) => !/homework|before next class/i.test(s.sentence))
+      .slice(0, 4)
+      .map((s) => s.sentence),
     tickers: mentioned.map((symbol) => ({
       symbol,
-      note: lines.find((l) => l.includes(symbol)) ?? `${symbol} was discussed.`,
+      note:
+        said.find((s) => s.sentence.includes(symbol) && !/homework/i.test(s.sentence))?.sentence ??
+        `${symbol} was discussed.`,
     })),
-    actionItems: lines.filter((l) => /homework|before next class|this week/i.test(l)).slice(0, 3),
-    questions: lines
-      .map((l, i) => ({ question: l, answer: lines[i + 1] ?? "" }))
-      .filter((q) => q.question.endsWith("?") && q.answer !== "")
+    actionItems: said
+      .filter((s) => /homework|before next class|this week/i.test(s.sentence))
+      .slice(0, 3)
+      .map((s) => s.sentence.replace(/^For homework before next class,\s*/i, "").replace(/^./, (c) => c.toUpperCase())),
+    questions: said
+      .flatMap((asked, i) => {
+        if (!asked.sentence.endsWith("?")) return []
+        const start = said.findIndex((a, j) => j > i && a.speaker !== asked.speaker)
+        const by = said[start]?.speaker
+        if (start === -1 || by === undefined) return []
+        const answer = said
+          .slice(start, start + 2)
+          .filter((a) => a.speaker === by)
+          .map((a) => a.sentence)
+          .join(" ")
+        return [{ question: asked.sentence, answer }]
+      })
       .slice(0, 3),
   }
 }

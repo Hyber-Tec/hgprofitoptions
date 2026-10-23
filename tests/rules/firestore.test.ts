@@ -192,7 +192,16 @@ describe("private journal notes", () => {
 
 describe("server-only collections", () => {
   it("are closed to everyone, admins included", async () => {
-    for (const path of ["invites/someone@example.com", "auditLog/a1", "snaptradeUsers/active"])
+    for (const path of [
+      "invites/someone@example.com",
+      "auditLog/a1",
+      "snaptradeUsers/active",
+      // Quiz answers and class transcripts never reach a browser; the server reads them.
+      "quizzes/q1",
+      "quizAttempts/a1",
+      "quizAssignments/a1",
+      "classRecaps/r1",
+    ])
       await assertFails(getDoc(doc(as("hg", true), path)))
   })
 })

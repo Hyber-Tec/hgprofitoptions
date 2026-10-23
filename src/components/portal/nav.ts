@@ -27,6 +27,7 @@ import {
   LuTrophy,
   LuUserRound,
   LuUsers,
+  LuVideo,
   LuWallet,
 } from "react-icons/lu"
 
@@ -119,6 +120,7 @@ export const ADMIN_NAV: NavGroup[] = [
       { title: "Presentations", href: "/admin/presentations", icon: LuPresentation },
       { title: "Files", href: "/admin/files", icon: LuFolder },
       { title: "Quizzes", href: "/admin/quizzes", icon: LuClipboardCheck },
+      { title: "Class recaps", href: "/admin/recaps", icon: LuVideo },
       { title: "Testimonials", href: "/admin/testimonials", icon: LuQuote },
       { title: "FAQ", href: "/admin/faq", icon: LuCircleHelp },
     ],
@@ -150,6 +152,8 @@ export const SEGMENT_LABELS: Record<string, string> = {
   presentations: "Presentations",
   files: "Files",
   classroom: "Classroom",
+  recaps: "Class recaps",
+  live: "Live class",
   quizzes: "Quizzes",
   settings: "Settings",
   notifications: "Notifications",

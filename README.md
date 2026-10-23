@@ -9,15 +9,19 @@ membership by calendar quarter.
 - **Public site**: home, about, FAQ, legal pages, member login, invitation sign-up and a booking link
   that HG changes in the admin console.
 - **Member area** (`/members`): buy and sell alerts with live updates and browser notifications,
-  Strike Price Targets, the Median & Channel Chart, Key Market Data, the Leveraged ETF Guide, stock
-  pages, a trading journal (manual, CSV import or a read-only brokerage link), portfolio performance,
-  HG's standing, class presentations, files, the classroom schedule and account settings.
-- **Admin console** (`/admin`): members and invitations with quarterly periods, member performance,
-  alerts with buy and sell points, the strike target editor, HG's house portfolio, tickers and
-  channel settings, market data, content, settings, the audit log and two-step verification.
-- **Cloud Functions**: alert and strike-target notifications, invite-only sign-up, and scheduled jobs
-  (membership access, renewal reminders, brokerage sync, HG standing, daily prices and weekly Key
-  Market Data).
+  Strike Price Targets with a live order book, the Median & Channel Chart, Key Market Data, the
+  Leveraged ETF Guide, stock pages, a trading journal (manual, CSV import or a read-only brokerage
+  link), portfolio performance, HG's standing, a chat where experts and admins answer, practice
+  quizzes and assigned tests that move beginners up a level, class presentations and files, the
+  classroom (the weekly class on Zoom without leaving the site, and AI recaps of each class) and
+  account settings.
+- **Admin console** (`/admin`): members and invitations with quarterly periods and trader levels,
+  member performance, alerts with buy and sell points, the strike target editor, HG's house portfolio,
+  tickers and channel settings, market data, content, quizzes written by AI from class documents,
+  class recaps, settings, the audit log and two-step verification.
+- **Cloud Functions**: alert, chat and strike-target notifications, AI quiz questions and class recaps,
+  invite-only sign-up, and scheduled jobs (membership access, renewal reminders, brokerage sync, HG
+  standing, daily prices and weekly Key Market Data).
 
 Membership is by calendar quarter (Q1 to Q4). A member without a current quarter keeps their account,
 journal and portfolio, but not the tools, alerts or classes.
@@ -27,8 +31,9 @@ journal and portfolio, but not the tools, alerts or classes.
 Next.js 16 (App Router, React 19, TypeScript strict) · Tailwind CSS 4 with shadcn/ui and react-icons ·
 Firebase: Authentication (invite-only, Google and email, optional authenticator-app two-step
 verification), Firestore, Cloud Storage, Cloud Messaging, Cloud Functions, App Hosting and Hosting · zod ·
-Vitest and Playwright. Optional integrations: Resend (email), SnapTrade (read-only brokerage linking)
-and the Massive (formerly Polygon.io) market data API for daily prices, live quotes and the order book.
+Vitest and Playwright. Optional integrations: Resend (email), SnapTrade (read-only brokerage linking),
+the Massive (formerly Polygon.io) market data API for daily prices, live quotes and the order book, an
+AI API for quiz questions and class recaps, and Zoom (the Meeting SDK, and cloud recording transcripts).
 
 ## Getting started
 
@@ -52,7 +57,9 @@ run the real Cloud Functions instead, use `pnpm emulators:functions`.
 
 Without a market data key, `pnpm market:fake` serves made-up prices, quotes and histories around each
 ticker's last close. Set `MARKET_DATA_API_KEY=fake` and `MARKET_DATA_BASE_URL=http://127.0.0.1:7655` in
-`.env.local` to use it; the end-to-end tests start their own copy.
+`.env.local` to use it; the end-to-end tests start their own copy. Likewise, without an AI key,
+`pnpm ai:fake` writes simple quiz questions and class recaps from the text it is sent
+(`AI_API_KEY=fake`, `AI_BASE_URL=http://127.0.0.1:7657`).
 
 ## Commands
 
@@ -63,6 +70,7 @@ ticker's last close. Set `MARKET_DATA_API_KEY=fake` and `MARKET_DATA_BASE_URL=ht
 | `pnpm seed` / `seed:demo` | Settings and content / demo members, alerts, trades and portfolios           |
 | `pnpm import:source`      | Imports HG's private source files                                            |
 | `pnpm market:fake`        | A stand-in market data API for local development                             |
+| `pnpm ai:fake`            | A stand-in AI API for local development                                      |
 | `pnpm lint`               | ESLint (strict, type-aware)                                                  |
 | `pnpm typecheck`          | TypeScript for the app and the Cloud Functions                               |
 | `pnpm format:check`       | Prettier                                                                     |
@@ -98,6 +106,8 @@ tests             rules, integration, golden and e2e suites
   set it to `"true"` and the admin console requires it.
 - Private journal notes are readable only by their owner, admins included.
 - Files are streamed by the server after an access check; PDFs are stamped with the member's name.
+- Quiz answers and class transcripts stay on the server. Zoom's webhook is checked against its
+  signature, and only the weekly class meeting is ever summarized.
 - No secrets live in the repository. Server keys are in Cloud Secret Manager.
 
 ## Deployment

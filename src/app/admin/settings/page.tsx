@@ -32,7 +32,17 @@ export default async function AdminSettingsPage() {
     [
       "AI",
       integrations.ai,
-      "Writes quiz questions from class documents. Without it, you write the questions yourself.",
+      "Writes quiz questions from class documents and class recaps. Without it, you write quiz questions yourself.",
+    ],
+    [
+      "Zoom classes in the site",
+      integrations.zoomEmbed,
+      "Members join the weekly class without leaving the site. Without it, the class opens in the Zoom app.",
+    ],
+    [
+      "Zoom class recaps",
+      integrations.zoomRecaps,
+      "Zoom sends each recorded class's transcript for its AI recap. Without it, upload transcripts under Class recaps.",
     ],
   ]
   return (
