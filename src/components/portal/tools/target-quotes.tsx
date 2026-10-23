@@ -12,7 +12,6 @@ import {
   formatShortDate,
   formatTimeET,
 } from "@/core/format"
-import { optionTicker } from "@/core/options"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { useLiveQuotes } from "@/hooks/use-live-quotes"
 import { cn } from "@/lib/utils"
@@ -20,10 +19,8 @@ import { ButtonLink } from "@/components/shared/button-link"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { ToneBadge } from "../display"
 import { LiveDot, sessionLabel } from "./live-dot"
+import { OptionChainTable } from "./option-chain"
 import { StatusBadge, type PricedRow } from "./target-status"
-
-/** Option premiums are quoted to the cent; share prices under $1 keep 4 decimals. */
-const premium = (value: number | null) => (value === null ? "-" : value.toFixed(2))
 
 function QuoteRow({
   label,
@@ -76,8 +73,8 @@ function distances(price: number, row: { target: number; breakLevel: number }): 
 }
 
 /**
- * The detail of one strike target, opened from the Strike Price Targets table: HG's levels, the live
- * order book (bid, ask and last) for the stock, the call at the target and the put, and the links.
+ * The detail of one strike target, opened from Strike Price Targets: HG's levels, the stock's live order
+ * book (bid, ask and last), the options chain around HG's strikes, and the links.
  */
 export function TargetQuotes({
   row,
@@ -91,23 +88,9 @@ export function TargetQuotes({
   onClose: () => void
 }) {
   const mobile = useIsMobile()
-  const tickers = useMemo(
-    () =>
-      row
-        ? {
-            stock: row.symbol,
-            call: optionTicker(row.symbol, "call", row.target, row.expiry),
-            put: optionTicker(row.symbol, "put", row.putStrike, row.expiry),
-          }
-        : null,
-    [row],
-  )
-  const { quotes, receivedAt } = useLiveQuotes(tickers ? [tickers.stock, tickers.call, tickers.put] : [], {
-    enabled: live && tickers !== null,
-    intervalMs: 10_000,
-  })
-  const stock = tickers ? quotes[tickers.stock] : undefined
-  const anyQuote = stock ?? (tickers ? (quotes[tickers.call] ?? quotes[tickers.put]) : undefined)
+  const symbols = useMemo(() => (row ? [row.symbol] : []), [row])
+  const { quotes, receivedAt } = useLiveQuotes(symbols, { enabled: live && row !== null, intervalMs: 10_000 })
+  const stock = row ? quotes[row.symbol] : undefined
   const price = row ? (stock?.last ?? row.price) : null
 
   return (
@@ -151,12 +134,12 @@ export function TargetQuotes({
                   <h3 id="order-book" className="text-sm font-semibold">
                     {live ? "Order book" : "Price"}
                   </h3>
-                  {anyQuote && (
+                  {stock && (
                     <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <LiveDot status={anyQuote.marketStatus} />
-                      {sessionLabel(anyQuote.marketStatus, anyQuote.realTime)}
-                      {anyQuote.updatedAt
-                        ? ` · ${formatTimeET(new Date(anyQuote.updatedAt))}`
+                      <LiveDot status={stock.marketStatus} />
+                      {sessionLabel(stock.marketStatus, stock.realTime)}
+                      {stock.updatedAt
+                        ? ` · ${formatTimeET(new Date(stock.updatedAt))}`
                         : receivedAt
                           ? ` · ${formatTimeET(new Date(receivedAt))}`
                           : ""}
@@ -188,18 +171,6 @@ export function TargetQuotes({
                         emptyLabel={receivedAt ? "No quote" : "Loading"}
                         format={formatLevel}
                       />
-                      <QuoteRow
-                        label={`${formatLevel(row.target)} call`}
-                        quote={tickers ? quotes[tickers.call] : undefined}
-                        emptyLabel={receivedAt ? "No contract at this strike" : "Loading"}
-                        format={premium}
-                      />
-                      <QuoteRow
-                        label={`${formatLevel(row.putStrike)} put`}
-                        quote={tickers ? quotes[tickers.put] : undefined}
-                        emptyLabel={receivedAt ? "No contract at this strike" : "Loading"}
-                        format={premium}
-                      />
                     </tbody>
                   </table>
                 ) : (
@@ -214,6 +185,15 @@ export function TargetQuotes({
                   <p className="text-xs text-muted-foreground tabular-nums">{distances(price, row)}</p>
                 )}
               </section>
+
+              <OptionChainTable
+                symbol={row.symbol}
+                expiry={row.expiry}
+                target={row.target}
+                putStrike={row.putStrike}
+                price={price}
+                live={live}
+              />
 
               <div className="flex flex-wrap items-center gap-2">
                 <ButtonLink size="sm" variant="outline" href={`/members/stocks/${row.symbol}`}>

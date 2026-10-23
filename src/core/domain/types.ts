@@ -71,6 +71,33 @@ export interface LiveQuote {
   marketStatus: "open" | "closed" | "early_trading" | "late_trading" | null
 }
 
+/** One side of a strike in an options chain. */
+export interface ChainQuote {
+  bid: number | null
+  ask: number | null
+  last: number | null
+  volume: number | null
+  openInterest: number | null
+}
+
+export interface ChainStrike {
+  strike: number
+  call: ChainQuote | null
+  put: ChainQuote | null
+}
+
+/** The calls and puts of one expiry, for strikes in a range, as the provider's plan allows. */
+export interface OptionChain {
+  symbol: string
+  expiry: IsoDate
+  strikes: ChainStrike[]
+  /** The stock's price as the provider reported it with the chain. */
+  underlying: number | null
+  realTime: boolean
+  /** Epoch milliseconds of the newest quote or trade. */
+  updatedAt: number | null
+}
+
 export interface StrikeTarget {
   group: string
   position: number

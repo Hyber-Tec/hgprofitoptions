@@ -127,6 +127,41 @@ function snapshot(ticker: string) {
   }
 }
 
+/** The strike spacing listed exchanges use around a price. */
+const strikeStep = (price: number) => (price < 25 ? 0.5 : price < 500 ? 2.5 : 5)
+
+/** An options chain snapshot page: a call and a put for every listed strike in the range. */
+function chain(underlying: string, params: URLSearchParams) {
+  const expiry = params.get("expiration_date") ?? ""
+  const min = Number(params.get("strike_price.gte") ?? 0)
+  const max = Number(params.get("strike_price.lte") ?? Number.POSITIVE_INFINITY)
+  if (!isIsoDate(expiry) || underlying === NOT_FOUND) return []
+  const spot = livePrice(underlying)
+  const step = strikeStep(spot)
+  const results = []
+  for (let strike = Math.ceil(min / step) * step; strike <= max; strike = round(strike + step, 0.0001)) {
+    for (const right of ["C", "P"] as const) {
+      const ticker = `O:${underlying.replace(/\./g, "")}${expiry.slice(2, 4)}${expiry.slice(5, 7)}${expiry.slice(8, 10)}${right}${String(Math.round(strike * 1000)).padStart(8, "0")}`
+      const quote = snapshot(ticker)
+      if ("error" in quote) continue
+      results.push({
+        details: {
+          contract_type: right === "C" ? "call" : "put",
+          strike_price: strike,
+          expiration_date: expiry,
+          ticker,
+        },
+        last_quote: quote.last_quote,
+        last_trade: quote.last_trade,
+        day: { close: quote.session.close, volume: Math.round(hash(`${ticker}v`) * 4000) },
+        open_interest: Math.round(hash(`${ticker}oi`) * 20000),
+        underlying_asset: { price: spot, ticker: underlying },
+      })
+    }
+  }
+  return results
+}
+
 /** Weekday bars from `from` to `to`, ending near the ticker's reference price. */
 function history(symbol: string, from: IsoDate, to: IsoDate) {
   const days: IsoDate[] = []
@@ -165,6 +200,11 @@ const server = createServer((req, res) => {
   if (path === "/v3/snapshot") {
     const tickers = (url.searchParams.get("ticker.any_of") ?? "").split(",").filter(Boolean)
     return send(res, 200, { status: "OK", results: tickers.map(snapshot) })
+  }
+  const options = /^\/v3\/snapshot\/options\/([^/]+)$/.exec(path)
+  if (options) {
+    const results = chain(decodeURIComponent(options[1] ?? "").toUpperCase(), url.searchParams)
+    return send(res, 200, { status: "OK", results })
   }
   const details = /^\/v3\/reference\/tickers\/([^/]+)$/.exec(path)
   if (details) {

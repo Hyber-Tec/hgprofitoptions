@@ -7,7 +7,7 @@
  */
 import { z } from "zod"
 import { isoDateInZone } from "@/core/dates"
-import type { DailyBar, IsoDate, LiveQuote } from "@/core/domain/types"
+import type { ChainQuote, ChainStrike, DailyBar, IsoDate, LiveQuote, OptionChain } from "@/core/domain/types"
 
 export interface MarketDataConfig {
   apiKey: string
@@ -31,7 +31,10 @@ async function getJson(
   what: string,
   { timeoutMs = 60_000, notFound = "throw" }: { timeoutMs?: number; notFound?: "throw" | "empty" } = {},
 ): Promise<unknown> {
+  // A path, or a next_url the provider returned; only ever the provider's own address.
   const url = new URL(path, config.baseUrl)
+  if (url.origin !== new URL(config.baseUrl).origin)
+    throw new MarketDataError(`Market data request for ${what} pointed elsewhere`, 0)
   for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value)
   const res = await fetchImpl(url, {
     headers: { Authorization: `Bearer ${config.apiKey}` },
@@ -250,4 +253,88 @@ export async function fetchSnapshots(
     }
   }
   return quotes
+}
+
+const chainQuoteSchema = z
+  .object({
+    details: z.object({ contract_type: z.string(), strike_price: z.number() }).loose(),
+    last_quote: z
+      .object({
+        bid: z.number().nullish(),
+        ask: z.number().nullish(),
+        last_updated: z.number().nullish(),
+        timeframe: z.string().nullish(),
+      })
+      .loose()
+      .nullish(),
+    last_trade: z
+      .object({ price: z.number().nullish(), sip_timestamp: z.number().nullish(), timeframe: z.string().nullish() })
+      .loose()
+      .nullish(),
+    day: z.object({ close: z.number().nullish(), volume: z.number().nullish() }).loose().nullish(),
+    open_interest: z.number().nullish(),
+    underlying_asset: z.object({ price: z.number().nullish() }).loose().nullish(),
+  })
+  .loose()
+
+const chainSchema = z.object({ results: z.array(chainQuoteSchema).nullish(), next_url: z.string().nullish() }).loose()
+
+/**
+ * The calls and puts for one expiry with strikes from `minStrike` to `maxStrike`, from the provider's
+ * option chain snapshot (Options Starter plans and up; bid and ask only when the plan includes quotes).
+ */
+export async function fetchOptionChain(
+  config: MarketDataConfig,
+  request: { symbol: string; expiry: IsoDate; minStrike: number; maxStrike: number },
+  fetchImpl: typeof fetch = fetch,
+): Promise<OptionChain> {
+  const strikes = new Map<number, ChainStrike>()
+  let underlying: number | null = null
+  let updatedAt: number | null = null
+  let realTime = false
+  let next: string | null = `/v3/snapshot/options/${encodeURIComponent(request.symbol)}`
+  let params: Record<string, string> = {
+    expiration_date: request.expiry,
+    "strike_price.gte": String(request.minStrike),
+    "strike_price.lte": String(request.maxStrike),
+    sort: "strike_price",
+    order: "asc",
+    limit: "250",
+  }
+  // A wide range is a few pages at most.
+  for (let page = 0; next && page < 4; page++) {
+    const body = await getJson(config, next, params, fetchImpl, `the ${request.symbol} options chain`, {
+      timeoutMs: 15_000,
+      notFound: "empty",
+    })
+    const parsed = chainSchema.parse(body)
+    for (const r of parsed.results ?? []) {
+      const strike = r.details.strike_price
+      const quote: ChainQuote = {
+        bid: r.last_quote?.bid ?? null,
+        ask: r.last_quote?.ask ?? null,
+        last: r.last_trade?.price ?? r.day?.close ?? null,
+        volume: r.day?.volume ?? null,
+        openInterest: r.open_interest ?? null,
+      }
+      const row = strikes.get(strike) ?? { strike, call: null, put: null }
+      if (r.details.contract_type === "call") row.call = quote
+      else if (r.details.contract_type === "put") row.put = quote
+      strikes.set(strike, row)
+      underlying ??= r.underlying_asset?.price ?? null
+      const at = nanosToMillis(r.last_quote?.last_updated ?? r.last_trade?.sip_timestamp)
+      if (at !== null && (updatedAt === null || at > updatedAt)) updatedAt = at
+      realTime ||= (r.last_quote?.timeframe ?? r.last_trade?.timeframe) === "REAL-TIME"
+    }
+    next = parsed.next_url ?? null
+    params = {}
+  }
+  return {
+    symbol: request.symbol,
+    expiry: request.expiry,
+    strikes: [...strikes.values()].sort((a, b) => a.strike - b.strike),
+    underlying,
+    realTime,
+    updatedAt,
+  }
 }
