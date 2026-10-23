@@ -60,7 +60,8 @@ The hybertec.com organization changes two Google defaults, and the steps below a
    ```
 
    The AI and Zoom secrets were added after the first launch: create them (`none` keeps that
-   integration off) and grant the backend access before deploying a version that uses them.
+   integration off) and grant the backend access before merging the change that uses them, because
+   the merge deploys it and a missing secret stops the deploy.
 
    Generate key material with `openssl rand -base64 32`. The SnapTrade encryption key protects
    stored brokerage credentials: keep a copy somewhere safe, because changing it disconnects every
@@ -124,32 +125,6 @@ The hybertec.com organization changes two Google defaults, and the steps below a
    `ci.yml` or moving the deploy to another workflow file needs the same change in the provider's
    condition.
 
-Turning on an integration: set its secret (and `EMAIL_FROM` or `SNAPTRADE_CLIENT_ID` in both
-`apphosting.yaml` and the functions settings), then deploy the app and the functions. The Connected
-services card in Admin > Settings shows what is on, and Admin > Market data lists every scheduled job
-run.
-
-## Zoom classes and recaps
-
-Members join the weekly class inside the site, and after each recorded class the AI writes its recap
-in place of Zoom's own summary. Both use one app on the Zoom App Marketplace, made in the Zoom account
-that hosts the class (an app joining another account's meetings needs Zoom's review first).
-
-1. **Joining in the site**: in the app, turn on the Meeting SDK (Embed). Its Client ID goes in
-   `ZOOM_SDK_KEY` in `apphosting.yaml` and its Client Secret in the `ZOOM_SDK_SECRET` secret. In
-   Admin > Settings > Member area, enter the class's Zoom link, meeting ID and passcode. Members then
-   see Join class in the Classroom; the Zoom app stays available as a second button.
-2. **Recaps**: in Zoom's settings for the host, turn on cloud recording with audio transcripts
-   (a paid plan), and record the class to the cloud. In the app, add an event subscription for
-   "Recording transcript files have completed" sent to
-   `https://hgprofitoptions.web.app/api/zoom/webhook`; its secret token goes in the
-   `ZOOM_WEBHOOK_SECRET` secret. Deploy the app first, because Zoom checks the address when the
-   subscription is saved. Only the class meeting gets recaps, never one-on-ones.
-3. **When events come without a download token**, the Cloud Function downloads transcripts with a
-   Server-to-Server OAuth app (scope to read cloud recordings) instead: `ZOOM_ACCOUNT_ID` and
-   `ZOOM_CLIENT_ID` in `functions/.env.hgprofitoptions-hybertec`, and the `ZOOM_CLIENT_SECRET` secret.
-
-Without Zoom, admins can still add a recap with a transcript file under Admin > Class recaps.
 ## Deploying changes
 
 Merging a pull request deploys it. On every push to `main`, the CI workflow runs the checks, then its
@@ -199,6 +174,28 @@ Turning on an integration: set its secret (and `EMAIL_FROM` or `SNAPTRADE_CLIENT
 `apphosting.yaml` and the functions settings), then deploy the app and the functions. In the admin
 console, Settings, then Connected services shows what is on, and Market data lists every scheduled
 job run.
+
+## Zoom classes and recaps
+
+Members join the weekly class inside the site, and after each recorded class the AI writes its recap
+in place of Zoom's own summary. Both use one app on the Zoom App Marketplace, made in the Zoom account
+that hosts the class (an app joining another account's meetings needs Zoom's review first).
+
+1. **Joining in the site**: in the app, turn on the Meeting SDK (Embed). Its Client ID goes in
+   `ZOOM_SDK_KEY` in `apphosting.yaml` and its Client Secret in the `ZOOM_SDK_SECRET` secret. In
+   Admin > Settings > Member area, enter the class's Zoom link, meeting ID and passcode. Members then
+   see Join class in the Classroom; the Zoom app stays available as a second button.
+2. **Recaps**: in Zoom's settings for the host, turn on cloud recording with audio transcripts
+   (a paid plan), and record the class to the cloud. In the app, add an event subscription for
+   "Recording transcript files have completed" sent to
+   `https://hgprofitoptions.web.app/api/zoom/webhook`; its secret token goes in the
+   `ZOOM_WEBHOOK_SECRET` secret. Deploy the app first, because Zoom checks the address when the
+   subscription is saved. Only the class meeting gets recaps, never one-on-ones.
+3. **When events come without a download token**, the Cloud Function downloads transcripts with a
+   Server-to-Server OAuth app (scope to read cloud recordings) instead: `ZOOM_ACCOUNT_ID` and
+   `ZOOM_CLIENT_ID` in `functions/.env.hgprofitoptions-hybertec`, and the `ZOOM_CLIENT_SECRET` secret.
+
+Without Zoom, admins can still add a recap with a transcript file under Admin > Class recaps.
 
 ## Serving the app at hgprofitoptions.web.app
 
