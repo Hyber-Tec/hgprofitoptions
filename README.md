@@ -113,8 +113,8 @@ tests             rules, integration, golden and e2e suites
 
 ## Deployment
 
-Live at https://hgprofitoptions.web.app. The app runs on Firebase App Hosting; rules, indexes,
-functions and the app are deployed from `main` with the Firebase CLI. See [docs/deploy.md](docs/deploy.md),
+Live at https://hgprofitoptions.web.app. The app runs on Firebase App Hosting. Merging into `main`
+deploys rules, indexes, functions and the app once CI passes. See [docs/deploy.md](docs/deploy.md),
 including the two settings the hybertec.com organization requires.
 
 ## Contributing

@@ -70,9 +70,8 @@ The hybertec.com organization changes two Google defaults, and the steps below a
 
 3. **App Hosting backend**: created with
    `firebase apphosting:backends:create --project hgprofitoptions-hybertec --backend hgprofitoptions --primary-region us-central1 --root-dir .`.
-   It is not connected to GitHub yet, so the app is deployed from a checkout (below). To roll out
-   automatically when `main` changes, connect `Hyber-Tec/hgprofitoptions` with live branch `main` in
-   Firebase console > App Hosting > hgprofitoptions > Settings (a one-time GitHub authorization).
+   It is deliberately not connected to GitHub. The CI workflow deploys it from a checkout of `main`
+   (below), because hgprofitoptions.web.app also needs the copy step after every rollout.
 
 4. **First data and the first admin**: seeded with
 
@@ -86,16 +85,44 @@ The hybertec.com organization changes two Google defaults, and the steps below a
    The admin opens the link and creates their account. Two-step verification is optional
    (`REQUIRE_ADMIN_MFA` in `apphosting.yaml`); admins can turn it on at `/admin/security`.
 
-## Deploying changes
+5. **Automatic deploys**: GitHub Actions deploys as the service account
+   `github-deployer@hgprofitoptions-hybertec.iam.gserviceaccount.com`, without a key. Google Cloud
+   accepts GitHub's sign-in only from the Deploy job in `.github/workflows/ci.yml`, running on `main`
+   in the repository's `production` environment (workload identity pool `github`, provider
+   `hgprofitoptions`). In GitHub, that environment accepts protected branches only (Settings >
+   Environments), so nothing but `main` can deploy. The account can deploy each part and act as the
+   app's and the functions' service accounts, but it cannot change the project's permissions or read
+   secret values. Set up with:
 
-Deploy from an up-to-date `main` after the pull request is merged.
+   ```bash
+   P=hgprofitoptions-hybertec; PN=785230671466; SA=github-deployer@$P.iam.gserviceaccount.com
+   gcloud iam service-accounts create github-deployer --project=$P --display-name="GitHub Actions deployer"
+   for role in roles/firebaseapphosting.admin roles/storage.bucketViewer roles/run.admin \
+     roles/serviceusage.serviceUsageConsumer roles/firebasehosting.admin roles/firebaserules.admin \
+     roles/datastore.indexAdmin roles/firebasestorage.viewer roles/cloudfunctions.developer \
+     roles/cloudscheduler.admin roles/secretmanager.viewer roles/artifactregistry.reader \
+     roles/firebaseauth.admin roles/firebaseextensions.viewer; do
+     gcloud projects add-iam-policy-binding $P --member="serviceAccount:$SA" --role=$role --condition=None
+   done
+   for runtime in firebase-app-hosting-compute@$P.iam.gserviceaccount.com \
+     $PN-compute@developer.gserviceaccount.com $P@appspot.gserviceaccount.com; do
+     gcloud iam service-accounts add-iam-policy-binding $runtime --project=$P \
+       --member="serviceAccount:$SA" --role=roles/iam.serviceAccountUser
+   done
+   gcloud storage buckets add-iam-policy-binding gs://firebaseapphosting-sources-$PN-us-central1 \
+     --member="serviceAccount:$SA" --role=roles/storage.objectCreator
+   gcloud iam workload-identity-pools create github --project=$P --location=global --display-name="GitHub Actions"
+   gcloud iam workload-identity-pools providers create-oidc hgprofitoptions --project=$P --location=global \
+     --workload-identity-pool=github --issuer-uri=https://token.actions.githubusercontent.com \
+     --attribute-mapping="google.subject=assertion.sub,attribute.repository_id=assertion.repository_id,attribute.ref=assertion.ref,attribute.workflow_ref=assertion.workflow_ref" \
+     --attribute-condition="assertion.repository_id == '1409132043' && assertion.repository_owner_id == '280069423' && assertion.ref == 'refs/heads/main' && assertion.environment == 'production' && assertion.workflow_ref == 'Hyber-Tec/hgprofitoptions/.github/workflows/ci.yml@refs/heads/main'"
+   gcloud iam service-accounts add-iam-policy-binding $SA --project=$P --role=roles/iam.workloadIdentityUser \
+     --member="principalSet://iam.googleapis.com/projects/$PN/locations/global/workloadIdentityPools/github/attribute.repository_id/1409132043"
+   ```
 
-| What changed     | Command                                                                                       |
-| ---------------- | --------------------------------------------------------------------------------------------- |
-| App              | `pnpm deploy:web`                                                                             |
-| Rules or indexes | `firebase deploy --only firestore,storage --project hgprofitoptions-hybertec`                 |
-| Functions        | `firebase deploy --only functions --project hgprofitoptions-hybertec`, then `pnpm auth:guard` |
-| Hosting rewrite  | `firebase deploy --only hosting --project hgprofitoptions-hybertec`                           |
+   `1409132043` is this repository's GitHub ID and `280069423` the Hyber-Tec organization's. Renaming
+   `ci.yml` or moving the deploy to another workflow file needs the same change in the provider's
+   condition.
 
 Turning on an integration: set its secret (and `EMAIL_FROM` or `SNAPTRADE_CLIENT_ID` in both
 `apphosting.yaml` and the functions settings), then deploy the app and the functions. The Connected
@@ -123,6 +150,55 @@ that hosts the class (an app joining another account's meetings needs Zoom's rev
    `ZOOM_CLIENT_ID` in `functions/.env.hgprofitoptions-hybertec`, and the `ZOOM_CLIENT_SECRET` secret.
 
 Without Zoom, admins can still add a recap with a transcript file under Admin > Class recaps.
+## Deploying changes
+
+Merging a pull request deploys it. On every push to `main`, the CI workflow runs the checks, then its
+Deploy job deploys everything in that commit, in this order:
+
+1. Security rules and indexes (`firebase deploy --only firestore,storage`). Rules that did not change
+   are not uploaded again, and indexes that exist only in the console are left alone.
+2. Cloud Functions (`pnpm deploy:functions`). Functions that did not change are skipped, then the
+   sign-up guard runs (see [What the organization requires](#what-the-organization-requires)).
+3. The app (`pnpm deploy:web`): an App Hosting build and rollout, then the copy that
+   hgprofitoptions.web.app serves.
+4. Hosting (`firebase deploy --only hosting`).
+
+The site changes 15 to 20 minutes after a merge: about 5 for the checks, then 10 to 15 for the
+deploy. Follow a deploy under Actions; the
+repository's `production` environment (Deployments, on the repository's home page) shows what is
+live. When a deploy fails, the Deploy job turns red and GitHub emails whoever merged. Fix the cause,
+then re-run the failed job, or run CI on `main` again (Actions > CI > Run workflow), which also
+deploys again after a secret changes. A run on `main` always finishes; the next merge waits for it.
+
+Some changes stop the deploy on purpose, because they need a person to decide:
+
+- A function removed from the code. Delete it with
+  `firebase functions:delete <name> --region us-central1 --project hgprofitoptions-hybertec`, then
+  re-run the job.
+- Anything else `firebase deploy` asks to confirm: a function's trigger changing type, a function
+  starting to retry on failure, or more instances kept running (a bigger bill). Deploy the functions
+  once by hand with `firebase deploy --only functions --project hgprofitoptions-hybertec`, answer the
+  question, and run `pnpm auth:guard`.
+
+The App Hosting step warns that it failed to grant roles to the App Hosting compute service account.
+That is expected: the deploy account cannot change the project's permissions, and the compute
+account already has its roles.
+
+### Deploying by hand
+
+As a project owner, from an up-to-date `main`:
+
+| What changed     | Command                                                                       |
+| ---------------- | ----------------------------------------------------------------------------- |
+| App              | `pnpm deploy:web`                                                             |
+| Rules or indexes | `firebase deploy --only firestore,storage --project hgprofitoptions-hybertec` |
+| Functions        | `pnpm deploy:functions`                                                       |
+| Hosting rewrite  | `firebase deploy --only hosting --project hgprofitoptions-hybertec`           |
+
+Turning on an integration: set its secret (and `EMAIL_FROM` or `SNAPTRADE_CLIENT_ID` in both
+`apphosting.yaml` and the functions settings), then deploy the app and the functions. In the admin
+console, Settings, then Connected services shows what is on, and Market data lists every scheduled
+job run.
 
 ## Serving the app at hgprofitoptions.web.app
 
@@ -144,9 +220,9 @@ Cloud Run's "no invoker check" setting either, because each rollout resets it. S
   passes only the `__session` cookie to the app, which is the session cookie it uses. It also lets
   browsers cache the icons and the web app manifest for a day; Next.js would have them downloaded
   again on every page change.
-- The App Hosting address keeps working too. If App Hosting is ever connected to GitHub for automatic
-  rollouts, run `pnpm exec tsx scripts/sync-web-service.ts` after each one, or hgprofitoptions.web.app
-  keeps serving the previous version.
+- The App Hosting address keeps working too. Don't connect App Hosting to GitHub for its own
+  automatic rollouts: they skip the copy, so hgprofitoptions.web.app would keep serving the previous
+  version, and merges already deploy through CI.
 
 If an organization admin later allows `allUsers` for this project
 (`constraints/iam.managed.allowedPolicyMembers`), the copy is no longer needed: grant
