@@ -55,7 +55,10 @@ for (const [path, heading, stock] of [
 
 test("the channel chart lays out each stock's ladder around its last close", async ({ page }) => {
   await page.goto("/members/channels")
-  const first = page.locator("ul > li").filter({ has: page.locator('a[href^="/members/stocks/"]') }).first()
+  const first = page
+    .locator("ul > li")
+    .filter({ has: page.locator('a[href^="/members/stocks/"]') })
+    .first()
   await expect(first.getByText(/^CH [\d.,]+ · BOC [\d.,]+$/)).toBeVisible()
   await expect(first.getByRole("img", { name: /^Price \$/ }).filter({ visible: true })).toBeVisible()
 })
