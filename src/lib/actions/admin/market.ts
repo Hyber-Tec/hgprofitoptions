@@ -4,12 +4,11 @@ import { Timestamp } from "firebase-admin/firestore"
 import { refresh } from "next/cache"
 import { z } from "zod"
 import { signedRange, svi } from "@/core/calc/kmd"
-import { addDays, isIsoDate, lastClosedSession } from "@/core/dates"
+import { addDays, isIsoDate } from "@/core/dates"
 import type { ActionResult } from "@/core/domain/types"
-import { backfillTicker } from "@/server/market/jobs"
-import { fetchTickerDetails } from "@/server/market/provider"
 import { writeAudit } from "@/server/members"
 import { COLLECTIONS } from "@/server/model"
+import { addTicker } from "@/server/tickers"
 import { adminForAction } from "@/lib/auth/guards"
 import { invalidate } from "@/lib/data/cache"
 import { marketDataConfig } from "@/lib/env.server"
@@ -100,66 +99,24 @@ export async function createTicker(input: {
   if (!sym.success) return { ok: false, code: "validation", message: "Use a ticker like TSM." }
   const channel = z.number().positive().nullable().safeParse(input.channelSize)
   if (!channel.success) return { ok: false, code: "validation", message: "The channel must be a positive number." }
-  const ref = adminDb().collection(COLLECTIONS.tickers).doc(sym.data)
-  if ((await ref.get()).exists) return { ok: false, code: "conflict", message: `${sym.data} is already in the list.` }
-
   const market = marketDataConfig()
-  let details: Awaited<ReturnType<typeof fetchTickerDetails>> = null
-  if (market) {
-    try {
-      details = await fetchTickerDetails(market, sym.data)
-      if (!details)
-        return { ok: false, code: "not-found", message: `${sym.data} was not found. Check the symbol and try again.` }
-    } catch (error) {
-      console.error(`Ticker details for ${sym.data}:`, error instanceof Error ? error.message : error)
-    }
-  }
-  const ch = channel.data
-  await ref.set({
-    symbol: sym.data,
-    name: details?.name ?? null,
-    kind: details?.kind ?? "stock",
-    active: true,
-    channelSize: ch,
-    bocSize: ch === null ? null : Math.round((ch / 2) * 10000) / 10000,
-    fsLevels: [],
-    ssLevels: [],
-    earningsStart: null,
-    earningsEnd: null,
-    earningsNote: null,
-    notes: null,
-    categories: [],
-    metrics: null,
-    updatedAt: Timestamp.now(),
-    updatedBy: viewer.uid,
-  })
-
-  let backfill = { bars: 0, addedToWeek: null as string | null }
-  if (market) {
-    try {
-      backfill = await backfillTicker(adminDb(), market, sym.data, lastClosedSession())
-    } catch (error) {
-      console.error(`Price history for ${sym.data}:`, error instanceof Error ? error.message : error)
-    }
-  }
+  const result = await addTicker(adminDb(), market, sym.data, channel.data, viewer.uid)
+  if (result.status === "exists") return { ok: false, code: "conflict", message: `${sym.data} is already in the list.` }
+  if (result.status === "not-found")
+    return { ok: false, code: "not-found", message: `${sym.data} was not found. Check the symbol and try again.` }
   await writeAudit(adminDb(), {
     actorUid: viewer.uid,
     actorEmail: viewer.email,
     action: "ticker.created",
     targetType: "ticker",
     targetId: sym.data,
-    detail: { bars: backfill.bars },
+    detail: { bars: result.bars },
   })
   invalidate("tools:")
   refresh()
   return {
     ok: true,
-    data: {
-      name: details?.name ?? null,
-      bars: backfill.bars,
-      addedToWeek: backfill.addedToWeek,
-      priced: market !== null,
-    },
+    data: { name: result.name, bars: result.bars, addedToWeek: result.addedToWeek, priced: market !== null },
   }
 }
 

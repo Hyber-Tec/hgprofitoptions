@@ -20,7 +20,7 @@ import { TargetQuotes } from "./target-quotes"
 import { StatusBadge, type PricedRow } from "./target-status"
 
 /** One of HG's levels, large, with the earlier value struck through when it changed since the last update. */
-function Level({
+export function Level({
   label,
   value,
   previous,

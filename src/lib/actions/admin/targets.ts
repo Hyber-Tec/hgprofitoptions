@@ -5,13 +5,18 @@ import { Timestamp } from "firebase-admin/firestore"
 import { refresh } from "next/cache"
 import { after } from "next/server"
 import { z } from "zod"
+import { mapLimit } from "@/core/async"
 import { isIsoDate } from "@/core/dates"
 import type { ActionResult } from "@/core/domain/types"
-import { publishTargets, updateTitle } from "@/server/targets"
+import { fetchTickerDetails } from "@/server/market/provider"
+import { writeAudit } from "@/server/members"
 import { COLLECTIONS } from "@/server/model"
 import { notifyTargetsOnce } from "@/server/notifications"
+import { publishTargets, updateTitle } from "@/server/targets"
+import { addTicker } from "@/server/tickers"
 import { adminForAction } from "@/lib/auth/guards"
 import { invalidate } from "@/lib/data/cache"
+import { marketDataConfig } from "@/lib/env.server"
 import { adminDb, adminMessaging } from "@/lib/firebase/admin"
 
 const forbidden = {
@@ -20,14 +25,16 @@ const forbidden = {
   message: "Admins only. If you are an admin, sign in again with two-step verification.",
 } as const
 
+const symbol = z
+  .string()
+  .trim()
+  .toUpperCase()
+  .regex(/^[A-Z][A-Z.]{0,5}$/)
+
 const entry = z.object({
   group: z.string().min(1).max(80),
   position: z.number().int().min(1),
-  symbol: z
-    .string()
-    .trim()
-    .toUpperCase()
-    .regex(/^[A-Z][A-Z.]{0,5}$/),
+  symbol,
   target: z.number().positive(),
   breakLevel: z.number().positive(),
   putStrike: z.number().positive(),
@@ -126,6 +133,31 @@ export async function publishTargetUpdate(
   )
   if (draftId) await adminDb().collection(COLLECTIONS.targetUpdates).doc(draftId).delete()
   invalidate("tools:")
+  // Stocks new to the list are added with their name and prices, after the reply so publishing stays quick.
+  const symbols = [...new Set(parsed.data.entries.map((e) => e.symbol))]
+  after(async () => {
+    try {
+      const db = adminDb()
+      const existing = await db.getAll(...symbols.map((s) => db.collection(COLLECTIONS.tickers).doc(s)))
+      const missing = symbols.filter((_, i) => !existing[i]?.exists)
+      const market = marketDataConfig()
+      for (const s of missing) {
+        const result = await addTicker(db, market, s, null, viewer.uid)
+        if (result.status !== "added") continue
+        await writeAudit(db, {
+          actorUid: viewer.uid,
+          actorEmail: viewer.email,
+          action: "ticker.created",
+          targetType: "ticker",
+          targetId: s,
+          detail: { bars: result.bars, from: "strike targets" },
+        })
+      }
+      if (missing.length > 0) invalidate("tools:")
+    } catch (error) {
+      console.error("Adding new tickers from strike targets:", error)
+    }
+  })
   if (input.notify && process.env.DELIVER_ALERTS_INLINE === "true") {
     after(async () => {
       try {
@@ -137,6 +169,37 @@ export async function publishTargetUpdate(
   }
   refresh()
   return { ok: true, data: { revision } }
+}
+
+export interface SymbolLookup {
+  symbol: string
+  /** The company, when the market data provider knows the symbol. */
+  name: string | null
+  /** False when the provider says there is no such symbol, which is most likely a typo. */
+  found: boolean
+}
+
+/**
+ * What the market data provider knows about symbols that are not in the ticker list yet, so the editor can
+ * show their names and catch a typo before publishing. Null when market data is not connected.
+ */
+export async function lookUpSymbols(symbols: string[]): Promise<ActionResult<SymbolLookup[] | null>> {
+  const viewer = await adminForAction()
+  if (!viewer) return forbidden
+  const list = z.array(symbol).max(200).safeParse(symbols)
+  if (!list.success) return { ok: false, code: "validation", message: "Some tickers were not valid." }
+  const market = marketDataConfig()
+  if (!market) return { ok: true, data: null }
+  const data = await mapLimit([...new Set(list.data)], 4, async (s): Promise<SymbolLookup> => {
+    try {
+      const details = await fetchTickerDetails(market, s)
+      return { symbol: s, name: details?.name ?? null, found: details !== null }
+    } catch {
+      // A failed lookup says nothing about the symbol, so it is not flagged.
+      return { symbol: s, name: null, found: true }
+    }
+  })
+  return { ok: true, data }
 }
 
 export async function deleteTargetDraft(draftId: string): Promise<ActionResult> {

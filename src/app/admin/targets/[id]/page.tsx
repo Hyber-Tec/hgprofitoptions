@@ -6,14 +6,7 @@ import { requireAdmin } from "@/lib/auth/guards"
 import { integrations } from "@/lib/env.server"
 import { listTargetUpdates } from "@/lib/data/tools"
 import { buildTargetRows } from "@/lib/tools/targets"
-import {
-  editorContext,
-  groupsFor,
-  listRevisions,
-  previousUpdate,
-  readUpdateDoc,
-  rowsFor,
-} from "@/lib/admin/targets-data"
+import { editorContext, listRevisions, publishedHistory, readUpdateDoc, textFor } from "@/lib/admin/targets-data"
 import { TargetsEditor } from "@/components/admin/targets-editor"
 import { ToneBadge } from "@/components/portal/display"
 import { PageHeader } from "@/components/portal/page-header"
@@ -32,7 +25,7 @@ export default async function AdminTargetUpdatePage({ params, searchParams }: Pa
   const { configGroups, tickers } = await editorContext()
 
   if (doc.status === "draft") {
-    const previous = await previousUpdate(doc.effectiveDate, false)
+    const history = await publishedHistory(doc.effectiveDate)
     return (
       <>
         <PageHeader
@@ -44,20 +37,18 @@ export default async function AdminTargetUpdatePage({ params, searchParams }: Pa
             mode: "draft",
             draftId: doc.id,
             effectiveDate: doc.effectiveDate,
-            text: doc.sourceText ?? "",
-            rows: rowsFor(doc.entries),
-            groups: groupsFor(doc.entries, configGroups, doc.groups),
+            text: textFor(doc.effectiveDate, doc.entries, configGroups, doc.groups),
           }}
           configGroups={configGroups}
           tickers={tickers}
-          previous={previous}
+          history={history}
         />
       </>
     )
   }
 
   if (editing) {
-    const previous = await previousUpdate(doc.effectiveDate, true)
+    const history = await publishedHistory(doc.effectiveDate)
     return (
       <>
         <PageHeader
@@ -69,13 +60,11 @@ export default async function AdminTargetUpdatePage({ params, searchParams }: Pa
             mode: "revise",
             draftId: null,
             effectiveDate: doc.effectiveDate,
-            text: doc.sourceText ?? "",
-            rows: rowsFor(doc.entries),
-            groups: groupsFor(doc.entries, configGroups),
+            text: textFor(doc.effectiveDate, doc.entries, configGroups),
           }}
           configGroups={configGroups}
           tickers={tickers}
-          previous={previous}
+          history={history}
         />
       </>
     )
