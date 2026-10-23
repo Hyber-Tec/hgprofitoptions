@@ -46,10 +46,10 @@ export default async function AdminQuizzesPage() {
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead>Quiz</TableHead>
-                <TableHead>Kind</TableHead>
+                <TableHead className="hidden sm:table-cell">Kind</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead className="text-right">Questions</TableHead>
-                <TableHead>Updated</TableHead>
+                <TableHead className="hidden text-right md:table-cell">Questions</TableHead>
+                <TableHead className="hidden md:table-cell">Updated</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -64,7 +64,9 @@ export default async function AdminQuizzesPage() {
                     </Link>
                     {q.source && <span className="block text-xs text-muted-foreground">From {q.source.name}</span>}
                   </TableCell>
-                  <TableCell className="text-sm">{q.kind === "test" ? "Test" : "Practice"}</TableCell>
+                  <TableCell className="hidden text-sm sm:table-cell">
+                    {q.kind === "test" ? "Test" : "Practice"}
+                  </TableCell>
                   <TableCell>
                     <span className="flex flex-wrap items-center gap-1.5">
                       <ToneBadge tone={STATUS[q.status].tone}>{STATUS[q.status].label}</ToneBadge>
@@ -73,8 +75,8 @@ export default async function AdminQuizzesPage() {
                       )}
                     </span>
                   </TableCell>
-                  <TableCell className="text-right tabular-nums">{q.questions.length}</TableCell>
-                  <TableCell className="text-sm whitespace-nowrap text-muted-foreground">
+                  <TableCell className="hidden text-right tabular-nums md:table-cell">{q.questions.length}</TableCell>
+                  <TableCell className="hidden text-sm whitespace-nowrap text-muted-foreground md:table-cell">
                     {formatDateTimeET(q.updatedAt)}
                   </TableCell>
                 </TableRow>
