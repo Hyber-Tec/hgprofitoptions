@@ -53,6 +53,10 @@ These apply to people and AI agents alike. When something is unclear, ask the ow
   click (sub-pages or a `[param]`) has a `loading.tsx` with `PageSkeleton`. Pages read the session, so
   without one a click shows nothing until the server finishes. Filters the browser applies by itself
   use `useUpdateSearchParams({ clientOnly: true })`, which skips the server round trip.
+- **Steady providers**: a provider above the pages never changes its context value as a page loads
+  (theme, screen size, live counts). React re-renders the parts of the page still streaming in when a
+  context changes, and the server's copy then lingers hidden beside them. Keep such values in a store
+  the components that show them read with `useSyncExternalStore`, as `useTheme` and `useLiveAlerts` do.
 - **Static files**: never read files from `public/` in server code. Next.js would put a partial
   `public/` folder in the server bundle, and App Hosting's build then skips copying the real one, so
   every other public file 404s in production. Keep shared assets in TypeScript modules instead.
