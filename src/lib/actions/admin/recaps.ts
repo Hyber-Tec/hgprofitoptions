@@ -8,7 +8,7 @@ import { isIsoDate } from "@/core/dates"
 import type { ActionResult } from "@/core/domain/types"
 import { notifyRecapOnce } from "@/server/classes"
 import { writeAudit } from "@/server/members"
-import { COLLECTIONS, classRecapSchema, parseDoc, type ClassRecapDoc } from "@/server/model"
+import { COLLECTIONS, classRecapSchema, isDocId, parseDoc, type ClassRecapDoc } from "@/server/model"
 import { adminForAction, type Viewer } from "@/lib/auth/guards"
 import { queueRecap } from "@/lib/classes"
 import { aiConfig } from "@/lib/env.server"
@@ -25,7 +25,7 @@ const noAi = { ok: false, code: "unavailable", message: "AI is not set up on the
 const recaps = () => adminDb().collection(COLLECTIONS.classRecaps)
 
 async function readRecap(id: string): Promise<ClassRecapDoc | null> {
-  if (typeof id !== "string" || id.length === 0 || id.length > 200 || id.includes("/")) return null
+  if (!isDocId(id)) return null
   const snap = await recaps().doc(id).get()
   return snap.exists ? parseDoc(classRecapSchema, snap.id, snap.data()) : null
 }

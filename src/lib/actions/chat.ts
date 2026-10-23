@@ -9,7 +9,15 @@ import type { ActionResult } from "@/core/domain/types"
 import { answersQuestions } from "@/core/levels"
 import { notifyChat, type ChatEvent } from "@/server/chat"
 import { writeAudit } from "@/server/members"
-import { COLLECTIONS, MEMBER_SUBCOLLECTIONS, MESSAGES, parseDoc, threadSchema, type ThreadDoc } from "@/server/model"
+import {
+  COLLECTIONS,
+  MEMBER_SUBCOLLECTIONS,
+  MESSAGES,
+  isDocId,
+  parseDoc,
+  threadSchema,
+  type ThreadDoc,
+} from "@/server/model"
 import { activeMemberForAction, adminForAction, type Viewer } from "@/lib/auth/guards"
 import { adminDb, adminMessaging } from "@/lib/firebase/admin"
 
@@ -51,7 +59,7 @@ function notifyLater(event: ChatEvent) {
 }
 
 async function readThread(threadId: string): Promise<ThreadDoc | null> {
-  if (typeof threadId !== "string" || threadId.length === 0 || threadId.length > 128) return null
+  if (!isDocId(threadId)) return null
   const snap = await threads().doc(threadId).get()
   return snap.exists ? parseDoc(threadSchema, snap.id, snap.data()) : null
 }
@@ -146,7 +154,7 @@ export async function removeMessage(threadId: string, messageId: string): Promis
   const viewer = await adminForAction()
   if (!viewer) return { ok: false, code: "forbidden", message: "Admins only." }
   const thread = await readThread(threadId)
-  if (!thread || typeof messageId !== "string" || messageId.length === 0) return notFound
+  if (!thread || !isDocId(messageId)) return notFound
   const ref = threads().doc(thread.id).collection(MESSAGES).doc(messageId)
   if (!(await ref.get()).exists) return notFound
   await ref.update({ removed: true, body: "" })

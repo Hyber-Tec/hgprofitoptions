@@ -2,6 +2,7 @@ import "server-only"
 import type { QueryDocumentSnapshot } from "firebase-admin/firestore"
 import {
   COLLECTIONS,
+  isDocId,
   parseDoc,
   quizAssignmentSchema,
   quizAttemptSchema,
@@ -23,7 +24,7 @@ const asAttempt = (id: string, data: unknown) => parseDoc(quizAttemptSchema, id,
 const asAssignment = (id: string, data: unknown) => parseDoc(quizAssignmentSchema, id, data)
 
 export async function getQuiz(id: string): Promise<QuizDoc | null> {
-  if (id.length === 0 || id.length > 128) return null
+  if (!isDocId(id)) return null
   const snap = await db().collection(COLLECTIONS.quizzes).doc(id).get()
   return snap.exists ? asQuiz(snap.id, snap.data()) : null
 }
@@ -81,7 +82,7 @@ export async function listMyAttempts(uid: string, limit = 20): Promise<QuizAttem
 }
 
 export async function getAttempt(id: string): Promise<QuizAttemptDoc | null> {
-  if (id.length === 0 || id.length > 128) return null
+  if (!isDocId(id)) return null
   const snap = await db().collection(COLLECTIONS.quizAttempts).doc(id).get()
   return snap.exists ? asAttempt(snap.id, snap.data()) : null
 }

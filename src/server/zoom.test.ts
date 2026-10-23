@@ -2,6 +2,7 @@ import { createHmac } from "node:crypto"
 import { describe, expect, it } from "vitest"
 import {
   downloadRecordingText,
+  isZoomUrl,
   meetingSdkSignature,
   transcriptFromEvent,
   urlValidationResponse,
@@ -153,6 +154,25 @@ describe("transcript download", () => {
     )
     expect(text).toContain("HG: Hello.")
     expect(tried).toEqual(["https://zoom.us/rec/vtt?access_token=old", "Bearer fresh"])
+  })
+
+  it("sends the app's token to Zoom's domain only", async () => {
+    expect(isZoomUrl("https://us06web.zoom.us/rec/download/abc")).toBe(true)
+    expect(isZoomUrl("https://zoom.us/rec/download/abc")).toBe(true)
+    expect(isZoomUrl("http://zoom.us/rec")).toBe(false)
+    expect(isZoomUrl("https://zoom.us.example.com/rec")).toBe(false)
+    expect(isZoomUrl("https://evilzoom.us/rec")).toBe(false)
+    expect(isZoomUrl("not a link")).toBe(false)
+    const urls: string[] = []
+    const fetchImpl = ((input: URL | RequestInfo) => {
+      urls.push(urlOf(input))
+      return Promise.resolve(Response.json({ access_token: "app-token", expires_in: 3600 }))
+    }) as typeof fetch
+    const config = { accountId: "elsewhere", clientId: "id", clientSecret: "secret" }
+    await expect(
+      downloadRecordingText(config, { downloadUrl: "https://attacker.example/vtt", downloadToken: null }, fetchImpl),
+    ).rejects.toThrow(/no download token/)
+    expect(urls).toEqual([])
   })
 
   it("says what to do when the file cannot be downloaded", async () => {

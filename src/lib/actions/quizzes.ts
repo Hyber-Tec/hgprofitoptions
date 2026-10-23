@@ -8,6 +8,7 @@ import { drawQuestions, gradeAttempt, passes, type Grade } from "@/core/quiz"
 import { writeAudit } from "@/server/members"
 import {
   COLLECTIONS,
+  isDocId,
   parseDoc,
   quizAssignmentSchema,
   quizAttemptSchema,
@@ -30,15 +31,13 @@ const quizRef = (id: string) => db().collection(COLLECTIONS.quizzes).doc(id)
 const attemptRef = (id: string) => db().collection(COLLECTIONS.quizAttempts).doc(id)
 const assignmentRef = (id: string) => db().collection(COLLECTIONS.quizAssignments).doc(id)
 
-const validId = (id: unknown): id is string => typeof id === "string" && id.length > 0 && id.length <= 128
-
 async function readQuiz(id: string): Promise<QuizDoc | null> {
   const snap = await quizRef(id).get()
   return snap.exists ? parseDoc(quizSchema, snap.id, snap.data()) : null
 }
 
 async function ownAttempt(viewer: Viewer, id: unknown): Promise<QuizAttemptDoc | null> {
-  if (!validId(id)) return null
+  if (!isDocId(id)) return null
   const snap = await attemptRef(id).get()
   const attempt = snap.exists ? parseDoc(quizAttemptSchema, snap.id, snap.data()) : null
   return attempt?.uid === viewer.uid ? attempt : null
@@ -67,7 +66,7 @@ function newAttempt(viewer: Viewer, quiz: QuizDoc, assignmentId: string | null) 
 export async function startPractice(quizId: string): Promise<ActionResult<{ attemptId: string }>> {
   const viewer = await activeMemberForAction()
   if (!viewer) return unauthorized
-  if (!validId(quizId)) return gone
+  if (!isDocId(quizId)) return gone
   const quiz = await readQuiz(quizId)
   if (!quiz || quiz.kind !== "practice" || quiz.status !== "published" || quiz.questions.length === 0) return gone
   const ref = db().collection(COLLECTIONS.quizAttempts).doc()
@@ -79,7 +78,7 @@ export async function startPractice(quizId: string): Promise<ActionResult<{ atte
 export async function startTest(assignmentId: string): Promise<ActionResult<{ attemptId: string }>> {
   const viewer = await activeMemberForAction()
   if (!viewer) return unauthorized
-  if (!validId(assignmentId)) return gone
+  if (!isDocId(assignmentId)) return gone
   const ref = assignmentRef(assignmentId)
   const result = await db().runTransaction(async (tx): Promise<ActionResult<{ attemptId: string }>> => {
     const snap = await tx.get(ref)

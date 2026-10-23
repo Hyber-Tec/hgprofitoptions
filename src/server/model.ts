@@ -942,6 +942,22 @@ export const auditSchema = z.object({
 })
 export type AuditEntry = z.infer<typeof auditSchema> & { id: string }
 
+/**
+ * True for a string that names one document: ids from requests are checked with this before use, since
+ * a "/" would make Firestore address a document somewhere else.
+ */
+export function isDocId(id: unknown): id is string {
+  return (
+    typeof id === "string" &&
+    id.length > 0 &&
+    id.length <= 200 &&
+    !id.includes("/") &&
+    id !== "." &&
+    id !== ".." &&
+    !/^__.*__$/.test(id)
+  )
+}
+
 /** Parses a document, attaching its id; returns null (and logs) when the data does not match. */
 export function parseDoc<S extends z.ZodType>(
   schema: S,

@@ -9,7 +9,7 @@ import type { ActionResult } from "@/core/domain/types"
 import { formatCents, invoiceNumber, invoiceText, invoiceTotal, unprintable } from "@/core/invoice"
 import { layout, sendEmail } from "@/server/email"
 import { writeAudit } from "@/server/members"
-import { COLLECTIONS, invoiceSchema, memberSchema, parseDoc, type InvoiceDoc } from "@/server/model"
+import { COLLECTIONS, invoiceSchema, isDocId, memberSchema, parseDoc, type InvoiceDoc } from "@/server/model"
 import { sendToMembers } from "@/server/push"
 import { adminForAction, type Viewer } from "@/lib/auth/guards"
 import { invalidate } from "@/lib/data/cache"
@@ -127,8 +127,9 @@ export async function createInvoice(
   const parsed = invoiceInput.safeParse(input)
   if (!parsed.success)
     return { ok: false, code: "validation", message: parsed.error.issues[0]?.message ?? "Check the fields." }
+  if (!isDocId(uid)) return { ok: false, code: "not-found", message: "This member no longer exists." }
   const db = adminDb()
-  const memberRef = db.collection(COLLECTIONS.members).doc(typeof uid === "string" && uid ? uid : "-")
+  const memberRef = db.collection(COLLECTIONS.members).doc(uid)
   const memberSnap = await memberRef.get()
   const target = memberSnap.exists ? parseDoc(memberSchema, memberSnap.id, memberSnap.data()) : null
   if (!target) return { ok: false, code: "not-found", message: "This member no longer exists." }
@@ -208,8 +209,7 @@ export async function setInvoiceStatus(id: string, input: z.input<typeof statusI
   if (!viewer) return forbidden
   const parsed = statusInput.safeParse(input)
   if (!parsed.success) return { ok: false, code: "validation", message: "Choose a status." }
-  if (typeof id !== "string" || id.length === 0 || id.length > 128 || id.includes("/"))
-    return { ok: false, code: "not-found", message: "This invoice no longer exists." }
+  if (!isDocId(id)) return { ok: false, code: "not-found", message: "This invoice no longer exists." }
   const ref = adminDb().collection(COLLECTIONS.invoices).doc(id)
   const snap = await ref.get()
   const invoice: InvoiceDoc | null = snap.exists ? parseDoc(invoiceSchema, snap.id, snap.data()) : null

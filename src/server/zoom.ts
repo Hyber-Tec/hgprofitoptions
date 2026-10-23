@@ -165,10 +165,20 @@ export async function zoomAccessToken(config: ZoomApiConfig, fetchImpl: typeof f
   return body.access_token
 }
 
+/** True for https links on Zoom's own domain, the only place the app's access token is sent. */
+export function isZoomUrl(link: string): boolean {
+  try {
+    const url = new URL(link)
+    return url.protocol === "https:" && (url.hostname === "zoom.us" || url.hostname.endsWith(".zoom.us"))
+  } catch {
+    return false
+  }
+}
+
 /**
  * Downloads a recording file (a transcript) as text: with the token that came with the event (Zoom takes
  * it as an access_token parameter), or the app's own access token when there is none or it has expired
- * (it lasts a day). A sign-in page instead of the file counts as refused.
+ * (it lasts a day), for links on Zoom's domain only. A sign-in page instead of the file counts as refused.
  */
 export async function downloadRecordingText(
   config: ZoomApiConfig | null,
@@ -184,7 +194,7 @@ export async function downloadRecordingText(
     url.searchParams.set("access_token", file.downloadToken)
     res = await fetchImpl(url, options)
   }
-  if ((!res || refused(res)) && config) {
+  if ((!res || refused(res)) && config && isZoomUrl(file.downloadUrl)) {
     const token = await zoomAccessToken(config, fetchImpl)
     res = await fetchImpl(file.downloadUrl, { ...options, headers: { Authorization: `Bearer ${token}` } })
   }

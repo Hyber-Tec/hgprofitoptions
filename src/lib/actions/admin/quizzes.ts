@@ -9,7 +9,15 @@ import type { ActionResult } from "@/core/domain/types"
 import { TRADER_LEVELS } from "@/core/levels"
 import { writeAudit } from "@/server/members"
 import { sendToMembers } from "@/server/push"
-import { COLLECTIONS, memberSchema, parseDoc, quizAssignmentSchema, quizSchema, type QuizDoc } from "@/server/model"
+import {
+  COLLECTIONS,
+  isDocId,
+  memberSchema,
+  parseDoc,
+  quizAssignmentSchema,
+  quizSchema,
+  type QuizDoc,
+} from "@/server/model"
 import { runQuizGeneration } from "@/server/quizzes"
 import { adminForAction, type Viewer } from "@/lib/auth/guards"
 import { aiConfig } from "@/lib/env.server"
@@ -25,7 +33,7 @@ const missing = { ok: false, code: "not-found", message: "This quiz no longer ex
 const quizzes = () => adminDb().collection(COLLECTIONS.quizzes)
 
 async function readQuiz(id: string): Promise<QuizDoc | null> {
-  if (typeof id !== "string" || id.length === 0 || id.length > 128) return null
+  if (!isDocId(id)) return null
   const snap = await quizzes().doc(id).get()
   return snap.exists ? parseDoc(quizSchema, snap.id, snap.data()) : null
 }
@@ -240,7 +248,7 @@ export async function assignTest(quizId: string, uids: string[]): Promise<Action
   if (!quiz) return missing
   if (quiz.kind !== "test") return { ok: false, code: "validation", message: "Only tests are assigned." }
   if (quiz.status !== "published") return { ok: false, code: "validation", message: "Publish the test first." }
-  const unique = [...new Set(uids)].filter((uid) => typeof uid === "string" && uid.length > 0).slice(0, 500)
+  const unique = [...new Set(Array.isArray(uids) ? uids : [])].filter(isDocId).slice(0, 500)
   if (unique.length === 0) return { ok: false, code: "validation", message: "Pick at least one member." }
   const db = adminDb()
   const [memberSnaps, open] = await Promise.all([
@@ -291,6 +299,7 @@ export async function assignTest(quizId: string, uids: string[]): Promise<Action
 export async function cancelAssignment(assignmentId: string): Promise<ActionResult> {
   const viewer = await adminForAction()
   if (!viewer) return forbidden
+  if (!isDocId(assignmentId)) return { ok: false, code: "not-found", message: "This assignment no longer exists." }
   const ref = adminDb().collection(COLLECTIONS.quizAssignments).doc(assignmentId)
   const snap = await ref.get()
   const assignment = snap.exists ? parseDoc(quizAssignmentSchema, snap.id, snap.data()) : null

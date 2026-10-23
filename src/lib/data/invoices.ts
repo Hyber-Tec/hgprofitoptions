@@ -4,6 +4,7 @@ import {
   COLLECTIONS,
   billingSettingsSchema,
   invoiceSchema,
+  isDocId,
   parseDoc,
   type BillingSettings,
   type InvoiceDoc,
@@ -32,7 +33,7 @@ export async function listInvoicesFor(uid: string): Promise<InvoiceDoc[]> {
 }
 
 export async function getInvoice(id: string): Promise<InvoiceDoc | null> {
-  if (id.length === 0 || id.length > 128 || id.includes("/")) return null
+  if (!isDocId(id)) return null
   const snap = await adminDb().collection(COLLECTIONS.invoices).doc(id).get()
   return snap.exists ? parseDoc(invoiceSchema, snap.id, snap.data()) : null
 }

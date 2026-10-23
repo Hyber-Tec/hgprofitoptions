@@ -6,6 +6,7 @@ import {
   COLLECTIONS,
   MEMBER_SUBCOLLECTIONS,
   MESSAGES,
+  isDocId,
   parseDoc,
   threadMessageSchema,
   threadSchema,
@@ -48,7 +49,7 @@ export async function getThreadFor(
   viewer: Viewer,
   id: string,
 ): Promise<{ thread: ChatThread; messages: ChatMessage[] } | null> {
-  if (id.length === 0 || id.length > 128) return null
+  if (!isDocId(id)) return null
   const snap = await threads().doc(id).get()
   const thread = snap.exists ? parseDoc(threadSchema, snap.id, snap.data()) : null
   if (!thread) return null
