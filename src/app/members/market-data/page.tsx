@@ -11,7 +11,6 @@ import { AsOf, PageHeader } from "@/components/portal/page-header"
 import { Sparkline } from "@/components/portal/sparkline"
 import { MarketDataTable } from "@/components/portal/tools/market-data-table"
 import { WeekPicker } from "@/components/portal/tools/week-picker"
-import { Watermark } from "@/components/portal/watermark"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
@@ -95,7 +94,7 @@ function MoverList({ title, rows, value }: { title: string; rows: WeekRow[]; val
 }
 
 export default async function MarketDataPage({ searchParams }: PageProps<"/members/market-data">) {
-  const viewer = await requireActiveMember("/members/market-data")
+  await requireActiveMember("/members/market-data")
   const requested = (await searchParams).week
   const { week, previous, weeks } = await resolveWeek(typeof requested === "string" ? requested : null)
   if (!week) {
@@ -122,7 +121,6 @@ export default async function MarketDataPage({ searchParams }: PageProps<"/membe
 
   return (
     <>
-      <Watermark text={viewer.email} />
       <PageHeader
         title="Key Market Data"
         description="Weekly high, low, close, range and SVI for every ticker, generated after each trading week."

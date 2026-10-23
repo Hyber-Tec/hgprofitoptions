@@ -35,7 +35,6 @@ import { AsOf, PageHeader } from "@/components/portal/page-header"
 import { LadderTable, type LadderLevel } from "@/components/portal/stock/channel-ladder"
 import { PriceChart, type ChartLevel, type ChartMarker } from "@/components/portal/stock/price-chart"
 import { ChannelStrip } from "@/components/portal/tools/channel-strip"
-import { Watermark } from "@/components/portal/watermark"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
@@ -147,7 +146,6 @@ export default async function StockPage({ params }: PageProps<"/members/stocks/[
 
   return (
     <>
-      <Watermark text={viewer.email} />
       <PageHeader
         title={
           <span className="flex flex-wrap items-baseline gap-x-3">

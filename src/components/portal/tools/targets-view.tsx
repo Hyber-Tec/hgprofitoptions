@@ -8,7 +8,6 @@ import type { TargetUpdate } from "@/server/model"
 import { ButtonAnchor, ButtonLink } from "@/components/shared/button-link"
 import { AsOf, PageHeader } from "../page-header"
 import { ToneBadge } from "../display"
-import { Watermark } from "../watermark"
 import { TargetsTable } from "./targets-table"
 import { PrintButton, UpdatePicker } from "./update-picker"
 
@@ -30,7 +29,6 @@ export async function TargetsView({
   const lastClose = rows.find((r) => r.lastCloseDate)?.lastCloseDate ?? null
   return (
     <>
-      <Watermark text={viewer.email} />
       <PageHeader
         title="Strike Price Targets"
         description="HG's weekly targets, break levels and put strikes, with where each stock sits right now."

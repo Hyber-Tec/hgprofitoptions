@@ -6,7 +6,6 @@ import { requireActiveMember } from "@/lib/auth/guards"
 import { getMemberSettings } from "@/lib/data/settings"
 import { getEtfConfig, tickerMap } from "@/lib/data/tools"
 import { PageHeader } from "@/components/portal/page-header"
-import { Watermark } from "@/components/portal/watermark"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -15,7 +14,7 @@ import { ButtonAnchor } from "@/components/shared/button-link"
 export const metadata: Metadata = { title: "Leveraged ETFs" }
 
 export default async function EtfsPage() {
-  const viewer = await requireActiveMember("/members/etfs")
+  await requireActiveMember("/members/etfs")
   const [config, tickers, settings] = await Promise.all([getEtfConfig(), tickerMap(), getMemberSettings()])
   const bookHref = settings.oneOnOneUrl ?? "/book"
   const showIssuer = config.pairs.some((p) => p.issuer)
@@ -23,7 +22,6 @@ export default async function EtfsPage() {
   const pairs = [...config.pairs].sort((a, b) => a.underlying.localeCompare(b.underlying))
   return (
     <>
-      <Watermark text={viewer.email} />
       <PageHeader title="Leveraged ETF Guide" description="The 2x bull ETFs that track the stocks HG follows." />
       <Alert className="border-warning/40 bg-warning/5">
         <LuTriangleAlert className="text-warning" />
