@@ -1,24 +1,25 @@
 "use client"
 
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { useMemo, useState } from "react"
-import { LuBell, LuSearch } from "react-icons/lu"
-import { formatPercent, formatPrice } from "@/core/format"
-import { cn } from "@/lib/utils"
-import { useResponsiveRows } from "@/hooks/use-responsive-rows"
+import { LuBell, LuSearch, LuSlidersHorizontal } from "react-icons/lu"
+import type { IsoDate, OptionRight } from "@/core/domain/types"
+import { formatPercent, formatPrice, formatShortDate } from "@/core/format"
+import { Button } from "@/components/ui/button"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Input } from "@/components/ui/input"
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { Signed, ToneBadge } from "../display"
-import { SortHead, compareValues, toggleSort, type SortState } from "../tools/sort-head"
+import { compareValues } from "../tools/sort-head"
 
 export interface TradeRow {
   id: string
   label: string
   symbol: string
+  /** The contract, for option trades. */
+  option: { strike: number; right: OptionRight; expiry: IsoDate } | null
   assetType: "stock" | "option"
   direction: "long" | "short"
   status: "open" | "closed"
@@ -35,8 +36,6 @@ export interface TradeRow {
   alertId: string | null
 }
 
-type SortKey = "openedAt" | "closedAt" | "symbol" | "quantity" | "realizedPnl" | "returnPct" | "holding"
-
 const ET_DATE = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "America/New_York" })
 const ET_DAY = new Intl.DateTimeFormat("en-CA", {
   year: "numeric",
@@ -49,22 +48,33 @@ function holding(row: TradeRow): number | null {
   return row.closedAt ? new Date(row.closedAt).getTime() - new Date(row.openedAt).getTime() : null
 }
 
-function formatHolding(ms: number | null): string {
-  if (ms === null) return "-"
+function formatHolding(ms: number | null): string | null {
+  if (ms === null) return null
   const hours = ms / 3_600_000
   if (hours < 24) return `${Math.max(1, Math.round(hours))} h`
-  return `${Math.round(hours / 24)} d`
+  const days = Math.round(hours / 24)
+  return `${days} ${days === 1 ? "day" : "days"}`
 }
 
+const SORTS = [
+  { value: "newest", label: "Newest first" },
+  { value: "oldest", label: "Oldest first" },
+  { value: "gain", label: "Biggest gain first" },
+  { value: "loss", label: "Biggest loss first" },
+  { value: "held", label: "Held longest first" },
+  { value: "ticker", label: "Ticker A to Z" },
+] as const
+type Sort = (typeof SORTS)[number]["value"]
+
 const select = (
-  items: { value: string; label: string }[],
+  items: readonly { value: string; label: string }[],
   value: string,
   onChange: (v: string) => void,
   label: string,
   width: string,
 ) => (
   <Select items={items} value={value} onValueChange={(v: string | null) => onChange(v ?? "all")}>
-    <SelectTrigger size="sm" className={width} aria-label={label}>
+    <SelectTrigger className={width} aria-label={label}>
       <SelectValue />
     </SelectTrigger>
     <SelectContent>
@@ -77,8 +87,8 @@ const select = (
   </Select>
 )
 
+/** The journal's trades: one readable line each, with the less used filters behind a Filters button. */
 export function TradesTable({ rows }: { rows: TradeRow[] }) {
-  const router = useRouter()
   const [query, setQuery] = useState("")
   const [status, setStatus] = useState("all")
   const [outcome, setOutcome] = useState("all")
@@ -87,8 +97,10 @@ export function TradesTable({ rows }: { rows: TradeRow[] }) {
   const [tag, setTag] = useState("all")
   const [from, setFrom] = useState("")
   const [to, setTo] = useState("")
-  const [sort, setSort] = useState<SortState<SortKey>>({ key: "openedAt", dir: -1 })
+  const [sort, setSort] = useState<Sort>("newest")
+  const [showFilters, setShowFilters] = useState(false)
   const tags = useMemo(() => [...new Set(rows.flatMap((r) => r.tags))].sort(), [rows])
+  const activeFilters = [outcome, origin, asset, tag].filter((v) => v !== "all").length + (from ? 1 : 0) + (to ? 1 : 0)
 
   const filtered = useMemo(() => {
     const q = query.trim().toUpperCase()
@@ -106,34 +118,32 @@ export function TradesTable({ rows }: { rows: TradeRow[] }) {
       if (to && day > to) return false
       return true
     })
-    const value = (r: TradeRow): number | string => {
-      switch (sort.key) {
-        case "openedAt":
-          return r.openedAt
-        case "closedAt":
-          return r.closedAt ?? ""
-        case "symbol":
-          return r.label
-        case "quantity":
-          return r.quantity
-        case "realizedPnl":
-          return r.realizedPnl ?? Number.NEGATIVE_INFINITY
-        case "returnPct":
-          return r.returnPct ?? Number.NEGATIVE_INFINITY
-        case "holding":
-          return holding(r) ?? Number.POSITIVE_INFINITY
-      }
+    const order: Record<Sort, [(r: TradeRow) => number | string, 1 | -1]> = {
+      newest: [(r) => r.openedAt, -1],
+      oldest: [(r) => r.openedAt, 1],
+      gain: [(r) => r.realizedPnl ?? Number.NEGATIVE_INFINITY, -1],
+      loss: [(r) => r.realizedPnl ?? Number.POSITIVE_INFINITY, 1],
+      held: [(r) => holding(r) ?? Number.NEGATIVE_INFINITY, -1],
+      ticker: [(r) => r.label, 1],
     }
-    return [...list].sort((a, b) => compareValues(value(a), value(b), sort.dir))
+    const [value, dir] = order[sort]
+    return [...list].sort((a, b) => compareValues(value(a), value(b), dir))
   }, [rows, query, status, outcome, origin, asset, tag, from, to, sort])
-  const { table, cards } = useResponsiveRows(filtered, "md")
-  const onSort = (key: SortKey) => setSort((s) => toggleSort(s, key))
   const total = filtered.reduce((s, r) => s + (r.status === "closed" ? (r.realizedPnl ?? 0) : 0), 0)
+
+  const clearFilters = () => {
+    setOutcome("all")
+    setOrigin("all")
+    setAsset("all")
+    setTag("all")
+    setFrom("")
+    setTo("")
+  }
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2">
-        <InputGroup className="h-8 w-full sm:w-40">
+        <InputGroup className="h-9 w-full sm:w-48">
           <InputGroupAddon>
             <LuSearch />
           </InputGroupAddon>
@@ -144,83 +154,110 @@ export function TradesTable({ rows }: { rows: TradeRow[] }) {
             aria-label="Search ticker"
           />
         </InputGroup>
-        {select(
-          [
-            { value: "all", label: "Open and closed" },
-            { value: "open", label: "Open" },
-            { value: "closed", label: "Closed" },
-          ],
-          status,
-          setStatus,
-          "Status",
-          "w-38",
-        )}
-        {select(
-          [
-            { value: "all", label: "Wins and losses" },
-            { value: "win", label: "Wins" },
-            { value: "loss", label: "Losses" },
-          ],
-          outcome,
-          setOutcome,
-          "Outcome",
-          "w-38",
-        )}
-        {select(
-          [
-            { value: "all", label: "Any idea" },
-            { value: "alert", label: "Followed an HG alert" },
-            { value: "own", label: "My own idea" },
-          ],
-          origin,
-          setOrigin,
-          "Idea",
-          "w-44",
-        )}
-        {select(
-          [
-            { value: "all", label: "Stocks and options" },
-            { value: "option", label: "Options" },
-            { value: "stock", label: "Stocks" },
-          ],
-          asset,
-          setAsset,
-          "Asset",
-          "w-44",
-        )}
-        {tags.length > 0 &&
-          select(
-            [{ value: "all", label: "Any tag" }, ...tags.map((t) => ({ value: t, label: `#${t}` }))],
-            tag,
-            setTag,
-            "Tag",
-            "w-32",
+        <ToggleGroup
+          variant="outline"
+          spacing={0}
+          value={[status]}
+          onValueChange={(v: string[]) => v[0] && setStatus(v[0])}
+          aria-label="Open or closed"
+        >
+          <ToggleGroupItem value="all">All</ToggleGroupItem>
+          <ToggleGroupItem value="open">Open</ToggleGroupItem>
+          <ToggleGroupItem value="closed">Closed</ToggleGroupItem>
+        </ToggleGroup>
+        <Button
+          variant="outline"
+          aria-expanded={showFilters}
+          aria-controls="journal-filters"
+          onClick={() => setShowFilters((on) => !on)}
+        >
+          <LuSlidersHorizontal />
+          Filters
+          {activeFilters > 0 && (
+            <span className="rounded-full bg-primary px-1.5 text-xs leading-5 text-primary-foreground tabular-nums">
+              {activeFilters}
+            </span>
           )}
-        <label className="flex items-center gap-1.5 text-sm text-muted-foreground">
-          From
-          <Input
-            type="date"
-            value={from}
-            onChange={(e) => setFrom(e.target.value)}
-            className="h-8 w-36"
-            aria-label="From date"
-          />
-        </label>
-        <label className="flex items-center gap-1.5 text-sm text-muted-foreground">
-          to
-          <Input
-            type="date"
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-            className="h-8 w-36"
-            aria-label="To date"
-          />
-        </label>
+        </Button>
+        <div className="sm:ml-auto">{select(SORTS, sort, (v) => setSort(v as Sort), "Sort", "w-48")}</div>
       </div>
+
+      {showFilters && (
+        <div id="journal-filters" className="flex flex-wrap items-center gap-2 rounded-xl border bg-muted/30 p-3">
+          {select(
+            [
+              { value: "all", label: "Wins and losses" },
+              { value: "win", label: "Wins" },
+              { value: "loss", label: "Losses" },
+            ],
+            outcome,
+            setOutcome,
+            "Outcome",
+            "w-40",
+          )}
+          {select(
+            [
+              { value: "all", label: "Any idea" },
+              { value: "alert", label: "Followed an HG alert" },
+              { value: "own", label: "My own idea" },
+            ],
+            origin,
+            setOrigin,
+            "Idea",
+            "w-48",
+          )}
+          {select(
+            [
+              { value: "all", label: "Stocks and options" },
+              { value: "option", label: "Options" },
+              { value: "stock", label: "Stocks" },
+            ],
+            asset,
+            setAsset,
+            "Asset",
+            "w-44",
+          )}
+          {tags.length > 0 &&
+            select(
+              [{ value: "all", label: "Any tag" }, ...tags.map((t) => ({ value: t, label: `#${t}` }))],
+              tag,
+              setTag,
+              "Tag",
+              "w-36",
+            )}
+          <label className="flex items-center gap-1.5 text-sm text-muted-foreground">
+            From
+            <Input
+              type="date"
+              value={from}
+              onChange={(e) => setFrom(e.target.value)}
+              className="w-40"
+              aria-label="From date"
+            />
+          </label>
+          <label className="flex items-center gap-1.5 text-sm text-muted-foreground">
+            to
+            <Input
+              type="date"
+              value={to}
+              onChange={(e) => setTo(e.target.value)}
+              className="w-40"
+              aria-label="To date"
+            />
+          </label>
+          {activeFilters > 0 && (
+            <Button variant="ghost" size="sm" onClick={clearFilters}>
+              Clear filters
+            </Button>
+          )}
+        </div>
+      )}
+
       <p className="text-sm text-muted-foreground">
-        {filtered.length} {filtered.length === 1 ? "trade" : "trades"} · realized{" "}
+        {filtered.length} {filtered.length === 1 ? "trade" : "trades"} · closed trades made{" "}
         <Signed value={total} as="money" className="font-medium" />
       </p>
+
       {filtered.length === 0 ? (
         <Empty className="border border-dashed py-12">
           <EmptyHeader>
@@ -233,115 +270,51 @@ export function TradesTable({ rows }: { rows: TradeRow[] }) {
           </EmptyHeader>
         </Empty>
       ) : (
-        <>
-          <div className="hidden rounded-xl border md:block">
-            <Table>
-              <TableHeader>
-                <TableRow className="hover:bg-transparent">
-                  <SortHead label="Opened" sortKey="openedAt" sort={sort} onSort={onSort} />
-                  <SortHead label="Closed" sortKey="closedAt" sort={sort} onSort={onSort} />
-                  <SortHead label="Contract" sortKey="symbol" sort={sort} onSort={onSort} />
-                  <TableHead>Side</TableHead>
-                  <SortHead label="Qty" sortKey="quantity" sort={sort} onSort={onSort} className="text-right" />
-                  <TableHead className="text-right">Entry / exit</TableHead>
-                  <SortHead label="P&L" sortKey="realizedPnl" sort={sort} onSort={onSort} className="text-right" />
-                  <SortHead label="Return" sortKey="returnPct" sort={sort} onSort={onSort} className="text-right" />
-                  <SortHead label="Held" sortKey="holding" sort={sort} onSort={onSort} className="text-right" />
-                  <TableHead>Tags</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {table.map((r) => (
-                  <TableRow
-                    key={r.id}
-                    className="cursor-pointer"
-                    onClick={(e) => {
-                      if (!(e.target as HTMLElement).closest("a,button")) router.push(`/members/journal/${r.id}`)
-                    }}
-                  >
-                    <TableCell className="whitespace-nowrap text-muted-foreground tabular-nums">
-                      {ET_DATE.format(new Date(r.openedAt))}
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap text-muted-foreground tabular-nums">
-                      {r.closedAt ? ET_DATE.format(new Date(r.closedAt)) : <ToneBadge tone="neutral">Open</ToneBadge>}
-                    </TableCell>
-                    <TableCell>
-                      <span className="flex items-center gap-2">
-                        <Link
-                          href={`/members/journal/${r.id}`}
-                          className="rounded-sm font-mono text-[13px] font-medium outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
-                        >
-                          {r.label}
-                        </Link>
-                        {r.alertId && (
-                          <Link
-                            href={`/members/alerts/${r.alertId}`}
-                            aria-label="Linked HG alert"
-                            className="rounded-full outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-                          >
-                            <ToneBadge tone="positive">
-                              <LuBell aria-hidden="true" />
-                              HG
-                            </ToneBadge>
-                          </Link>
-                        )}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground capitalize">{r.direction}</TableCell>
-                    <TableCell className="text-right tabular-nums">{r.quantity}</TableCell>
-                    <TableCell className="text-right whitespace-nowrap tabular-nums">
-                      {formatPrice(r.avgEntry)}
-                      <span className="text-muted-foreground">
-                        {" "}
-                        / {r.avgExit === null ? "-" : formatPrice(r.avgExit)}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {r.status === "closed" ? (
-                        <Signed value={r.realizedPnl} as="money" />
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {r.status === "closed" ? (
-                        <Signed value={r.returnPct} digits={1} icon={false} />
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right text-muted-foreground tabular-nums">
-                      {formatHolding(holding(r))}
-                    </TableCell>
-                    <TableCell className="max-w-40 truncate text-xs text-muted-foreground">
-                      {[r.setup, ...r.tags.map((t) => `#${t}`)].filter(Boolean).join(" ")}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-          <ul className="flex flex-col gap-2 md:hidden">
-            {cards.map((r) => (
+        <ul aria-label="Trades" className="flex flex-col divide-y overflow-hidden rounded-2xl border bg-card">
+          {filtered.map((r) => {
+            const unit = r.assetType === "option" ? "contract" : "share"
+            const held = formatHolding(holding(r))
+            const notes = [r.setup, ...r.tags.map((t) => `#${t}`)].filter(Boolean).join(" ")
+            return (
               <li key={r.id}>
                 <Link
                   href={`/members/journal/${r.id}`}
-                  className="flex items-center justify-between gap-3 rounded-xl border bg-card px-4 py-3 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                  className="flex items-center justify-between gap-4 px-4 py-4 transition-colors outline-none hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:ring-3 focus-visible:ring-ring/50 sm:px-5"
                 >
-                  <span className="min-w-0">
-                    <span className="block truncate font-mono text-[13px] font-medium">{r.label}</span>
-                    <span className="block text-xs text-muted-foreground">
-                      {ET_DATE.format(new Date(r.openedAt))}
-                      {r.closedAt ? ` to ${ET_DATE.format(new Date(r.closedAt))}` : " · open"} · {r.quantity}{" "}
-                      {r.assetType === "option" ? "contracts" : "shares"}
-                      {r.alertId && " · HG alert"}
+                  <span className="flex min-w-0 flex-col gap-1">
+                    <span className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                      <span className="font-mono text-base font-semibold">{r.symbol}</span>
+                      {r.option && (
+                        <>
+                          <span className="font-medium whitespace-nowrap">
+                            {formatPrice(r.option.strike)} {r.option.right === "call" ? "Call" : "Put"}
+                          </span>
+                          <span className="text-sm whitespace-nowrap text-muted-foreground">
+                            Exp {formatShortDate(r.option.expiry)}
+                          </span>
+                        </>
+                      )}
+                      {r.alertId && (
+                        <ToneBadge tone="positive">
+                          <LuBell aria-hidden="true" />
+                          HG alert
+                        </ToneBadge>
+                      )}
                     </span>
+                    <span className="text-sm text-muted-foreground tabular-nums">
+                      {ET_DATE.format(new Date(r.openedAt))}
+                      {r.closedAt ? ` to ${ET_DATE.format(new Date(r.closedAt))}` : ""}
+                      {held && ` (${held})`} · {r.direction === "short" ? "Short " : ""}
+                      {r.quantity} {r.quantity === 1 ? unit : `${unit}s`} at {formatPrice(r.avgEntry)}
+                      {r.avgExit !== null && `, out at ${formatPrice(r.avgExit)}`}
+                    </span>
+                    {notes && <span className="truncate text-xs text-muted-foreground">{notes}</span>}
                   </span>
-                  <span className={cn("flex flex-col items-end text-sm")}>
+                  <span className="flex shrink-0 flex-col items-end gap-0.5">
                     {r.status === "closed" ? (
                       <>
-                        <Signed value={r.realizedPnl} as="money" />
-                        <span className="text-xs text-muted-foreground">
+                        <Signed value={r.realizedPnl} as="money" className="text-base font-semibold" />
+                        <span className="text-xs text-muted-foreground tabular-nums">
                           {formatPercent(r.returnPct, { digits: 1 })}
                         </span>
                       </>
@@ -351,9 +324,9 @@ export function TradesTable({ rows }: { rows: TradeRow[] }) {
                   </span>
                 </Link>
               </li>
-            ))}
-          </ul>
-        </>
+            )
+          })}
+        </ul>
       )}
     </div>
   )

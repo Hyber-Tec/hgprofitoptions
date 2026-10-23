@@ -79,6 +79,22 @@ test("the journal and portfolio open", async ({ page }) => {
   await expectNoHorizontalScroll(page)
 })
 
+test("the journal lists trades plainly and keeps the extra filters behind Filters", async ({ page }) => {
+  await page.goto("/members/journal")
+  const trades = page.getByRole("list", { name: "Trades" }).getByRole("link")
+  await expect(trades.first()).toBeVisible()
+  await page.getByRole("button", { name: "Closed", exact: true }).click()
+  await expect(trades.getByText("Open", { exact: true })).toHaveCount(0)
+  await expect(page.getByRole("combobox", { name: "Outcome" })).toHaveCount(0)
+  await page.getByRole("button", { name: /^Filters/ }).click()
+  await page.getByRole("combobox", { name: "Outcome" }).click()
+  await page.getByRole("option", { name: "Losses", exact: true }).click()
+  await expect(page.getByText(/closed trades made -\$/)).toBeVisible()
+  await page.getByRole("button", { name: "Clear filters" }).click()
+  await expect(page.getByRole("button", { name: "Clear filters" })).toHaveCount(0)
+  await expectNoHorizontalScroll(page)
+})
+
 test("members cannot open the admin console", async ({ page, allowConsole }) => {
   allowConsole(/status of 404/)
   const response = await page.goto("/admin")

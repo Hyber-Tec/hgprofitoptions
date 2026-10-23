@@ -28,11 +28,13 @@ import {
   listTargetUpdates,
   listWeeks,
 } from "@/lib/data/tools"
+import { cn } from "@/lib/utils"
 import { AlertCard, toAlertView } from "@/components/portal/alerts/alert-card"
 import { Signed, Stat, ToneBadge } from "@/components/portal/display"
 import { AsOf, PageHeader } from "@/components/portal/page-header"
-import { ChannelLadder, LadderTable, type LadderLevel } from "@/components/portal/stock/channel-ladder"
+import { LadderTable, type LadderLevel } from "@/components/portal/stock/channel-ladder"
 import { PriceChart, type ChartLevel, type ChartMarker } from "@/components/portal/stock/price-chart"
+import { ChannelStrip } from "@/components/portal/tools/channel-strip"
 import { Watermark } from "@/components/portal/watermark"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
@@ -191,16 +193,19 @@ export default async function StockPage({ params }: PageProps<"/members/stocks/[
         <Card size="sm">
           <CardContent>
             <Stat
-              label="Channel / BOC"
-              value={
-                ticker.channelSize !== null && ticker.bocSize !== null
-                  ? `${ticker.channelSize.toFixed(2)} / ${ticker.bocSize.toFixed(2)}`
-                  : "-"
-              }
+              label="Channel"
+              value={ticker.channelSize !== null ? ticker.channelSize.toFixed(2) : "-"}
+              hint={ticker.bocSize !== null ? `Break of channel ${ticker.bocSize.toFixed(2)}` : undefined}
+            />
+          </CardContent>
+        </Card>
+        <Card size="sm">
+          <CardContent>
+            <Stat
+              label="30-day median"
+              value={formatLevel(m.m30)}
               hint={
-                ticker.bocSize !== null && ticker.channelSize
-                  ? `BOC is ${formatPercent(ticker.bocSize / ticker.channelSize, { signed: false, digits: 0 })} of CH`
-                  : undefined
+                m.m30 !== null && price !== null ? `The price is ${price >= m.m30 ? "above" : "below"} it` : undefined
               }
             />
           </CardContent>
@@ -208,26 +213,11 @@ export default async function StockPage({ params }: PageProps<"/members/stocks/[
         <Card size="sm">
           <CardContent>
             <Stat
-              label="Medians 5D / 30D / 90D"
-              value={<span className="text-lg">{[m.m5, m.m30, m.m90].map((v) => formatLevel(v)).join(" / ")}</span>}
-              hint={
-                m.m30 !== null && price !== null ? `${price >= m.m30 ? "Above" : "Below"} the 30-day median` : undefined
-              }
-            />
-          </CardContent>
-        </Card>
-        <Card size="sm">
-          <CardContent>
-            <Stat
-              label="Next line up / down"
-              value={
-                <span className="text-lg">
-                  {near ? `${formatLevel(near.above)} / ${formatLevel(near.below)}` : "-"}
-                </span>
-              }
+              label="Nearest levels"
+              value={near ? `${formatLevel(near.below)} and ${formatLevel(near.above)}` : "-"}
               hint={
                 near && price !== null && near.above !== null && near.below !== null
-                  ? `${formatPercent((near.above - price) / price, { digits: 1 })} / ${formatPercent((near.below - price) / price, { digits: 1 })}`
+                  ? `${formatPercent((near.below - price) / price, { digits: 1 })} down, ${formatPercent((near.above - price) / price, { digits: 1 })} up`
                   : undefined
               }
             />
@@ -238,67 +228,114 @@ export default async function StockPage({ params }: PageProps<"/members/stocks/[
             <Stat
               label="Last week"
               value={latestWeek ? <Signed value={latestWeek.svi} /> : "-"}
-              hint={latestWeek ? `SVI · range ${formatSigned(latestWeek.range)}` : "No weekly data"}
+              hint={latestWeek ? `Strength (SVI) · range ${formatSigned(latestWeek.range)}` : "No weekly data yet"}
             />
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-        <Card>
-          <CardHeader>
-            <CardTitle>Price</CardTitle>
-            <CardDescription>
-              Last 90 trading days with channel lines, the 30-day median and HG&apos;s target. Arrows are HG&apos;s
-              alerts; dots are your fills.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {bars.length > 0 ? (
-              <PriceChart bars={bars} levels={chartLevels} markers={markers} />
-            ) : (
-              <Empty className="border border-dashed py-16">
-                <EmptyHeader>
-                  <EmptyTitle>No price history yet</EmptyTitle>
-                  <EmptyDescription>Daily prices appear once market data is connected.</EmptyDescription>
-                </EmptyHeader>
-              </Empty>
+      <Card>
+        <CardHeader>
+          <CardTitle>Channel lines</CardTitle>
+          <CardDescription>
+            Lines one channel apart around the {metrics ? `${formatDate(metrics.asOf)} ` : ""}close, the break of
+            channel levels between them, and where the price is now.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-5">
+          {ladder && price !== null ? (
+            // Four lines each side when there is room, as on HG's sheet; fewer on narrow screens.
+            <div className="@container">
+              {([4, 3, 2] as const).map((steps) => (
+                <ChannelStrip
+                  key={steps}
+                  lines={ladder.lines}
+                  bocBelow={ladder.bocBelow}
+                  bocAbove={ladder.bocAbove}
+                  price={price}
+                  steps={steps}
+                  className={
+                    steps === 4 ? "hidden @4xl:grid" : steps === 3 ? "hidden @xl:grid @4xl:hidden" : "@xl:hidden"
+                  }
+                />
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No channel settings for this ticker yet.</p>
+          )}
+          <dl className="grid gap-x-8 gap-y-3 text-sm sm:grid-cols-3">
+            {currentTarget && (
+              <div className="flex flex-col gap-0.5">
+                <dt className="text-xs text-muted-foreground">HG&apos;s levels</dt>
+                <dd className="tabular-nums">
+                  Target {formatLevel(currentTarget.target)} · break {formatLevel(currentTarget.breakLevel)} · put{" "}
+                  {formatLevel(currentTarget.putStrike)}
+                </dd>
+              </div>
             )}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Channel ladder</CardTitle>
-            <CardDescription>
-              Lines around the last close, BOC levels, medians, FS and SS levels and the current target.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            {price !== null && ladderLevels.length > 0 ? (
-              <>
-                <ChannelLadder price={price} levels={ladderLevels} />
-                <Collapsible>
-                  <CollapsibleTrigger
-                    render={
-                      <button
-                        type="button"
-                        className="text-sm font-medium underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
-                      />
-                    }
-                  >
-                    Show every level as a table
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="pt-3">
-                    <LadderTable price={price} levels={ladderLevels} />
-                  </CollapsibleContent>
-                </Collapsible>
-              </>
-            ) : (
-              <p className="text-sm text-muted-foreground">No channel settings for this ticker yet.</p>
+            {(m.m5 !== null || m.m30 !== null || m.m90 !== null) && (
+              <div className="flex flex-col gap-0.5">
+                <dt className="text-xs text-muted-foreground">Medians</dt>
+                <dd className="tabular-nums">
+                  5-day {formatLevel(m.m5)} · 30-day {formatLevel(m.m30)} · 90-day {formatLevel(m.m90)}
+                </dd>
+              </div>
             )}
-          </CardContent>
-        </Card>
-      </div>
+            {(ticker.fsLevels.length > 0 || ticker.ssLevels.length > 0) && (
+              <div className="flex flex-col gap-0.5">
+                <dt className="text-xs text-muted-foreground">FS and SS</dt>
+                <dd className="tabular-nums">
+                  {[
+                    ticker.fsLevels.length > 0 ? `FS ${ticker.fsLevels.map((v) => formatLevel(v)).join(", ")}` : null,
+                    ticker.ssLevels.length > 0 ? `SS ${ticker.ssLevels.map((v) => formatLevel(v)).join(", ")}` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </dd>
+              </div>
+            )}
+          </dl>
+          {price !== null && ladderLevels.length > 0 && (
+            <Collapsible>
+              <CollapsibleTrigger
+                render={
+                  <button
+                    type="button"
+                    className="self-start text-sm font-medium underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
+                  />
+                }
+              >
+                Show every level and how far it is from the price
+              </CollapsibleTrigger>
+              <CollapsibleContent className="pt-3">
+                <LadderTable price={price} levels={ladderLevels} />
+              </CollapsibleContent>
+            </Collapsible>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Price</CardTitle>
+          <CardDescription>
+            Last 90 trading days with the channel lines, the 30-day median and HG&apos;s target. Arrows are HG&apos;s
+            alerts; dots are your fills.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {bars.length > 0 ? (
+            <PriceChart bars={bars} levels={chartLevels} markers={markers} />
+          ) : (
+            <Empty className="border border-dashed py-16">
+              <EmptyHeader>
+                <EmptyTitle>No price history yet</EmptyTitle>
+                <EmptyDescription>Daily prices appear once market data is connected.</EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          )}
+        </CardContent>
+      </Card>
 
       {ticker.notes && (
         <Card>
@@ -327,7 +364,6 @@ export default async function StockPage({ params }: PageProps<"/members/stocks/[
                     <TableRow className="hover:bg-transparent">
                       <TableHead>Week</TableHead>
                       <TableHead className="text-right">Close</TableHead>
-                      <TableHead className="text-right">Chg %</TableHead>
                       <TableHead className="text-right">Range</TableHead>
                       <TableHead className="text-right">SVI</TableHead>
                     </TableRow>
@@ -336,9 +372,14 @@ export default async function StockPage({ params }: PageProps<"/members/stocks/[
                     {weekly.map((w) => (
                       <TableRow key={w.weekStart}>
                         <TableCell>{formatShortDate(w.weekStart)}</TableCell>
-                        <TableCell className="text-right tabular-nums">{formatLevel(w.close)}</TableCell>
-                        <TableCell className="text-right">
-                          <Signed value={(w.close - w.pfcp) / w.pfcp} />
+                        {/* Like Key Market Data: green or red for the week's direction, no change percentage. */}
+                        <TableCell
+                          className={cn(
+                            "text-right font-medium tabular-nums",
+                            w.close > w.pfcp ? "text-positive" : w.close < w.pfcp ? "text-negative" : undefined,
+                          )}
+                        >
+                          {formatLevel(w.close)}
                         </TableCell>
                         <TableCell className="text-right tabular-nums">{formatSigned(w.range)}</TableCell>
                         <TableCell className="text-right">
@@ -366,7 +407,7 @@ export default async function StockPage({ params }: PageProps<"/members/stocks/[
                   <TableHeader>
                     <TableRow className="hover:bg-transparent">
                       <TableHead>Update</TableHead>
-                      <TableHead>Category</TableHead>
+                      <TableHead className="hidden sm:table-cell">Category</TableHead>
                       <TableHead className="text-right">Target</TableHead>
                       <TableHead className="text-right">Break</TableHead>
                       <TableHead className="text-right">Put</TableHead>
@@ -384,7 +425,9 @@ export default async function StockPage({ params }: PageProps<"/members/stocks/[
                             {formatShortDate(h.effectiveDate)}
                           </Link>
                         </TableCell>
-                        <TableCell className="text-muted-foreground">{groupName.get(h.group) ?? h.group}</TableCell>
+                        <TableCell className="hidden text-muted-foreground sm:table-cell">
+                          {groupName.get(h.group) ?? h.group}
+                        </TableCell>
                         <TableCell className="text-right tabular-nums">{formatLevel(h.target)}</TableCell>
                         <TableCell className="text-right tabular-nums">{formatLevel(h.breakLevel)}</TableCell>
                         <TableCell className="text-right tabular-nums">{formatLevel(h.putStrike)}</TableCell>

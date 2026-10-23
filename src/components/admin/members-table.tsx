@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useMemo, useState, useTransition } from "react"
-import { LuCalendarPlus, LuDownload, LuSearch } from "react-icons/lu"
+import { LuCalendarPlus, LuDownload, LuSearch, LuSlidersHorizontal } from "react-icons/lu"
 import { LEVEL_LABELS, TRADER_LEVELS, type TraderLevel } from "@/core/levels"
 import { renewNextQuarter } from "@/lib/actions/admin/members"
 import { Button } from "@/components/ui/button"
@@ -123,6 +123,7 @@ export function MembersTable({
   const [linked, setLinked] = useState("all")
   const [level, setLevel] = useState("all")
   const [quarter, setQuarter] = useState("all")
+  const [showFilters, setShowFilters] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [sort, setSort] = useState<SortState<SortKey>>({ key: "fullName", dir: 1 })
   const [pending, startTransition] = useTransition()
@@ -145,6 +146,13 @@ export function MembersTable({
       })
       .sort((a, b) => compareValues(a[sort.key] ?? "", b[sort.key] ?? "", sort.dir))
   }, [rows, query, status, linked, level, quarter, sort])
+
+  const activeFilters = [level, quarter, linked].filter((v) => v !== "all").length
+  const clearFilters = () => {
+    setLevel("all")
+    setQuarter("all")
+    setLinked("all")
+  }
 
   const allSelected = filtered.length > 0 && filtered.every((r) => selected.has(r.uid))
   const toggleAll = (on: boolean) => setSelected(on ? new Set(filtered.map((r) => r.uid)) : new Set())
@@ -193,7 +201,7 @@ export function MembersTable({
     width: string,
   ) => (
     <Select items={items} value={value} onValueChange={(v: string | null) => onChange(v ?? "all")}>
-      <SelectTrigger size="sm" className={width} aria-label={label}>
+      <SelectTrigger className={width} aria-label={label}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
@@ -208,36 +216,68 @@ export function MembersTable({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-wrap items-center gap-2">
-          <InputGroup className="h-8 w-full sm:w-56">
-            <InputGroupAddon>
-              <LuSearch />
-            </InputGroupAddon>
-            <InputGroupInput
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Name, email or phone"
-              aria-label="Search members"
-            />
-          </InputGroup>
-          {select(STATUS_ITEMS, status, setStatus, "Status", "w-36")}
-          {select(LEVEL_ITEMS, level, setLevel, "Trader level", "w-32")}
-          {select(quarterItems, quarter, setQuarter, "Ends in quarter", "w-44")}
-          {select(LINK_ITEMS, linked, setLinked, "Brokerage", "w-44")}
+      <div className="flex flex-wrap items-center gap-2">
+        <InputGroup className="h-9 w-full sm:w-64">
+          <InputGroupAddon>
+            <LuSearch />
+          </InputGroupAddon>
+          <InputGroupInput
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Name, email or phone"
+            aria-label="Search members"
+          />
+        </InputGroup>
+        {select(STATUS_ITEMS, status, setStatus, "Status", "w-40")}
+        <Button
+          variant="outline"
+          aria-expanded={showFilters}
+          aria-controls="member-filters"
+          onClick={() => setShowFilters((on) => !on)}
+        >
+          <LuSlidersHorizontal />
+          Filters
+          {activeFilters > 0 && (
+            <span className="rounded-full bg-primary px-1.5 text-xs leading-5 text-primary-foreground tabular-nums">
+              {activeFilters}
+            </span>
+          )}
+        </Button>
+        <Button variant="outline" className="sm:ml-auto" onClick={exportCsv}>
+          <LuDownload />
+          {selected.size > 0 ? `Export ${selected.size} selected` : "Export CSV"}
+        </Button>
+      </div>
+
+      {showFilters && (
+        <div id="member-filters" className="flex flex-wrap items-center gap-2 rounded-xl border bg-muted/30 p-3">
+          {select(LEVEL_ITEMS, level, setLevel, "Trader level", "w-36")}
+          {select(quarterItems, quarter, setQuarter, "Ends in quarter", "w-48")}
+          {select(LINK_ITEMS, linked, setLinked, "Brokerage", "w-48")}
+          {activeFilters > 0 && (
+            <Button variant="ghost" size="sm" onClick={clearFilters}>
+              Clear filters
+            </Button>
+          )}
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {selected.size > 0 && <span className="text-sm text-muted-foreground">{selected.size} selected</span>}
-          <Button size="sm" variant="outline" disabled={selected.size === 0 || pending} onClick={renew}>
+      )}
+
+      {selected.size > 0 ? (
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border bg-muted/30 px-3 py-2">
+          <span className="text-sm font-medium">
+            {selected.size} {selected.size === 1 ? "member" : "members"} selected
+          </span>
+          <Button size="sm" disabled={pending} onClick={renew}>
             {pending ? <Spinner /> : <LuCalendarPlus />}
             Renew next quarter
           </Button>
-          <Button size="sm" variant="outline" onClick={exportCsv}>
-            <LuDownload />
-            Export CSV
+          <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>
+            Clear selection
           </Button>
         </div>
-      </div>
+      ) : (
+        <p className="text-sm text-muted-foreground">Tick members to renew them for the next quarter.</p>
+      )}
 
       {filtered.length === 0 ? (
         <Empty className="border border-dashed py-12">

@@ -36,6 +36,10 @@ function formatValue(value: number, format: ValueFormat): string {
   return formatPrice(value)
 }
 
+/** Axis labels: "$4,000" for whole dollars, with cents only when a tick needs them. */
+const axisMoney = (value: number) =>
+  Number.isInteger(value) ? formatPrice(value).replace(/\.00$/, "") : formatPrice(value)
+
 /**
  * An equity curve. For "percent", pass growth relative to the start (0.12 = +12%).
  */
@@ -70,7 +74,7 @@ export function EquityCurve({
           tickLine={false}
           axisLine={false}
           width={64}
-          tickFormatter={(v: number) => formatValue(v, format === "signed-money" ? "money" : format)}
+          tickFormatter={(v: number) => (format === "percent" ? formatValue(v, format) : axisMoney(v))}
           domain={["auto", "auto"]}
         />
         {format === "percent" && <ReferenceLine y={0} stroke="var(--border)" />}
@@ -122,9 +126,7 @@ export function MonthlyBars({
           tickLine={false}
           axisLine={false}
           width={format === "money" ? 72 : 56}
-          tickFormatter={(v: number) =>
-            format === "money" ? formatPrice(v).replace(/\.\d{2}$/, "") : formatPercent(v, { digits: 0 })
-          }
+          tickFormatter={(v: number) => (format === "money" ? axisMoney(v) : formatPercent(v, { digits: 0 }))}
         />
         <ReferenceLine y={0} stroke="var(--border)" />
         <ChartTooltip
