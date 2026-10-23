@@ -55,6 +55,22 @@ export interface ChannelSettings {
   boc: number
 }
 
+/** The latest quote for a stock or an option contract, real-time or 15 minutes delayed depending on the plan. */
+export interface LiveQuote {
+  /** "AAPL", or an option ticker such as "O:AAPL261106C00337500". */
+  ticker: string
+  last: number | null
+  bid: number | null
+  ask: number | null
+  bidSize: number | null
+  askSize: number | null
+  previousClose: number | null
+  /** Epoch milliseconds of the latest quote or trade. */
+  updatedAt: number | null
+  realTime: boolean
+  marketStatus: "open" | "closed" | "early_trading" | "late_trading" | null
+}
+
 export interface StrikeTarget {
   group: string
   position: number

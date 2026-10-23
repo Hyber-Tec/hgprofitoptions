@@ -23,6 +23,7 @@ import { formatExpiry, formatLevel } from "@/core/format"
 import {
   diffTargets,
   parseStrikeTargets,
+  similarTickers,
   slugify,
   type ParseIssue,
   type TargetGroupDef,
@@ -711,6 +712,20 @@ export function TargetsEditor({
                               </Button>
                             </div>
                             {p.warnings.length > 0 && p.errors.length === 0 && <Hint>{p.warnings.join(" · ")}</Hint>}
+                            {!known.has(r.symbol.trim().toUpperCase()) && (
+                              <span className="mt-1 flex flex-wrap justify-end gap-1">
+                                {similarTickers(r.symbol.trim().toUpperCase(), known).map((symbol) => (
+                                  <Button
+                                    key={symbol}
+                                    size="xs"
+                                    variant="outline"
+                                    onClick={() => update(r.key, "symbol", symbol)}
+                                  >
+                                    Use {symbol}
+                                  </Button>
+                                ))}
+                              </span>
+                            )}
                           </TableCell>
                         </TableRow>
                       )

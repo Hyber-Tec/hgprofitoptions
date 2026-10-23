@@ -45,7 +45,7 @@ const SNAPTRADE_CLIENT_ID = defineString("SNAPTRADE_CLIENT_ID", { default: "none
 const SNAPTRADE_CONSUMER_KEY = defineSecret("SNAPTRADE_CONSUMER_KEY")
 const SNAPTRADE_ENCRYPTION_KEY = defineSecret("SNAPTRADE_ENCRYPTION_KEY")
 const MARKET_DATA_API_KEY = defineSecret("MARKET_DATA_API_KEY")
-const MARKET_DATA_BASE_URL = defineString("MARKET_DATA_BASE_URL", { default: "https://api.polygon.io" })
+const MARKET_DATA_BASE_URL = defineString("MARKET_DATA_BASE_URL", { default: "https://api.massive.com" })
 
 /** A configured value, or null for an integration that is turned off. */
 function configured(value: string): string | null {
@@ -200,7 +200,9 @@ export const marketDaily = onSchedule(
       const result = await ingestDailyBars(db(), config, today)
       if (!result) return skipped(`No session on ${today}`)
       const missing = result.missing.length > 0 ? `; no data for ${result.missing.slice(0, 12).join(", ")}` : ""
-      return succeeded(`${result.updated} tickers${missing}`)
+      const resplit =
+        result.resplit.length > 0 ? `; history re-fetched after a split: ${result.resplit.join(", ")}` : ""
+      return succeeded(`${result.updated} tickers${missing}${resplit}`)
     })
   },
 )

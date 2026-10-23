@@ -41,6 +41,12 @@ export function brokerageConfig(): { clientId: string; consumerKey: string; encr
   return clientId && consumerKey && encryptionKey ? { clientId, consumerKey, encryptionKey } : null
 }
 
+/** The market data provider, or null when no key is configured. */
+export function marketDataConfig(): { apiKey: string; baseUrl: string } | null {
+  const apiKey = serverEnv.MARKET_DATA_API_KEY
+  return apiKey ? { apiKey, baseUrl: serverEnv.MARKET_DATA_BASE_URL ?? "https://api.massive.com" } : null
+}
+
 /** Resend settings, or null when email is not configured. EMAIL_FROM must use a domain verified in Resend. */
 export function emailConfig(): { apiKey: string; from: string } | null {
   const { RESEND_API_KEY: apiKey, EMAIL_FROM: from } = serverEnv

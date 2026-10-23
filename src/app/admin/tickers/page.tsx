@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { requireAdmin } from "@/lib/auth/guards"
 import { listTickers } from "@/lib/data/tools"
+import { integrations } from "@/lib/env.server"
 import { TickersManager } from "@/components/admin/tickers-manager"
 import { PageHeader } from "@/components/portal/page-header"
 
@@ -13,9 +14,10 @@ export default async function AdminTickersPage() {
     <>
       <PageHeader
         title="Tickers"
-        description="The ticker universe behind every tool: channel sizes, BOC, FS and SS levels, earnings windows and notes."
+        description="The stocks behind every tool. Add one with just its symbol; set its channel, BOC, FS and SS levels, earnings and notes here."
       />
       <TickersManager
+        marketData={integrations.marketData}
         rows={tickers.map((t) => ({
           symbol: t.symbol,
           name: t.name,

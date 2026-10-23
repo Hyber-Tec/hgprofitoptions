@@ -99,3 +99,13 @@ export function nextFriday(date: IsoDate): IsoDate {
   const dow = dayOfWeek(date)
   return addDays(date, (5 - dow + 7) % 7)
 }
+
+/**
+ * The latest session whose regular hours are over: today after 4:20 PM in New York (when closing prints
+ * have settled), else yesterday. Weekends and holidays simply have no bars.
+ */
+export function lastClosedSession(now: Date = new Date()): IsoDate {
+  const today = todayInMarketZone(now)
+  const minutes = (now.getTime() - zonedStartOfDay(today).getTime()) / 60_000
+  return minutes >= 16 * 60 + 20 ? today : addDays(today, -1)
+}

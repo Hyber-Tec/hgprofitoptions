@@ -16,6 +16,7 @@
     "seed": "tsx --env-file=.env.local scripts/seed.ts",
     "seed:demo": "tsx --env-file=.env.local scripts/seed-demo.ts",
     "import:source": "tsx --env-file=.env.local scripts/import-source-files.ts",
+    "market:fake": "tsx --env-file=.env.local scripts/fake-market-data.ts",
     "auth:totp": "tsx --env-file=.env.local scripts/enable-totp.ts",
     "auth:guard": "tsx scripts/enable-signup-guard.ts",
     "icons:swap": "tsx scripts/swap-icons.ts",

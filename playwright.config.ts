@@ -29,13 +29,24 @@ export default defineConfig({
     { name: "desktop", use: { ...devices["Desktop Chrome"], channel: "chrome" } },
     { name: "phone", use: { ...devices["Pixel 7"], channel: "chrome" }, testMatch: /(public|member)\.spec\.ts/ },
   ],
-  webServer: {
-    command: "pnpm exec next build && pnpm exec next start -p 3100",
-    env: appEnv,
-    url: "http://localhost:3100",
-    timeout: 600_000,
-    reuseExistingServer: !process.env.CI,
-    stdout: "ignore",
-    stderr: "pipe",
-  },
+  webServer: [
+    {
+      // Live quotes and ticker history come from a stand-in for the market data API.
+      command: "pnpm exec tsx --env-file=.env.e2e scripts/fake-market-data.ts --port=7656",
+      url: "http://127.0.0.1:7656/health",
+      timeout: 60_000,
+      reuseExistingServer: false,
+      stdout: "ignore",
+      stderr: "pipe",
+    },
+    {
+      command: "pnpm exec next build && pnpm exec next start -p 3100",
+      env: appEnv,
+      url: "http://localhost:3100",
+      timeout: 600_000,
+      reuseExistingServer: !process.env.CI,
+      stdout: "ignore",
+      stderr: "pipe",
+    },
+  ],
 })

@@ -5,6 +5,7 @@ import {
   diffTargets,
   parseStrikeTargets,
   resolveExpiry,
+  similarTickers,
   slugify,
   targetStatus,
 } from "./strike-targets"
@@ -112,6 +113,21 @@ describe("strike target parser", () => {
     )
     expect(result.issues.map((i) => i.code)).toEqual(["new-group", "unparseable", "unknown-ticker"])
     expect(result.groups[0]?.slug).toBe("brand-new-list")
+  })
+
+  it("suggests the known ticker a typo was meant to be", () => {
+    const known = new Set(["AAPL", "APP", "AMD", "MSFT"])
+    const result = parseStrikeTargets("Alpha Channel\nAPPL- 337.50 or break of 335 PUT 330 11/6 w3.83", {
+      effectiveDate,
+      groups,
+      knownTickers: known,
+    })
+    expect(result.issues.map((i) => i.message)).toEqual([
+      "APPL is not in the ticker universe yet. Did you mean AAPL or APP?",
+    ])
+    expect(similarTickers("MSTF", known)).toEqual(["MSFT"])
+    expect(similarTickers("AMDD", known)).toEqual(["AMD"])
+    expect(similarTickers("ZZZZ", known)).toEqual([])
   })
 
   it("rejects entries before any heading", () => {

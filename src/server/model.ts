@@ -221,7 +221,13 @@ export const barSchema = z.object({
   volume: z.number().nullable(),
 })
 /** tickerBars/{SYMBOL}: about 18 months of daily bars in one document (one read per chart). */
-export const tickerBarsSchema = z.object({ symbol: z.string(), bars: z.array(barSchema), updatedAt: timestamp })
+export const tickerBarsSchema = z.object({
+  symbol: z.string(),
+  bars: z.array(barSchema),
+  /** The execution date of the newest split already reflected in the (split-adjusted) bars. */
+  lastSplit: isoDate.nullable().default(null),
+  updatedAt: timestamp,
+})
 export type TickerBars = z.infer<typeof tickerBarsSchema>
 
 export const weekRowSchema = z.object({

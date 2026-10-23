@@ -78,9 +78,36 @@ test("HG sees every stock in a published update and can edit it", async ({ page 
   await page.goto("/admin/targets")
   await page.locator("table tbody tr").first().getByRole("link").click()
   await expect(page).toHaveURL(/\/admin\/targets\/\d{4}-\d{2}-\d{2}$/)
-  await expect(page.locator('a[href^="/members/stocks/"]:visible').first()).toBeVisible()
+  await expect(page.locator('button[aria-haspopup="dialog"]:visible').first()).toBeVisible()
   await page.getByRole("link", { name: "Edit targets" }).click()
   await expect(page).toHaveURL(/\?edit=1$/)
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Edit the")
   await expect(page.getByRole("button", { name: "Add ticker" }).first()).toBeVisible()
+})
+
+test("HG adds a ticker with only its symbol and it shows in the tools at once", async ({ page }) => {
+  await signIn(page, ACCOUNTS.admin)
+  await expect(page).toHaveURL(/\/admin$/)
+  await page.goto("/admin/tickers")
+  await page.getByRole("button", { name: "Add ticker" }).click()
+  await page.getByLabel("Ticker", { exact: true }).fill("QQQX")
+  await page.getByLabel("Channel (optional)").fill("2.5")
+  await page.getByRole("button", { name: "Add", exact: true }).click()
+  // The name and prices come from the market data provider.
+  await expect(page.getByText("QQQX added: QQQX Holdings Inc.")).toBeVisible()
+
+  await page.goto("/members/channels")
+  await page.getByLabel("Search ticker").fill("QQQX")
+  await expect(page.getByRole("link", { name: "QQQX", exact: true })).toBeVisible()
+  await expect(page.getByText("CH 2.50 · BOC 1.25")).toBeVisible()
+})
+
+test("a symbol the market data provider does not know is not added", async ({ page }) => {
+  await signIn(page, ACCOUNTS.admin)
+  await expect(page).toHaveURL(/\/admin$/)
+  await page.goto("/admin/tickers")
+  await page.getByRole("button", { name: "Add ticker" }).click()
+  await page.getByLabel("Ticker", { exact: true }).fill("ZZZZ")
+  await page.getByRole("button", { name: "Add", exact: true }).click()
+  await expect(page.getByText("ZZZZ was not found. Check the symbol and try again.")).toBeVisible()
 })

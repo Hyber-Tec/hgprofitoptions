@@ -1,20 +1,16 @@
 import "server-only"
-import { positionInRange } from "@/core/calc/kmd"
 import type { WeekDoc } from "@/server/model"
 import { categoriesBySymbol, getTargetGroups, getWeek, listWeeks } from "@/lib/data/tools"
 
+/** One row of HG's sheet: PFCP, high, low, close, range and SVI. */
 export interface WeekRow {
   symbol: string
   pfcp: number
   high: number
   low: number
   close: number
-  change: number
-  changePct: number
   range: number
   svi: number
-  /** 0 at the week's low, 1 at its high. */
-  position: number
   previousSvi: number | null
   categories: string[]
 }
@@ -37,9 +33,6 @@ export function weekRows(week: WeekDoc, previous: WeekDoc | null, categories: Ma
     .map(([symbol, r]) => ({
       symbol,
       ...r,
-      change: r.close - r.pfcp,
-      changePct: (r.close - r.pfcp) / r.pfcp,
-      position: positionInRange(r),
       previousSvi: previous?.rows[symbol]?.svi ?? null,
       categories: categories.get(symbol) ?? [],
     }))

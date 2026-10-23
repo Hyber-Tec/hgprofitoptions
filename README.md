@@ -28,7 +28,7 @@ Next.js 16 (App Router, React 19, TypeScript strict) · Tailwind CSS 4 with shad
 Firebase: Authentication (invite-only, Google and email, optional authenticator-app two-step
 verification), Firestore, Cloud Storage, Cloud Messaging, Cloud Functions, App Hosting and Hosting · zod ·
 Vitest and Playwright. Optional integrations: Resend (email), SnapTrade (read-only brokerage linking)
-and a Polygon-compatible market data API.
+and the Massive (formerly Polygon.io) market data API for daily prices, live quotes and the order book.
 
 ## Getting started
 
@@ -50,6 +50,10 @@ strike targets and ETF guide; without them, `pnpm seed:demo` writes a synthetic 
 In local development `DELIVER_ALERTS_INLINE=true` sends alert notifications from the web server. To
 run the real Cloud Functions instead, use `pnpm emulators:functions`.
 
+Without a market data key, `pnpm market:fake` serves made-up prices, quotes and histories around each
+ticker's last close. Set `MARKET_DATA_API_KEY=fake` and `MARKET_DATA_BASE_URL=http://127.0.0.1:7655` in
+`.env.local` to use it; the end-to-end tests start their own copy.
+
 ## Commands
 
 | Command                   | What it does                                                                 |
@@ -58,6 +62,7 @@ run the real Cloud Functions instead, use `pnpm emulators:functions`.
 | `pnpm emulators`          | Auth, Firestore and Storage emulators (`emulators:functions` adds Functions) |
 | `pnpm seed` / `seed:demo` | Settings and content / demo members, alerts, trades and portfolios           |
 | `pnpm import:source`      | Imports HG's private source files                                            |
+| `pnpm market:fake`        | A stand-in market data API for local development                             |
 | `pnpm lint`               | ESLint (strict, type-aware)                                                  |
 | `pnpm typecheck`          | TypeScript for the app and the Cloud Functions                               |
 | `pnpm format:check`       | Prettier                                                                     |
