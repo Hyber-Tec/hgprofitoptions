@@ -1,7 +1,17 @@
 "use client"
 
 import { usePathname, useRouter } from "next/navigation"
-import { createContext, useContext, useEffect, useEffectEvent, useMemo, useRef, useState, type ReactNode } from "react"
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useEffectEvent,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react"
 import { ALERT_KIND_LABEL } from "@/core/alerts"
 import { toast } from "@/components/ui/toast"
 import type { LiveAlert } from "./live-alerts-listener"
@@ -13,10 +23,39 @@ interface LiveAlertsValue {
   live: boolean
 }
 
-const LiveAlertsContext = createContext<LiveAlertsValue>({ unread: 0, live: false })
+interface LiveAlertsStore {
+  get: () => LiveAlertsValue
+  set: (value: LiveAlertsValue) => void
+  subscribe: (onChange: () => void) => () => void
+}
+
+function createStore(initial: LiveAlertsValue): LiveAlertsStore {
+  let value = initial
+  const listeners = new Set<() => void>()
+  return {
+    get: () => value,
+    set: (next) => {
+      if (next.unread === value.unread && next.live === value.live) return
+      value = next
+      for (const listener of listeners) listener()
+    },
+    subscribe: (onChange) => {
+      listeners.add(onChange)
+      return () => listeners.delete(onChange)
+    },
+  }
+}
+
+/**
+ * The context holds a store that never changes, and the badges subscribe to it. Changing a context value
+ * while the page is still streaming in would make React render the parts still on their way again in
+ * the browser instead of hydrating them.
+ */
+const LiveAlertsContext = createContext<LiveAlertsStore>(createStore({ unread: 0, live: false }))
 
 export function useLiveAlerts(): LiveAlertsValue {
-  return useContext(LiveAlertsContext)
+  const store = useContext(LiveAlertsContext)
+  return useSyncExternalStore(store.subscribe, store.get, store.get)
 }
 
 const FEED_SIZE = 30
@@ -46,6 +85,7 @@ export function LiveAlertsProvider({
 }) {
   const router = useRouter()
   const pathname = usePathname()
+  const [store] = useState(() => createStore({ unread: initialUnread, live: false }))
   const [alerts, setAlerts] = useState<LiveAlert[] | null>(null)
   const [readIds, setReadIds] = useState<Set<string> | null>(null)
   const seen = useRef<Set<string> | null>(null)
@@ -100,6 +140,7 @@ export function LiveAlertsProvider({
     if (!alerts || !readIds) return { unread: initialUnread, live: false }
     return { unread: alerts.filter((a) => a.publishedAt > baselineMs && !readIds.has(a.id)).length, live: true }
   }, [alerts, readIds, baselineMs, initialUnread])
+  useEffect(() => store.set(value), [store, value])
 
-  return <LiveAlertsContext.Provider value={value}>{children}</LiveAlertsContext.Provider>
+  return <LiveAlertsContext value={store}>{children}</LiveAlertsContext>
 }

@@ -23,6 +23,33 @@ test("a strike target opens its live order book, options chain and stock page", 
   await expect(page.getByRole("heading", { level: 1 })).toContainText(symbol)
 })
 
+test("a page streams in without leaving a second copy of itself behind", async ({ page }) => {
+  // The page arrives in a hidden container and is moved into place a moment later. If a context value
+  // changes in between (a provider updating as the page loads), React renders that part again in the
+  // browser, and the server's copy lingers beside it: two of every element, so text locators match
+  // twice. A slow CPU, like a busy CI machine, makes that timing likely. This never fails when the app
+  // is right, and catches the mistake on most runs.
+  await page.addInitScript(() => {
+    const w = window as unknown as { twins: string[] }
+    w.twins = []
+    new MutationObserver(() => {
+      const main = document.getElementById("main")
+      for (const el of document.querySelectorAll('div[hidden][id^="S:"] [id]')) {
+        const twin = document.getElementById(el.id)
+        if (main && twin && twin !== el && main.contains(twin)) w.twins.push(el.id)
+      }
+    }).observe(document, { childList: true, subtree: true })
+  })
+  const cdp = await page.context().newCDPSession(page)
+  await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 })
+  for (let i = 0; i < 10; i++) {
+    await page.goto("/members/settings")
+    await expect(page.locator("#main #p-email")).toBeVisible()
+    await page.waitForTimeout(500)
+    expect(await page.evaluate(() => (window as unknown as { twins: string[] }).twins)).toEqual([])
+  }
+})
+
 test("an active member lands on their dashboard", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 1, name: "Welcome back, Ava" })).toBeVisible()
   // The sign-in page opens light like the site; the member area opens dark.

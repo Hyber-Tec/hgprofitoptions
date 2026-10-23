@@ -7,9 +7,9 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
-  useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from "react"
 import { THEME_KEY, isThemeChoice, resolveTheme, type ResolvedTheme, type ThemeChoice } from "@/core/theme"
@@ -20,9 +20,29 @@ interface ThemeValue {
   setTheme: (choice: ThemeChoice) => void
 }
 
-const ThemeContext = createContext<ThemeValue>({ resolvedTheme: undefined, setTheme: () => undefined })
+/**
+ * Only the setter goes through context, and it never changes. A context change during hydration would
+ * reach parts of the page that are still streaming in, and React renders those again in the browser
+ * instead of hydrating them, briefly leaving the server's copy in a hidden container beside the page.
+ */
+const SetThemeContext = createContext<(choice: ThemeChoice) => void>(() => undefined)
 
-export const useTheme = (): ThemeValue => use(ThemeContext)
+/** The theme itself is the class on <html>, which the inline script and the provider keep current. */
+function subscribe(onChange: () => void) {
+  const observer = new MutationObserver(onChange)
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] })
+  return () => observer.disconnect()
+}
+
+function currentTheme(): ResolvedTheme | undefined {
+  const classes = document.documentElement.classList
+  return classes.contains("dark") ? "dark" : classes.contains("light") ? "light" : undefined
+}
+
+export function useTheme(): ThemeValue {
+  const resolvedTheme = useSyncExternalStore(subscribe, currentTheme, () => undefined)
+  return { resolvedTheme, setTheme: use(SetThemeContext) }
+}
 
 function storedChoice(): ThemeChoice | null {
   try {
@@ -54,16 +74,13 @@ function applyTheme(theme: ResolvedTheme) {
  */
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname()
-  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>()
   const [changes, setChanges] = useState(0)
   /** The choice when storage is blocked, for as long as the page stays open. */
   const unsaved = useRef<ThemeChoice | null>(null)
 
   useLayoutEffect(() => {
     const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches
-    const theme = resolveTheme(storedChoice() ?? unsaved.current, pathname, prefersDark)
-    applyTheme(theme)
-    setResolvedTheme(theme)
+    applyTheme(resolveTheme(storedChoice() ?? unsaved.current, pathname, prefersDark))
   }, [pathname, changes])
 
   useEffect(() => {
@@ -90,6 +107,5 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     setChanges((n) => n + 1)
   }, [])
 
-  const value = useMemo(() => ({ resolvedTheme, setTheme }), [resolvedTheme, setTheme])
-  return <ThemeContext value={value}>{children}</ThemeContext>
+  return <SetThemeContext value={setTheme}>{children}</SetThemeContext>
 }

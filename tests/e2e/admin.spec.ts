@@ -40,8 +40,8 @@ test("an alert HG publishes reaches members' feeds", async ({ page, browser }) =
   await signIn(feed, ACCOUNTS.active)
   await expect(feed).toHaveURL(/\/members$/)
   await feed.goto("/members/alerts")
-  // A role locator skips hidden elements. Right after a page loads, React can still hold a copy of the
-  // page in a hidden streaming container, which a text locator would count as a second match.
+  // A role locator skips hidden elements. Right after a page loads, the page can still sit in React's
+  // hidden streaming container, waiting to move into place.
   await expect(feed.getByRole("link", { name: title, exact: true })).toBeVisible()
   await member.close()
 })

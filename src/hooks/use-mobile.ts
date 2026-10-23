@@ -11,11 +11,10 @@ function subscribe(onChange: () => void): () => void {
   }
 }
 
+/** Whether the window is below the md breakpoint right now, for event handlers. */
+export const isMobileNow = (): boolean => window.matchMedia(QUERY).matches
+
 /** True below the md breakpoint. Server renders assume desktop. */
 export function useIsMobile(): boolean {
-  return useSyncExternalStore(
-    subscribe,
-    () => window.matchMedia(QUERY).matches,
-    () => false,
-  )
+  return useSyncExternalStore(subscribe, isMobileNow, () => false)
 }
