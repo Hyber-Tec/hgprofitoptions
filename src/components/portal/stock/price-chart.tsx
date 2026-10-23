@@ -57,6 +57,9 @@ export interface ChartLevel {
   kind: "line" | "anchor" | "median" | "target"
 }
 
+/** Room a marker label needs, in pixels ("My sell" at the chart's font size, plus a gap). */
+const LABEL_WIDTH = 56
+
 export interface ChartMarker {
   date: string
   kind: "hg-buy" | "hg-sell" | "my-buy" | "my-sell"
@@ -153,17 +156,28 @@ export function PriceChart({
       })
     }
 
-    const firstDate = bars[0]?.date ?? ""
-    const seriesMarkers: SeriesMarker<Time>[] = markers
-      .filter((m) => m.date >= firstDate)
-      .sort((a, b) => a.date.localeCompare(b.date))
-      .map((m) => ({
+    // One marker per day and kind. A label is wider than a bar, so a marker keeps its text only when the
+    // last label on the same side is far enough away; the shape and color still tell the markers apart.
+    const barIndex = new Map(bars.map((b, i) => [b.date, i]))
+    const labelBars = Math.ceil(LABEL_WIDTH / (el.clientWidth / (bars.length + 4)))
+    const lastLabel = { aboveBar: Number.NEGATIVE_INFINITY, belowBar: Number.NEGATIVE_INFINITY }
+    const seen = new Set<string>()
+    const seriesMarkers: SeriesMarker<Time>[] = []
+    for (const m of [...markers].sort((a, b) => a.date.localeCompare(b.date))) {
+      const i = barIndex.get(m.date)
+      if (i === undefined || seen.has(`${m.date} ${m.kind}`)) continue
+      seen.add(`${m.date} ${m.kind}`)
+      const position = m.kind.endsWith("buy") ? "belowBar" : "aboveBar"
+      const labelled = i - lastLabel[position] >= labelBars
+      if (labelled) lastLabel[position] = i
+      seriesMarkers.push({
         time: m.date,
-        position: m.kind.endsWith("buy") ? "belowBar" : "aboveBar",
+        position,
         shape: m.kind.startsWith("hg") ? (m.kind === "hg-buy" ? "arrowUp" : "arrowDown") : "circle",
         color: m.kind.startsWith("hg") ? fg : m.kind === "my-buy" ? positive : negative,
-        text: m.text,
-      }))
+        text: labelled ? m.text : "",
+      })
+    }
     createSeriesMarkers(series, seriesMarkers)
     chart.timeScale().fitContent()
     return () => chart.remove()

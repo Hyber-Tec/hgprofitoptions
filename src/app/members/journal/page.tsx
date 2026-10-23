@@ -39,6 +39,10 @@ export default async function JournalPage({ searchParams }: PageProps<"/members/
       id: t.id,
       label: instrument ? formatInstrument(instrument) : t.symbol,
       symbol: t.symbol,
+      option:
+        instrument?.assetType === "option"
+          ? { strike: instrument.strike, right: instrument.right, expiry: instrument.expiry }
+          : null,
       assetType: t.assetType,
       direction: t.direction,
       status: t.status,
