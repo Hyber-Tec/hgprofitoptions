@@ -60,8 +60,17 @@ The hybertec.com organization changes two Google defaults, and the steps below a
    ```
 
    The AI and Zoom secrets were added after the first launch: create them (`none` keeps that
-   integration off) and grant the backend access before merging the change that uses them, because
-   the merge deploys it and a missing secret stops the deploy.
+   integration off) and grant access before merging the change that uses them, because the merge
+   deploys it and a missing secret stops the deploy. The deploy account cannot grant access to a
+   secret, so give each new functions secret to the functions' runtime account when creating it:
+
+   ```bash
+   for s in AI_API_KEY ZOOM_CLIENT_SECRET; do
+     gcloud secrets add-iam-policy-binding $s --project $P \
+       --member=serviceAccount:785230671466-compute@developer.gserviceaccount.com \
+       --role=roles/secretmanager.secretAccessor
+   done
+   ```
 
    Generate key material with `openssl rand -base64 32`. The SnapTrade encryption key protects
    stored brokerage credentials: keep a copy somewhere safe, because changing it disconnects every
