@@ -1,11 +1,12 @@
 import type { IsoDate, StrikeTarget } from "../domain/types"
-import { dayOfWeek, daysBetween } from "../dates"
+import { dayOfWeek, daysBetween, isIsoDate } from "../dates"
 
 export type ParseIssueCode =
   | "unparseable"
   | "stray-token"
   | "comma-decimal"
   | "missing-space"
+  | "missing-dash"
   | "missing-or"
   | "missing-of"
   | "number-format"
@@ -29,6 +30,8 @@ export interface ParseIssue {
   message: string
   /** For errors with an unambiguous fix, the entry the editor proposes. */
   suggestion?: StrikeTarget
+  /** The ticker of the line, when the line was read far enough to know it. */
+  symbol?: string
 }
 
 export interface TargetGroupDef {
@@ -62,16 +65,28 @@ const ZERO_WIDTH = /[​-‍﻿ ]/g
 const LIST_NUMBER = /^\s*\d+\.\s*/
 const NUM = String.raw`\d*\.?\d+`
 const ENTRY = new RegExp(
-  String.raw`^(?<sym>[A-Z][A-Z.]{0,5})\s*-\s*(?<target>${NUM})\s+(?<or>or\s+)?break(?<of>\s+of)?\s+(?<brk>${NUM})\s+PUT\s+(?<put>${NUM})(?:\s+(?<note>[a-z][\w ]*?))?\s+(?<exp>\d{1,2}/\d{1,2})(?:\s+w(?<w>${NUM}))?\s*$`,
+  String.raw`^(?<sym>[A-Z][A-Z.]{0,5})\s*(?<dash>-)?\s*(?<target>${NUM})\s+(?<or>or\s+)?break(?<of>\s+of)?\s+(?<brk>${NUM})\s+PUT\s+(?<put>${NUM})(?:\s+(?<note>[a-z][\w ]*?))?\s+(?<exp>\d{1,2}/\d{1,2})(?:\s+w(?<w>${NUM}))?\s*$`,
   "i",
 )
 /** Same shape, but with extra numeric tokens between the put strike and the expiry (for example "PUT 1 195"). */
 const ENTRY_WITH_STRAY = new RegExp(
-  String.raw`^(?<sym>[A-Z][A-Z.]{0,5})\s*-\s*(?<target>${NUM})\s+(?:or\s+)?break(?:\s+of)?\s+(?<brk>${NUM})\s+PUT\s+(?<tokens>(?:${NUM}\s+)+)(?<exp>\d{1,2}/\d{1,2})(?:\s+w(?<w>${NUM}))?\s*$`,
+  String.raw`^(?<sym>[A-Z][A-Z.]{0,5})\s*-?\s*(?<target>${NUM})\s+(?:or\s+)?break(?:\s+of)?\s+(?<brk>${NUM})\s+PUT\s+(?<tokens>(?:${NUM}\s+)+)(?<exp>\d{1,2}/\d{1,2})(?:\s+w(?<w>${NUM}))?\s*$`,
   "i",
 )
 const TITLE = /^strike\s+price\s+targets/i
-const LOOKS_LIKE_ENTRY = /^[A-Z][A-Z.]{0,5}\s*-\s*[\d.]/
+const STARTS_LIKE_ENTRY = /^[A-Z][A-Z.]{0,5}\s*-\s*[\d.]/
+const HAS_ENTRY_WORDS = /\bbreak\b.*\bput\b/i
+/** A ticker line, even a broken one: "TSM- 472..." or anything with "break" and "PUT" (headings never have both). */
+const looksLikeEntry = (line: string) => STARTS_LIKE_ENTRY.test(line) || HAS_ENTRY_WORDS.test(line)
+
+/** The update's title line ("STRIKE PRICE TARGETS UPDATE OCT 7"), when the text has one. */
+export function readTitle(text: string): string | null {
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.replace(ZERO_WIDTH, " ").replace(/\s+/g, " ").trim()
+    if (TITLE.test(line)) return line
+  }
+  return null
+}
 
 export function slugify(name: string): string {
   return name
@@ -111,20 +126,50 @@ export function resolveExpiry(monthDay: string, effectiveDate: IsoDate): IsoDate
   return null
 }
 
-function matchGroup(text: string, groups: readonly TargetGroupDef[]): { group: TargetGroupDef; rest: string } | null {
-  const normalized = normalizeName(text)
+/** HG writes the brand on some headings only: "Profit Options Small Channel" and "Small Channel" are one category. */
+const BRAND = /^profit options? /
+
+/** A name as it can be matched: normalized, and without the brand when it has one. */
+function nameKeys(name: string): string[] {
+  const normalized = normalizeName(name)
+  const unbranded = normalized.replace(BRAND, "")
+  return unbranded === normalized ? [normalized] : [normalized, unbranded]
+}
+
+/** The category a heading names, also when it carries extra words after the name ("Watch Box PRICES ARE..."). */
+function matchGroup(text: string, groups: readonly TargetGroupDef[]): TargetGroupDef | null {
+  const headings = nameKeys(text)
   let best: { group: TargetGroupDef; length: number } | null = null
   for (const group of groups) {
-    for (const candidate of [group.name, ...(group.aliases ?? [])]) {
-      const key = normalizeName(candidate)
-      if (key.length > 0 && (normalized === key || normalized.startsWith(`${key} `))) {
-        if (!best || key.length > best.length) best = { group, length: key.length }
-      }
+    for (const key of [group.name, ...(group.aliases ?? [])].flatMap(nameKeys)) {
+      const matches = headings.some((heading) => heading === key || heading.startsWith(`${key} `))
+      if (key.length > 0 && matches && (!best || key.length > best.length)) best = { group, length: key.length }
     }
   }
-  if (!best) return null
-  const rest = normalized.slice(best.length).trim()
-  return { group: best.group, rest }
+  return best?.group ?? null
+}
+
+const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"]
+
+/**
+ * The date in a title such as "STRIKE PRICE TARGETS UPDATE OCT 7" (or "10/7"), in the year that puts it
+ * closest to `today`, since titles carry no year.
+ */
+export function titleDate(title: string, today: IsoDate): IsoDate | null {
+  const named = /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})(?:st|nd|rd|th)?\b/i.exec(
+    title,
+  )
+  const numeric = /\b(\d{1,2})\/(\d{1,2})\b/.exec(title)
+  const month = named?.[1] ? MONTHS.indexOf(named[1].toLowerCase()) + 1 : Number(numeric?.[1])
+  const day = Number(named?.[2] ?? numeric?.[2])
+  if (!Number.isInteger(month) || !Number.isInteger(day) || month < 1 || month > 12) return null
+  const year = Number(today.slice(0, 4))
+  const pad = (n: number) => String(n).padStart(2, "0")
+  const candidates = [year - 1, year, year + 1]
+    .map((y) => `${y}-${pad(month)}-${pad(day)}`)
+    .filter((d): d is IsoDate => isIsoDate(d))
+  candidates.sort((a, b) => Math.abs(daysBetween(today, a)) - Math.abs(daysBetween(today, b)))
+  return candidates[0] ?? null
 }
 
 interface Normalized {
@@ -157,29 +202,6 @@ function normalizeLine(raw: string): Normalized {
     })
   }
   return { text, issues }
-}
-
-/** True when one swapped, missing, extra or wrong letter turns `a` into `b`. */
-function oneEditApart(a: string, b: string): boolean {
-  if (a === b || Math.abs(a.length - b.length) > 1) return false
-  if (a.length === b.length) {
-    // Tickers are ASCII letters, so comparing code units is safe.
-    const diffs = Array.from({ length: a.length }, (_, i) => i).filter((i) => a[i] !== b[i])
-    if (diffs.length === 1) return true
-    const [i, j] = diffs
-    return diffs.length === 2 && i !== undefined && j === i + 1 && a[i] === b[j] && a[j] === b[i]
-  }
-  const [short, long] = a.length < b.length ? [a, b] : [b, a]
-  for (let i = 0; i < long.length; i++) if (short === long.slice(0, i) + long.slice(i + 1)) return true
-  return false
-}
-
-/** Known tickers one typo away from `symbol` (APPL -> AAPL, APP), same length first, at most three. */
-export function similarTickers(symbol: string, known: ReadonlySet<string>): string[] {
-  return [...known]
-    .filter((k) => oneEditApart(symbol, k))
-    .sort((a, b) => Number(a.length !== symbol.length) - Number(b.length !== symbol.length) || a.localeCompare(b))
-    .slice(0, 3)
 }
 
 function toNumber(value: string | undefined): number | null {
@@ -219,12 +241,12 @@ export function parseStrikeTargets(text: string, options: ParseOptions): ParsedU
       continue
     }
 
-    const isEntry = LOOKS_LIKE_ENTRY.test(normalized)
+    const isEntry = looksLikeEntry(normalized)
     if (!isEntry) {
       const known = matchGroup(normalized, knownGroups)
       let def: TargetGroupDef
       if (known) {
-        def = known.group
+        def = known
       } else {
         def = { slug: slugify(normalized), name: normalized }
         knownGroups.push(def)
@@ -242,13 +264,22 @@ export function parseStrikeTargets(text: string, options: ParseOptions): ParsedU
       continue
     }
 
+    let lineSymbol: string | undefined
     const report = (
       severity: ParseIssue["severity"],
       code: ParseIssueCode,
       message: string,
       suggestion?: StrikeTarget,
     ) => {
-      issues.push({ line, raw, severity, code, message, ...(suggestion ? { suggestion } : {}) })
+      issues.push({
+        line,
+        raw,
+        severity,
+        code,
+        message,
+        ...(suggestion ? { suggestion } : {}),
+        ...(lineSymbol ? { symbol: lineSymbol } : {}),
+      })
     }
     for (const issue of lineIssues) report(issue.severity, issue.code, issue.message)
 
@@ -269,6 +300,7 @@ export function parseStrikeTargets(text: string, options: ParseOptions): ParsedU
       const putStrike = toNumber(lastToken)
       const expiry = stray?.groups?.exp ? resolveExpiry(stray.groups.exp, effectiveDate) : null
       if (stray && symbol && target !== null && breakLevel !== null && putStrike !== null && expiry) {
+        lineSymbol = symbol
         report(
           "error",
           "stray-token",
@@ -297,6 +329,7 @@ export function parseStrikeTargets(text: string, options: ParseOptions): ParsedU
 
     const g = match.groups
     const symbol = g.sym?.toUpperCase() ?? ""
+    lineSymbol = symbol
     const target = toNumber(g.target)
     const breakLevel = toNumber(g.brk)
     const putStrike = toNumber(g.put)
@@ -306,6 +339,7 @@ export function parseStrikeTargets(text: string, options: ParseOptions): ParsedU
       continue
     }
 
+    if (!g.dash) report("warning", "missing-dash", "The dash after the ticker is missing.")
     if (!g.or) report("warning", "missing-or", 'The word "or" is missing before "break".')
     if (!g.of) report("warning", "missing-of", 'The word "of" is missing after "break".')
     const numbers = [g.target, g.brk, g.put, g.w].filter((v): v is string => v !== undefined)
@@ -323,11 +357,9 @@ export function parseStrikeTargets(text: string, options: ParseOptions): ParsedU
     if (dayOfWeek(expiry) !== 5) report("warning", "expiry-not-friday", `The expiry ${expiry} is not a Friday.`)
     if (daysBetween(effectiveDate, expiry) > maxExpiryDays)
       report("warning", "expiry-too-far", `The expiry ${expiry} is more than ${maxExpiryDays} days out.`)
-    if (knownTickers && !knownTickers.has(symbol)) {
-      const similar = similarTickers(symbol, knownTickers)
-      const hint = similar.length > 0 ? ` Did you mean ${similar.join(" or ")}?` : ""
-      report("warning", "unknown-ticker", `${symbol} is not in the ticker universe yet.${hint}`)
-    }
+    // No "did you mean": a new ticker one letter from a known one (BE and GE) is usually just new.
+    if (knownTickers && !knownTickers.has(symbol))
+      report("warning", "unknown-ticker", `${symbol} is not in the ticker list yet.`)
     const previous = seen.get(symbol)
     if (previous !== undefined) report("warning", "duplicate-ticker", `${symbol} already appears on line ${previous}.`)
     seen.set(symbol, line)
@@ -346,6 +378,40 @@ export function parseStrikeTargets(text: string, options: ParseOptions): ParsedU
   }
 
   return { title, groups, issues }
+}
+
+/** A price the way HG writes it: 465, 472.50, 3.375. */
+export function formatTargetNumber(value: number): string {
+  if (Number.isInteger(value)) return String(value)
+  const cents = value.toFixed(2)
+  return Number(cents) === value ? cents : String(Number(value.toFixed(4)))
+}
+
+/** One entry as a line of HG's doc: "TSM- 472.50 or break of 465 PUT 457.50 10/23 w2.72". */
+export function formatTargetLine(
+  entry: Pick<StrikeTarget, "symbol" | "target" | "breakLevel" | "putStrike" | "expiry" | "dowWeight" | "note">,
+): string {
+  const n = formatTargetNumber
+  const expiry = `${Number(entry.expiry.slice(5, 7))}/${Number(entry.expiry.slice(8, 10))}`
+  const note = entry.note ? ` ${entry.note}` : ""
+  const weight = entry.dowWeight === null ? "" : ` w${n(entry.dowWeight)}`
+  return `${entry.symbol}- ${n(entry.target)} or break of ${n(entry.breakLevel)} PUT ${n(entry.putStrike)}${note} ${expiry}${weight}`
+}
+
+/** A whole update written the way HG's doc is, to correct it or to start the next one from it. */
+export function targetsToText(
+  effectiveDate: IsoDate,
+  groups: readonly { name: string; entries: readonly StrikeTarget[] }[],
+): string {
+  const label = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" }).format(
+    new Date(`${effectiveDate}T12:00:00Z`),
+  )
+  const lines = [`STRIKE PRICE TARGETS UPDATE ${label.toUpperCase()}`]
+  for (const group of groups) {
+    if (group.entries.length === 0) continue
+    lines.push("", group.name, ...group.entries.map((e, i) => `${i + 1}. ${formatTargetLine(e)}`))
+  }
+  return lines.join("\n")
 }
 
 /** Applies every error suggestion (used by the one-time import; the editor asks the admin instead). */

@@ -82,7 +82,63 @@ test("HG sees every stock in a published update and can edit it", async ({ page 
   await page.getByRole("link", { name: "Edit targets" }).click()
   await expect(page).toHaveURL(/\?edit=1$/)
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Edit the")
-  await expect(page.getByRole("button", { name: "Add ticker" }).first()).toBeVisible()
+  // The update comes back as text in the Google Doc's format, read into the preview.
+  await expect(page.getByLabel("Update text")).toHaveValue(/^STRIKE PRICE TARGETS UPDATE /)
+  await expect(page.getByRole("region").first()).toBeVisible()
+  await expect(page.getByRole("button", { name: "Publish correction" })).toBeDisabled()
+  await page.getByLabel("What changed").fill("Checked the levels")
+  await expect(page.getByRole("button", { name: "Publish correction" })).toBeEnabled()
+})
+
+test("HG pastes the weekly Google Doc, fixes a line in one click and publishes", async ({ page }) => {
+  await signIn(page, ACCOUNTS.admin)
+  await expect(page).toHaveURL(/\/admin$/)
+  await page.goto("/admin/targets/new")
+  const day = new Date(Date.now() - 2 * 86_400_000)
+  const zone = "America/New_York"
+  const label = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: zone }).format(day)
+  const iso = new Intl.DateTimeFormat("en-CA", { timeZone: zone }).format(day)
+  const doc = (...lines: string[]) =>
+    [
+      `STRIKE PRICE TARGETS UPDATE ${label.toUpperCase()}`,
+      "PROFIT OPTIONS SMALL CHANNEL",
+      "1. TSM- 472.50 or break of 465 PUT 1 457.50 10/23",
+      "2. QQQZ- 50 or break of 48 PUT 47 10/23",
+      ...lines,
+    ].join("\n")
+  const text = page.getByLabel("Update text")
+  const publish = page.getByRole("button", { name: "Publish", exact: true })
+
+  await text.fill(doc("3. ZZZZ- 10 or break of 9 PUT 8 10/23"))
+  // The date comes from the title, and the heading finds the Small Channel category.
+  await expect(page.getByLabel("Update date")).toHaveValue(iso)
+  await expect(page.getByRole("region", { name: "Small Channel" })).toBeVisible()
+  // A symbol the market data provider does not know is flagged before publishing.
+  await expect(page.getByText("The market data provider does not know this ticker. Check the spelling.")).toBeVisible()
+  await expect(publish).toBeDisabled()
+
+  await text.fill(doc())
+  await page.getByRole("button", { name: "Use put 457.50" }).click()
+  await expect(text).toHaveValue(/1\. TSM- 472\.50 or break of 465 PUT 457\.50 10\/23/)
+  await expect(page.getByText("Ready to publish")).toBeVisible()
+
+  // An old date, so the latest update the other tests read stays the same.
+  await page.getByLabel("Update date").fill("2025-01-08")
+  await page.getByRole("switch", { name: /Tell members/ }).click()
+  await publish.click()
+  await expect(page).toHaveURL(/\/admin\/targets\/2025-01-08$/)
+  await expect(page.getByRole("button", { name: "TSM: live prices and details" })).toBeVisible()
+
+  // A ticker new to the list is added with its name once the update is out.
+  await expect
+    .poll(
+      async () => {
+        await page.goto("/admin/tickers")
+        return page.getByText("QQQZ", { exact: true }).count()
+      },
+      { timeout: 30_000 },
+    )
+    .toBeGreaterThan(0)
 })
 
 test("HG adds a ticker with only its symbol and it shows in the tools at once", async ({ page }) => {

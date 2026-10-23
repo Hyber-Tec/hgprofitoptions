@@ -1,11 +1,11 @@
 import "server-only"
 import { todayInMarketZone } from "@/core/dates"
-import type { StrikeTarget } from "@/core/domain/types"
-import type { TargetGroupDef } from "@/core/parsers/strike-targets"
+import type { IsoDate, StrikeTarget } from "@/core/domain/types"
+import { targetsToText, type TargetGroupDef } from "@/core/parsers/strike-targets"
 import { COLLECTIONS, REVISIONS, parseDoc, targetUpdateSchema, type TargetUpdate } from "@/server/model"
 import { adminDb } from "@/lib/firebase/admin"
 import { getTargetGroups, listTargetUpdates, listTickers } from "@/lib/data/tools"
-import type { EditorRow, EditorTicker } from "@/components/admin/targets-editor"
+import type { EditorTicker } from "@/components/admin/targets-editor"
 
 export async function editorContext(): Promise<{ configGroups: TargetGroupDef[]; tickers: EditorTicker[] }> {
   const [groups, tickers] = await Promise.all([getTargetGroups(), listTickers()])
@@ -17,14 +17,25 @@ export async function editorContext(): Promise<{ configGroups: TargetGroupDef[];
   }
 }
 
-/** The published update before a date (for "was" hints and the diff), uncached so edits are fresh. */
-export async function previousUpdate(
-  beforeOrOn: string,
-  exclusive: boolean,
-): Promise<{ effectiveDate: string; entries: StrikeTarget[] } | null> {
+/** A published update the editor compares a new one with. */
+export interface PublishedRef {
+  effectiveDate: string
+  entries: StrikeTarget[]
+}
+
+/**
+ * The latest published updates, newest first, for the editor to compare with the one before whatever date
+ * is being written (plus the one before `around` when it is older), and every published date.
+ */
+export async function publishedHistory(around?: string): Promise<{ recent: PublishedRef[]; dates: string[] }> {
   const updates = await listTargetUpdates()
-  const prev = updates.find((u) => (exclusive ? u.effectiveDate < beforeOrOn : u.effectiveDate <= beforeOrOn))
-  return prev ? { effectiveDate: prev.effectiveDate, entries: prev.entries } : null
+  const recent = updates.slice(0, 12)
+  const before = around ? updates.find((u) => u.effectiveDate < around) : undefined
+  if (before && !recent.includes(before)) recent.push(before)
+  return {
+    recent: recent.map((u) => ({ effectiveDate: u.effectiveDate, entries: u.entries })),
+    dates: updates.map((u) => u.effectiveDate),
+  }
 }
 
 export async function listDrafts(): Promise<TargetUpdate[]> {
@@ -56,21 +67,6 @@ export async function listRevisions(
     .sort((a, b) => b.revision - a.revision)
 }
 
-export function rowsFor(entries: StrikeTarget[]): EditorRow[] {
-  let n = 0
-  return entries.map((e) => ({
-    key: `e${n++}`,
-    group: e.group,
-    symbol: e.symbol,
-    target: String(e.target),
-    breakLevel: String(e.breakLevel),
-    putStrike: String(e.putStrike),
-    expiry: e.expiry,
-    dowWeight: e.dowWeight === null ? "" : String(e.dowWeight),
-    note: e.note,
-  }))
-}
-
 export function groupsFor(
   entries: StrikeTarget[],
   known: TargetGroupDef[],
@@ -81,6 +77,19 @@ export function groupsFor(
     slug,
     name: known.find((g) => g.slug === slug)?.name ?? extra.find((g) => g.slug === slug)?.name ?? slug,
   }))
+}
+
+/** An update written the way HG's Google Doc is, for the editor. */
+export function textFor(
+  effectiveDate: string,
+  entries: StrikeTarget[],
+  known: TargetGroupDef[],
+  extra: { slug: string; name: string }[] = [],
+): string {
+  return targetsToText(
+    effectiveDate as IsoDate,
+    groupsFor(entries, known, extra).map((g) => ({ name: g.name, entries: entries.filter((e) => e.group === g.slug) })),
+  )
 }
 
 export const today = () => todayInMarketZone()

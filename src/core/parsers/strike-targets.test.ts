@@ -3,11 +3,15 @@ import type { IsoDate, StrikeTarget } from "../domain/types"
 import {
   applySuggestions,
   diffTargets,
+  formatTargetLine,
+  formatTargetNumber,
   parseStrikeTargets,
+  readTitle,
   resolveExpiry,
-  similarTickers,
   slugify,
   targetStatus,
+  targetsToText,
+  titleDate,
 } from "./strike-targets"
 
 const effectiveDate = "2026-10-07" as IsoDate
@@ -115,19 +119,47 @@ describe("strike target parser", () => {
     expect(result.groups[0]?.slug).toBe("brand-new-list")
   })
 
-  it("suggests the known ticker a typo was meant to be", () => {
-    const known = new Set(["AAPL", "APP", "AMD", "MSFT"])
-    const result = parseStrikeTargets("Alpha Channel\nAPPL- 337.50 or break of 335 PUT 330 11/6 w3.83", {
+  it("does not guess at a new ticker one letter from a known one", () => {
+    const result = parseStrikeTargets("Alpha Channel\nBE- 290 or break of 285 PUT 277.50 10/23", {
       effectiveDate,
       groups,
-      knownTickers: known,
+      knownTickers: new Set(["GE"]),
     })
-    expect(result.issues.map((i) => i.message)).toEqual([
-      "APPL is not in the ticker universe yet. Did you mean AAPL or APP?",
+    expect(result.issues.map((i) => [i.message, i.symbol])).toEqual([["BE is not in the ticker list yet.", "BE"]])
+    expect(result.groups[0]?.entries[0]?.symbol).toBe("BE")
+  })
+
+  it("matches headings with or without the brand, in any case", () => {
+    const named = [
+      { slug: "small-channel", name: "Profit Options Small Channel", aliases: ["Small Channel"] },
+      { slug: "large-channel", name: "Large Channel" },
+    ]
+    const headings = [
+      "Profit Options Small Channel",
+      "PROFIT OPTION SMALL CHANNEL",
+      "Small Channel:",
+      "Profit Options Large Channel",
+      "large channel",
+    ]
+    const slugs = headings.map(
+      (heading) =>
+        parseStrikeTargets(`${heading}\nAAA- 10 or break of 9 PUT 8 10/23`, { effectiveDate, groups: named }).groups[0]
+          ?.slug,
+    )
+    expect(slugs).toEqual(["small-channel", "small-channel", "small-channel", "large-channel", "large-channel"])
+  })
+
+  it("never mistakes a ticker line for a category name", () => {
+    const result = parseStrikeTargets(
+      "Alpha Channel\nMSFT 521 or break of 500 PUT 490 10/23\nNVDA 23x or break of 22 PUT 21 10/23\nWatch Box - 2 picks",
+      { effectiveDate, groups },
+    )
+    expect(result.groups.map((g) => g.slug)).toEqual(["alpha", "box"])
+    expect(result.groups[0]?.entries.map((e) => [e.symbol, e.target])).toEqual([["MSFT", 521]])
+    expect(result.issues.map((i) => [i.line, i.code])).toEqual([
+      [2, "missing-dash"],
+      [3, "unparseable"],
     ])
-    expect(similarTickers("MSTF", known)).toEqual(["MSFT"])
-    expect(similarTickers("AMDD", known)).toEqual(["AMD"])
-    expect(similarTickers("ZZZZ", known)).toEqual([])
   })
 
   it("rejects entries before any heading", () => {
@@ -137,6 +169,57 @@ describe("strike target parser", () => {
 
   it("slugifies names", () => {
     expect(slugify("Profit Options: Small Channel!")).toBe("profit-options-small-channel")
+  })
+})
+
+describe("the update date and writing an update back as text", () => {
+  it("finds the title line anywhere in the text", () => {
+    expect(readTitle(`\n  Strike Price Targets Update  Oct 7 \nAlpha Channel`)).toBe(
+      "Strike Price Targets Update Oct 7",
+    )
+    expect(readTitle("Alpha Channel\nAAA- 10 or break of 9 PUT 8 10/23")).toBeNull()
+  })
+
+  it("reads the title's date in the year closest to today", () => {
+    const today = "2026-10-23" as IsoDate
+    expect(titleDate("STRIKE PRICE TARGETS UPDATE OCT 7", today)).toBe("2026-10-07")
+    expect(titleDate("Strike Price Targets Update Sept. 30th", today)).toBe("2026-09-30")
+    expect(titleDate("STRIKE PRICE TARGETS UPDATE 10/21", today)).toBe("2026-10-21")
+    expect(titleDate("STRIKE PRICE TARGETS UPDATE JAN 6", "2026-12-30" as IsoDate)).toBe("2027-01-06")
+    expect(titleDate("STRIKE PRICE TARGETS UPDATE DEC 30", "2027-01-04" as IsoDate)).toBe("2026-12-30")
+    expect(titleDate("STRIKE PRICE TARGETS UPDATE", today)).toBeNull()
+    expect(titleDate("STRIKE PRICE TARGETS UPDATE FEB 30", today)).toBeNull()
+  })
+
+  it("writes prices the way HG does", () => {
+    expect([465, 472.5, 3.375, 0.225, 2.72].map(formatTargetNumber)).toEqual([
+      "465",
+      "472.50",
+      "3.375",
+      "0.225",
+      "2.72",
+    ])
+    expect(
+      formatTargetLine({
+        symbol: "NVDA",
+        target: 237.5,
+        breakLevel: 232.5,
+        putStrike: 225,
+        expiry: "2026-10-23" as IsoDate,
+        dowWeight: 2.72,
+        note: null,
+      }),
+    ).toBe("NVDA- 237.50 or break of 232.50 PUT 225 10/23 w2.72")
+  })
+
+  it("reads back exactly what it writes", () => {
+    const parsed = parseStrikeTargets(SAMPLE, { effectiveDate, groups })
+    const fixed = applySuggestions(parsed)
+    const text = targetsToText(effectiveDate, fixed.groups)
+    expect(text.split("\n")[0]).toBe("STRIKE PRICE TARGETS UPDATE OCT 7")
+    const again = parseStrikeTargets(text, { effectiveDate, groups })
+    expect(again.groups).toEqual(fixed.groups)
+    expect(again.issues.filter((i) => i.severity === "error")).toEqual([])
   })
 })
 
