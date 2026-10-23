@@ -4,6 +4,7 @@ import {
   MarketDataError,
   fetchDailyRange,
   fetchGroupedDaily,
+  fetchOptionChain,
   fetchSnapshots,
   fetchSplits,
   fetchTickerDetails,
@@ -156,5 +157,65 @@ describe("snapshots", () => {
       impl,
     )
     expect(calls).toHaveLength(2)
+  })
+})
+
+describe("options chain", () => {
+  const contract = (type: "call" | "put", strike: number, bid: number, ask: number, timeframe = "DELAYED") => ({
+    details: { contract_type: type, strike_price: strike, expiration_date: "2026-10-30" },
+    last_quote: { bid, ask, last_updated: 1792771200000000000, timeframe },
+    last_trade: { price: ask, sip_timestamp: 1792771100000000000, timeframe },
+    day: { close: bid, volume: 120 },
+    open_interest: 900,
+    underlying_asset: { price: 482.4, ticker: "TSM" },
+  })
+
+  it("pairs calls and puts by strike across pages, in strike order", async () => {
+    const calls: string[] = []
+    const pages = [
+      {
+        results: [contract("call", 475, 9.05, 9.35), contract("put", 475, 0.56, 0.58)],
+        next_url: "https://api.example.com/v3/snapshot/options/TSM?cursor=abc",
+      },
+      { results: [contract("put", 472.5, 0.39, 0.41), contract("call", 472.5, 10.2, 10.5)] },
+    ]
+    const impl = ((input: URL | RequestInfo) => {
+      calls.push(input instanceof Request ? input.url : input.toString())
+      return Promise.resolve(Response.json(pages[calls.length - 1] ?? { results: [] }))
+    }) as typeof fetch
+    const chain = await fetchOptionChain(
+      config,
+      { symbol: "TSM", expiry: "2026-10-30" as IsoDate, minStrike: 455, maxStrike: 490 },
+      impl,
+    )
+    expect(chain.strikes.map((s) => s.strike)).toEqual([472.5, 475])
+    expect(chain.strikes[0]).toEqual({
+      strike: 472.5,
+      call: { bid: 10.2, ask: 10.5, last: 10.5, volume: 120, openInterest: 900 },
+      put: { bid: 0.39, ask: 0.41, last: 0.41, volume: 120, openInterest: 900 },
+    })
+    expect(chain).toMatchObject({ underlying: 482.4, realTime: false, updatedAt: 1792771200000 })
+    expect(decodeURIComponent(calls[0] ?? "")).toContain(
+      "/v3/snapshot/options/TSM?expiration_date=2026-10-30&strike_price.gte=455&strike_price.lte=490",
+    )
+    expect(calls[1]).toBe("https://api.example.com/v3/snapshot/options/TSM?cursor=abc")
+  })
+
+  it("follows next pages only on the provider's own address", async () => {
+    const { impl, calls } = fakeFetch(200, { results: [], next_url: "https://elsewhere.example/steal" })
+    await expect(
+      fetchOptionChain(config, { symbol: "TSM", expiry: "2026-10-30" as IsoDate, minStrike: 1, maxStrike: 2 }, impl),
+    ).rejects.toThrow(MarketDataError)
+    expect(calls).toHaveLength(1)
+  })
+
+  it("is empty for a stock without listed options", async () => {
+    const { impl } = fakeFetch(404, { status: "NOT_FOUND" })
+    const chain = await fetchOptionChain(
+      config,
+      { symbol: "ZZZZ", expiry: "2026-10-30" as IsoDate, minStrike: 1, maxStrike: 2 },
+      impl,
+    )
+    expect(chain.strikes).toEqual([])
   })
 })

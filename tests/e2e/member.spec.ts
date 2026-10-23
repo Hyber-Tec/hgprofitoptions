@@ -5,16 +5,18 @@ test.beforeEach(async ({ page }) => {
   await expect(page).toHaveURL(/\/members$/)
 })
 
-test("a strike target opens its live order book and the stock page", async ({ page }) => {
+test("a strike target opens its live order book, options chain and stock page", async ({ page }) => {
   await page.goto("/members/targets")
   await page.locator('button[aria-haspopup="dialog"]:visible').first().click()
   const panel = page.getByRole("dialog")
   const symbol = (await panel.getByRole("heading").first().innerText()).split(/\s/)[0] ?? ""
-  // Bid, ask and last for the shares, the call at the target and the put.
-  await expect(panel.getByRole("columnheader", { name: "Bid" })).toBeVisible()
+  // Bid, ask and last for the shares.
   await expect(panel.getByRole("rowheader", { name: `${symbol} shares` })).toBeVisible()
-  await expect(panel.getByRole("rowheader", { name: /call$/ })).toBeVisible()
-  await expect(panel.getByRole("rowheader", { name: /put$/ })).toBeVisible()
+  // The chain for the target's expiry, with HG's call and put strikes marked and the price between strikes.
+  const chain = panel.getByRole("table", { name: new RegExp(`^${symbol} calls and puts`) })
+  await expect(chain.getByRole("rowheader", { name: /Target/ })).toBeVisible()
+  await expect(chain.getByRole("rowheader", { name: /Put$/ })).toBeVisible()
+  await expect(chain.getByRole("row", { name: new RegExp(`^${symbol} is at \\$`) })).toHaveCount(1)
   await expect(panel.getByText("Loading")).toHaveCount(0)
   await panel.getByRole("link", { name: `${symbol} stock page` }).click()
   await expect(page).toHaveURL(new RegExp(`/members/stocks/${symbol}$`))
