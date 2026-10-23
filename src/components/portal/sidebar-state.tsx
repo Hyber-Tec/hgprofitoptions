@@ -1,30 +1,19 @@
 "use client"
 
-import { useCallback, useSyncExternalStore, type ReactNode } from "react"
+import { useCallback, useState, type ReactNode } from "react"
+import { saveSidebarCollapsed } from "@/lib/actions/settings"
 import { SidebarProvider } from "@/components/ui/sidebar"
 
-const COOKIE = "sidebar_state"
-const MAX_AGE = 60 * 60 * 24 * 7
-const listeners = new Set<() => void>()
-
-function subscribe(listener: () => void) {
-  listeners.add(listener)
-  return () => {
-    listeners.delete(listener)
-  }
-}
-
-const readOpen = () => !document.cookie.split("; ").includes(`${COOKIE}=false`)
-
 /**
- * Keeps the sidebar open or collapsed between visits. The server renders from the cookie when it gets
- * it, but Firebase Hosting forwards only the session cookie, so the browser's copy decides.
+ * Keeps the sidebar open or collapsed between visits. The choice is saved with the account, so the server
+ * renders the sidebar the way it was left and nothing moves once the page loads.
  */
-export function PortalSidebarProvider({ serverOpen, children }: { serverOpen: boolean; children: ReactNode }) {
-  const open = useSyncExternalStore(subscribe, readOpen, () => serverOpen)
+export function PortalSidebarProvider({ initialOpen, children }: { initialOpen: boolean; children: ReactNode }) {
+  const [open, setOpen] = useState(initialOpen)
   const onOpenChange = useCallback((next: boolean) => {
-    document.cookie = `${COOKIE}=${String(next)}; path=/; max-age=${MAX_AGE}; samesite=lax`
-    for (const listener of listeners) listener()
+    setOpen(next)
+    // A failed save only means the next visit opens the sidebar the way it was before.
+    saveSidebarCollapsed(!next).catch(() => undefined)
   }, [])
   return (
     <SidebarProvider open={open} onOpenChange={onOpenChange}>

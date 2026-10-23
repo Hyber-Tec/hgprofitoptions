@@ -50,6 +50,19 @@ test("a page streams in without leaving a second copy of itself behind", async (
   }
 })
 
+test("the sidebar opens the way it was left, straight from the server", async ({ page, isMobile }) => {
+  test.skip(isMobile, "On a phone the sidebar is a sheet that starts closed.")
+  // Firebase Hosting forwards no cookie but the session's, so the choice is kept with the account.
+  const collapsedOnServer = async () =>
+    /data-collapsible="icon"/.test(await (await page.request.get("/members/journal")).text())
+  const trigger = page.locator("[data-sidebar=trigger]")
+  await trigger.click()
+  await expect.poll(collapsedOnServer).toBe(true)
+  expect((await page.context().cookies()).map((c) => c.name)).not.toContain("sidebar_state")
+  await trigger.click()
+  await expect.poll(collapsedOnServer).toBe(false)
+})
+
 test("an active member lands on their dashboard", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 1, name: "Welcome back, Ava" })).toBeVisible()
   // The sign-in page opens light like the site; the member area opens dark.

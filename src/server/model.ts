@@ -117,6 +117,8 @@ export const memberSchema = z.object({
   memberSince: isoDate.nullable().default(null),
   termsAcceptedAt: optionalTimestamp,
   prefs: notificationPrefsSchema.default(DEFAULT_PREFS),
+  /** The sidebar left collapsed on a desktop. Kept here so pages render it that way from the start. */
+  sidebarCollapsed: z.boolean().default(false),
   brokerage: z
     .object({
       linked: z.boolean(),

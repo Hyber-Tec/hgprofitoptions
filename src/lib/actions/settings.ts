@@ -92,6 +92,16 @@ export async function updateNotificationPrefs(input: z.input<typeof prefsInput>)
   return { ok: true, data: undefined }
 }
 
+/** Remembers whether the sidebar is collapsed. Firebase Hosting forwards no cookie but the session's, so
+ * the choice is kept with the account, where the server can read it. */
+export async function saveSidebarCollapsed(collapsed: boolean): Promise<ActionResult> {
+  const viewer = await getViewer()
+  if (!viewer) return unauthorized
+  if (!z.boolean().safeParse(collapsed).success) return { ok: false, code: "validation", message: "Invalid value." }
+  await member(viewer.uid).update({ sidebarCollapsed: collapsed })
+  return { ok: true, data: undefined }
+}
+
 /** Signs out one other browser. */
 export async function revokeSession(sessionId: string): Promise<ActionResult> {
   const viewer = await getViewer()
