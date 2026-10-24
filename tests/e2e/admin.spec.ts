@@ -190,3 +190,35 @@ test("HG narrows the member list and renews from the selection bar", async ({ pa
   await page.getByRole("button", { name: "Clear filters" }).click()
   await expect(page.getByRole("link", { name: /Ava Martin/ })).toBeVisible()
 })
+
+test("HG makes a data editor, who keeps the market data up to date but never sees members", async ({
+  page,
+  browser,
+}) => {
+  await signIn(page, ACCOUNTS.admin)
+  await expect(page).toHaveURL(/\/admin$/)
+  await page.goto("/admin/members")
+  await page.getByRole("link", { name: /Julia Brooks/ }).click()
+  await page.getByRole("button", { name: "Actions" }).click()
+  await page.getByRole("menuitem", { name: "Make data editor" }).click()
+  await expect(page.getByText("Now a data editor")).toBeVisible()
+
+  const context = await browser.newContext()
+  const julia = await context.newPage()
+  await signIn(julia, "julia.brooks@example.com")
+  // Data editors start on Market data, with only the data pages in the console.
+  await expect(julia).toHaveURL(/\/admin\/market-data$/)
+  for (const name of ["Strike targets", "Tickers", "Market data", "Leveraged ETFs"])
+    await expect(julia.getByRole("link", { name, exact: true })).toBeVisible()
+  await expect(julia.getByRole("link", { name: "Members", exact: true })).toHaveCount(0)
+  expect((await julia.goto("/admin/members"))?.status()).toBe(404)
+  // The member area stays open to them, to check the tools.
+  await julia.goto("/members/channels")
+  await expect(julia.getByRole("heading", { level: 1, name: "Median & Channel Chart" })).toBeVisible()
+  await context.close()
+
+  await page.reload()
+  await page.getByRole("button", { name: "Actions" }).click()
+  await page.getByRole("menuitem", { name: "Remove data editor role" }).click()
+  await expect(page.getByText("Data editor role removed")).toBeVisible()
+})

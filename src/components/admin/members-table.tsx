@@ -3,7 +3,8 @@
 import Link from "next/link"
 import { useMemo, useState, useTransition } from "react"
 import { LuCalendarPlus, LuDownload, LuSearch, LuSlidersHorizontal } from "react-icons/lu"
-import { LEVEL_LABELS, TRADER_LEVELS, type TraderLevel } from "@/core/levels"
+import type { MembershipStatus, Role } from "@/core/domain/types"
+import { LEVEL_LABELS, TRADER_LEVELS, personBadge, type TraderLevel } from "@/core/levels"
 import { renewNextQuarter } from "@/lib/actions/admin/members"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -21,9 +22,9 @@ export interface MemberListRow {
   fullName: string
   email: string
   phone: string | null
-  role: "admin" | "member"
+  role: Role
   level: TraderLevel
-  statusKind: "admin" | "active" | "upcoming" | "expired" | "suspended" | "none"
+  statusKind: MembershipStatus["kind"]
   statusLabel: string
   tone: Tone
   periodLabel: string | null
@@ -47,6 +48,7 @@ const STATUS_ITEMS = [
   { value: "expired", label: "Expired" },
   { value: "suspended", label: "Suspended" },
   { value: "admin", label: "Admins" },
+  { value: "editor", label: "Data editors" },
 ]
 const LEVEL_ITEMS = [
   { value: "all", label: "Any level" },
@@ -347,7 +349,7 @@ export function MembersTable({
                     >
                       <span className="block font-medium">{r.fullName}</span>
                       <span className="block text-xs text-muted-foreground">
-                        {r.email} · {LEVEL_LABELS[r.level]}
+                        {r.email} · {personBadge(r)}
                       </span>
                     </Link>
                   </TableCell>

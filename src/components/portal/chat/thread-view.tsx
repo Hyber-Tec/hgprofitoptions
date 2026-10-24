@@ -43,7 +43,7 @@ function Message({
   onRemove: () => void
 }) {
   const badge = personBadge({ role: message.authorRole, level: message.authorLevel })
-  const helper = !isAsker && (message.authorRole === "admin" || message.authorLevel === "expert")
+  const helper = !isAsker && (message.authorRole === "admin" || message.authorLevel === "advanced")
   return (
     <li className={cn("group flex max-w-[85%] flex-col gap-1", mine ? "items-end self-end" : "items-start self-start")}>
       <span className="flex items-center gap-1.5 px-1 text-xs text-muted-foreground">
@@ -85,7 +85,7 @@ function Message({
 }
 
 /**
- * One question and its answers. The asker, experts and admins can reply; everyone else reads along.
+ * One question and its answers. The asker, advanced traders and admins can reply; everyone else reads along.
  * Messages arrive live; until the listener connects, the server-rendered messages show.
  */
 export function ThreadView({
@@ -213,7 +213,7 @@ export function ThreadView({
             {thread.visibility === "staff" && (
               <span className="inline-flex items-center gap-1">
                 <LuLock className="size-3" aria-hidden="true" />
-                Only experts and admins see it
+                Only advanced traders and admins see it
               </span>
             )}
             <ToneBadge tone={thread.status === "answered" ? "positive" : "muted"}>
@@ -281,7 +281,7 @@ export function ThreadView({
         </form>
       ) : (
         <p className="border-t px-4 py-3 text-xs text-muted-foreground">
-          The person who asked, experts and admins reply here. Ask your own question with Ask a question.
+          The person who asked, advanced traders and admins reply here. Ask your own question with Ask a question.
         </p>
       )}
     </section>

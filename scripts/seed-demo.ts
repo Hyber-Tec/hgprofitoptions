@@ -313,7 +313,7 @@ interface DemoMember {
   fullName: string
   role: "admin" | "member"
   /** Trader level; everyone else is a beginner. */
-  level?: "advanced" | "expert"
+  level?: "intermediate" | "advanced"
   status?: "active" | "suspended"
   /** [year, quarter, count, customStart?] */
   periods: [number, Quarter, number, IsoDate?][]
@@ -426,7 +426,7 @@ const MEMBERS: DemoMember[] = [
     email: "george.okafor@example.com",
     fullName: "George Okafor",
     role: "member",
-    level: "expert",
+    level: "advanced",
     periods: [[...q(-1), 2]],
     linked: true,
     location: "Kigali, Rwanda",
@@ -449,7 +449,7 @@ const MEMBERS: DemoMember[] = [
     email: "ivan.petrov@example.com",
     fullName: "Ivan Petrov",
     role: "member",
-    level: "advanced",
+    level: "intermediate",
     periods: [[...q(0), 2]],
     linked: true,
     location: "Sofia, Bulgaria",

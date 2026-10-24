@@ -1,6 +1,6 @@
 /**
- * Chat notifications: a new question goes to the experts and admins, an answer to the person who asked,
- * and a follow-up to the experts and admins already in the conversation.
+ * Chat notifications: a new question goes to the advanced traders and admins, an answer to the person who
+ * asked, and a follow-up to the advanced traders and admins already in the conversation.
  */
 import type { Firestore } from "firebase-admin/firestore"
 import type { Messaging } from "firebase-admin/messaging"
@@ -17,14 +17,14 @@ async function readMembers(db: Firestore, uids: readonly string[]): Promise<Memb
   })
 }
 
-/** Experts and admins who can open the chat right now. */
+/** Advanced traders and admins who can open the chat right now. */
 export async function chatStaff(db: Firestore, now = new Date()): Promise<Member[]> {
-  const [admins, experts] = await Promise.all([
+  const [admins, advanced] = await Promise.all([
     db.collection(COLLECTIONS.members).where("role", "==", "admin").get(),
-    db.collection(COLLECTIONS.members).where("level", "==", "expert").get(),
+    db.collection(COLLECTIONS.members).where("level", "==", "advanced").get(),
   ])
   const byUid = new Map<string, Member>()
-  for (const doc of [...admins.docs, ...experts.docs]) {
+  for (const doc of [...admins.docs, ...advanced.docs]) {
     const parsed = parseDoc(memberSchema, doc.id, doc.data())
     if (!parsed || parsed.status !== "active") continue
     const member: Member = { ...parsed, uid: doc.id }
@@ -59,7 +59,7 @@ export async function notifyChat(db: Firestore, messaging: Messaging, event: Cha
     recipients = await readMembers(db, [event.askerUid])
     title = `${firstName(event.author.name)} answered your question`
   } else {
-    // A follow-up from the asker: the experts and admins already in the conversation, else all of them.
+    // A follow-up from the asker: the advanced traders and admins already in the conversation, else all of them.
     const messages = await db.collection(COLLECTIONS.threads).doc(event.threadId).collection(MESSAGES).get()
     const helpers = new Set(
       messages.docs.flatMap((d) => {

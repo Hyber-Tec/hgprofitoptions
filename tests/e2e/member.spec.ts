@@ -137,6 +137,15 @@ test("the journal lists trades plainly and keeps the extra filters behind Filter
   await expectNoHorizontalScroll(page)
 })
 
+test("HG standing opens at the Intermediate level, and the guide says how to get there", async ({ page }) => {
+  await page.goto("/members/standing")
+  await expect(page.getByText("HG standing opens at the Intermediate level")).toBeVisible()
+  await page.getByRole("link", { name: "How levels work" }).click()
+  await expect(page).toHaveURL(/\/members\/settings#levels$/)
+  await expect(page.locator('#levels [aria-current="step"]')).toContainText("Beginner")
+  await expect(page.locator("#levels")).toContainText("Pass the exam with 80% or more")
+})
+
 test("members cannot open the admin console", async ({ page, allowConsole }) => {
   allowConsole(/status of 404/)
   const response = await page.goto("/admin")

@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { requireAdmin } from "@/lib/auth/guards"
+import { requireEditor } from "@/lib/auth/guards"
 import { getEtfConfig } from "@/lib/data/tools"
 import { EtfEditor } from "@/components/admin/market-forms"
 import { PageHeader } from "@/components/portal/page-header"
@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card"
 export const metadata: Metadata = { title: "Leveraged ETFs" }
 
 export default async function AdminEtfsPage() {
-  await requireAdmin({ next: "/admin/etfs" })
+  await requireEditor({ next: "/admin/etfs" })
   const config = await getEtfConfig()
   return (
     <>

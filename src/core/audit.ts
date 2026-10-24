@@ -22,6 +22,7 @@ const ACTION_LABELS: Record<string, string> = {
   "member.reinstated": "Reinstated",
   "member.promoted": "Made an admin",
   "member.demoted": "Admin access removed",
+  "member.role_changed": "Role changed",
   "member.level_changed": "Trader level changed",
   "member.deleted": "Member deleted",
   "member.password_reset": "Password reset link created",

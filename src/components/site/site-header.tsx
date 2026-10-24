@@ -4,6 +4,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Suspense, lazy, useEffect, useState } from "react"
 import { LuLayoutDashboard, LuLogIn, LuMenu, LuShield } from "react-icons/lu"
+import type { Role } from "@/core/domain/types"
 import { ThemeToggle } from "@/components/shared/theme-toggle"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
@@ -29,7 +30,7 @@ const NAV = [
 export interface HeaderViewer {
   fullName: string
   email: string
-  role: "admin" | "member"
+  role: Role
 }
 
 /**
@@ -145,7 +146,7 @@ export function SiteHeader({ viewer }: { viewer: HeaderViewer | null }) {
                       <LuLayoutDashboard data-icon="inline-start" />
                       Member area
                     </ButtonLink>
-                    {viewer.role === "admin" && (
+                    {viewer.role !== "member" && (
                       <ButtonLink variant="outline" size="lg" href="/admin" onClick={() => setOpen(false)}>
                         <LuShield data-icon="inline-start" />
                         Admin

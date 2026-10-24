@@ -12,6 +12,7 @@ import {
   type Unsubscribe,
 } from "firebase/firestore"
 import type { ChatMessage, ChatThread } from "@/core/chat"
+import { TRADER_LEVELS } from "@/core/levels"
 import { clientAuth } from "@/lib/firebase/client"
 import { clientDb } from "@/lib/firebase/client-db"
 
@@ -38,8 +39,8 @@ function toMessage(id: string, d: DocumentData): ChatMessage {
     id,
     authorUid: String(d.authorUid ?? ""),
     authorName: String(d.authorName ?? ""),
-    authorRole: d.authorRole === "admin" ? "admin" : "member",
-    authorLevel: d.authorLevel === "expert" ? "expert" : d.authorLevel === "advanced" ? "advanced" : "beginner",
+    authorRole: d.authorRole === "admin" ? "admin" : d.authorRole === "editor" ? "editor" : "member",
+    authorLevel: TRADER_LEVELS.find((level) => level === d.authorLevel) ?? "beginner",
     body: String(d.body ?? ""),
     createdAt: millis(d.createdAt),
     removed: d.removed === true,
@@ -68,7 +69,7 @@ function whileSignedIn(uid: string, start: () => Unsubscribe[], onIdle: () => vo
 }
 
 /**
- * The threads this member may read and when they last saw each one, live. Experts and admins see every
+ * The threads this member may read and when they last saw each one, live. Advanced traders and admins see every
  * thread; everyone else the class threads and their own (the same split as the security rules).
  */
 export function listenToThreads(

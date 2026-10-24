@@ -17,7 +17,7 @@ test("a member asks a question and sees HG's answer arrive", async ({ page, brow
   await signIn(admin, ACCOUNTS.admin)
   await expect(admin).toHaveURL(/\/admin$/)
   await admin.goto("/members/chat")
-  // Experts and admins start on the questions waiting for an answer.
+  // Advanced traders and admins start on the questions waiting for an answer.
   await admin.getByRole("link", { name: new RegExp(question.replace(/[()?]/g, "\\$&")) }).click()
   await admin.getByLabel("Your answer").fill("Yes. A wick through the level is not a break; wait for the close.")
   await admin.getByRole("button", { name: "Send" }).click()
@@ -33,7 +33,10 @@ test("a member asks a question and sees HG's answer arrive", async ({ page, brow
   await expect(page.getByText("Answered", { exact: true }).first()).toBeVisible()
 })
 
-test("members read class questions but only the asker, experts and admins reply", async ({ page, browser }) => {
+test("members read class questions but only the asker, advanced traders and admins reply", async ({
+  page,
+  browser,
+}) => {
   const askerContext = await browser.newContext()
   const asker = await askerContext.newPage()
   await signIn(asker, ACCOUNTS.active)
@@ -52,5 +55,5 @@ test("members read class questions but only the asker, experts and admins reply"
   await page.goto(url)
   await expect(page.getByRole("heading", { level: 2, name: question })).toBeVisible()
   await expect(page.getByLabel("Your answer")).toHaveCount(0)
-  await expect(page.getByText("The person who asked, experts and admins reply here.")).toBeVisible()
+  await expect(page.getByText("The person who asked, advanced traders and admins reply here.")).toBeVisible()
 })

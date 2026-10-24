@@ -8,7 +8,8 @@ export type Quarter = 1 | 2 | 3 | 4
 /** "YYYY-MM-DD": a calendar date in America/New_York. */
 export type IsoDate = string & { readonly __brand: "IsoDate" }
 
-export type Role = "admin" | "member"
+/** Data editors keep the market data and the tools up to date; admins do everything. */
+export type Role = "admin" | "editor" | "member"
 export type AccountStatus = "active" | "suspended"
 
 export interface MembershipPeriod {
@@ -24,6 +25,7 @@ export interface MembershipPeriod {
 
 export type MembershipStatus =
   | { kind: "admin" }
+  | { kind: "editor" }
   | { kind: "suspended" }
   | { kind: "active"; period: MembershipPeriod; coverageEnd: IsoDate; daysLeft: number; expiringSoon: boolean }
   | { kind: "upcoming"; next: MembershipPeriod }

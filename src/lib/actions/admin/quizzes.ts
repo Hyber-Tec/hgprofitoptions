@@ -93,7 +93,7 @@ export async function createQuiz(input: z.input<typeof createInput>): Promise<Ac
     questions: [],
     perAttempt: kind === "test" ? Math.max(count, 10) : 10,
     passScore: 0.8,
-    awardsLevel: kind === "test" ? "advanced" : null,
+    awardsLevel: kind === "test" ? "intermediate" : null,
     generation: generate
       ? { status: "pending", count, message: null, claimId: null, requestedAt: now, finishedAt: null }
       : null,

@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation"
 import { useMemo, useState, useTransition, type SubmitEvent } from "react"
 import {
   LuCalendarPlus,
+  LuDatabase,
   LuChevronDown,
   LuKeyRound,
   LuLogOut,
@@ -14,8 +15,8 @@ import {
   LuUserCheck,
   LuUserX,
 } from "react-icons/lu"
-import type { IsoDate, Quarter } from "@/core/domain/types"
-import { LEVEL_LABELS, TRADER_LEVELS, type TraderLevel } from "@/core/levels"
+import type { IsoDate, Quarter, Role } from "@/core/domain/types"
+import { LEVEL_GUIDE, LEVEL_LABELS, LEVELS_INTRO, TRADER_LEVELS, type TraderLevel } from "@/core/levels"
 import { describePeriodRange, periodFromQuarters, quarterRange } from "@/core/membership/quarters"
 import {
   addMemberPeriod,
@@ -76,7 +77,7 @@ export function MemberActionsMenu({
   isSelf,
 }: {
   uid: string
-  role: "admin" | "member"
+  role: Role
   suspended: boolean
   isSelf: boolean
 }) {
@@ -132,17 +133,31 @@ export function MemberActionsMenu({
             <>
               <DropdownMenuSeparator />
               <DropdownMenuGroup>
-                <DropdownMenuItem
-                  onClick={() =>
-                    run(
-                      () => setMemberRole(uid, role === "admin" ? "member" : "admin"),
-                      role === "admin" ? "Admin role removed" : "Promoted to admin",
-                    )
-                  }
-                >
-                  {role === "admin" ? <LuShieldOff /> : <LuShield />}
-                  {role === "admin" ? "Remove admin role" : "Make admin"}
-                </DropdownMenuItem>
+                {role !== "admin" && (
+                  <DropdownMenuItem onClick={() => run(() => setMemberRole(uid, "admin"), "Promoted to admin")}>
+                    <LuShield />
+                    Make admin
+                  </DropdownMenuItem>
+                )}
+                {role === "member" && (
+                  <DropdownMenuItem onClick={() => run(() => setMemberRole(uid, "editor"), "Now a data editor")}>
+                    <LuDatabase />
+                    Make data editor
+                  </DropdownMenuItem>
+                )}
+                {role !== "member" && (
+                  <DropdownMenuItem
+                    onClick={() =>
+                      run(
+                        () => setMemberRole(uid, "member"),
+                        role === "admin" ? "Admin role removed" : "Data editor role removed",
+                      )
+                    }
+                  >
+                    <LuShieldOff />
+                    {role === "admin" ? "Remove admin role" : "Remove data editor role"}
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem
                   onClick={() =>
                     run(() => setMemberSuspended(uid, !suspended), suspended ? "Member reinstated" : "Member suspended")
@@ -509,13 +524,14 @@ export function TraderLevelControl({
         </ToggleGroup>
         {pending && <Spinner className="text-muted-foreground" />}
       </div>
+      <p className="text-sm text-muted-foreground">{LEVEL_GUIDE[value].means}</p>
       <p className="text-xs text-muted-foreground">
         {setBy === "test"
-          ? "Set by a passed test. "
+          ? "Set by a passed exam. "
           : setBy === "admin"
             ? "Set by an admin. "
             : "Everyone starts as a beginner. "}
-        Experts answer questions in Chat.
+        {LEVELS_INTRO}
       </p>
     </div>
   )

@@ -10,6 +10,7 @@ import { requireViewer } from "@/lib/auth/guards"
 import { listInvoicesFor } from "@/lib/data/invoices"
 import { adminAuth } from "@/lib/firebase/admin"
 import { ToneBadge, type Tone } from "@/components/portal/display"
+import { LevelGuide } from "@/components/portal/level-guide"
 import { PageHeader } from "@/components/portal/page-header"
 import { DeletionRequest } from "@/components/portal/settings/account-actions"
 import { ProfileForm } from "@/components/portal/settings/profile-form"
@@ -84,14 +85,6 @@ export default async function SettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
-              <p className="flex flex-wrap items-center gap-2 text-sm">
-                Trader level <ToneBadge tone="neutral">{LEVEL_LABELS[viewer.member.level]}</ToneBadge>
-                {viewer.member.level === "beginner" && viewer.role !== "admin" && (
-                  <span className="text-xs text-muted-foreground">
-                    HG assigns the Advanced test when you are ready.
-                  </span>
-                )}
-              </p>
               {viewer.member.memberSince && (
                 <p className="text-sm text-muted-foreground">Member since {formatDate(viewer.member.memberSince)}</p>
               )}
@@ -122,6 +115,20 @@ export default async function SettingsPage() {
               <p className="text-xs text-muted-foreground">To renew or change your membership, book a call with HG.</p>
             </CardContent>
           </Card>
+          {viewer.role === "member" && (
+            <Card id="levels" className="scroll-mt-20">
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between gap-2">
+                  Your trader level
+                  <ToneBadge tone="neutral">{LEVEL_LABELS[viewer.member.level]}</ToneBadge>
+                </CardTitle>
+                <CardDescription>How the membership levels work.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <LevelGuide level={viewer.member.level} />
+              </CardContent>
+            </Card>
+          )}
           {visibleInvoices.length > 0 && (
             <Card id="invoices" className="scroll-mt-20">
               <CardHeader>

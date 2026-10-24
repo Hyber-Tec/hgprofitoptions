@@ -20,6 +20,8 @@ export function membershipSummary(status: MembershipStatus): MembershipSummary {
   switch (status.kind) {
     case "admin":
       return { status: "Admin", label: "Admin", detail: "Full access", tone: "positive" }
+    case "editor":
+      return { status: "Data editor", label: "Data editor", detail: "Market data and the tools", tone: "positive" }
     case "active": {
       const left = status.daysLeft === 0 ? "Last day today" : `${plural(status.daysLeft, "day")} left`
       // Back-to-back renewals read as one block: "Q4 2026 to Q1 2027".

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react"
 import { LuLink2, LuX } from "react-icons/lu"
+import type { Role } from "@/core/domain/types"
 import { cancelInvite, resendInvite } from "@/lib/actions/admin/members"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
@@ -12,7 +13,7 @@ import { LinkDialog } from "./invite-link-dialog"
 export interface InviteRow {
   email: string
   fullName: string
-  role: "admin" | "member"
+  role: Role
   period: string | null
   createdAt: string
   expiresAt: string
@@ -60,7 +61,9 @@ export function PendingInvites({ invites }: { invites: InviteRow[] }) {
             <div className="min-w-0">
               <p className="flex flex-wrap items-center gap-2 font-medium">
                 {i.fullName}
-                {i.role === "admin" && <ToneBadge tone="neutral">Admin</ToneBadge>}
+                {i.role !== "member" && (
+                  <ToneBadge tone="neutral">{i.role === "admin" ? "Admin" : "Data editor"}</ToneBadge>
+                )}
                 {i.expired && <ToneBadge tone="warning">Link expired</ToneBadge>}
               </p>
               <p className="text-sm text-muted-foreground">

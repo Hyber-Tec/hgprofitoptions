@@ -4,6 +4,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Fragment } from "react"
 import { LuBell } from "react-icons/lu"
+import type { Role } from "@/core/domain/types"
 import { formatDate } from "@/core/format"
 import { isIsoDate } from "@/core/dates"
 import { ThemeToggle } from "@/components/shared/theme-toggle"
@@ -138,7 +139,7 @@ export function PortalHeader({
   hasAccess,
 }: {
   area: PortalArea
-  viewer: { fullName: string; email: string; role: "admin" | "member" }
+  viewer: { fullName: string; email: string; role: Role }
   hasAccess: boolean
 }) {
   return (
@@ -147,7 +148,7 @@ export function PortalHeader({
       <Separator orientation="vertical" className="mr-1 data-vertical:h-4 data-vertical:self-center" />
       <Crumbs area={area} />
       <div className="ml-auto flex items-center gap-1">
-        <CommandSearch isAdmin={viewer.role === "admin"} hasAccess={hasAccess} />
+        <CommandSearch role={viewer.role} hasAccess={hasAccess} />
         {hasAccess && <AlertsBell />}
         <ThemeToggle />
         <UserMenu viewer={viewer} compact />

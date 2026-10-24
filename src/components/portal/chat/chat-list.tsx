@@ -12,7 +12,7 @@ import { ToneBadge } from "../display"
 
 export interface ChatViewer {
   uid: string
-  /** Experts and admins: they answer questions and see every thread. */
+  /** Advanced traders and admins: they answer questions and see every thread. */
   staff: boolean
   isAdmin: boolean
 }

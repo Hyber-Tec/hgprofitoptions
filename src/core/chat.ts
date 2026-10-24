@@ -6,7 +6,7 @@ export interface ChatThread {
   id: string
   askerUid: string
   askerName: string
-  /** "class": every member with access reads it; "staff": only the asker, experts and admins. */
+  /** "class": every member with access reads it; "staff": only the asker, advanced traders and admins. */
   visibility: "class" | "staff"
   title: string
   status: "open" | "answered"

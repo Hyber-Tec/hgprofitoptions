@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { requireAdmin } from "@/lib/auth/guards"
+import { requireEditor } from "@/lib/auth/guards"
 import { editorContext, publishedHistory, today } from "@/lib/admin/targets-data"
 import { TargetsEditor } from "@/components/admin/targets-editor"
 import { PageHeader } from "@/components/portal/page-header"
@@ -7,7 +7,7 @@ import { PageHeader } from "@/components/portal/page-header"
 export const metadata: Metadata = { title: "New strike target update" }
 
 export default async function NewTargetsPage() {
-  await requireAdmin({ next: "/admin/targets/new" })
+  await requireEditor({ next: "/admin/targets/new" })
   const date = today()
   const [{ configGroups, tickers }, history] = await Promise.all([editorContext(), publishedHistory()])
   return (

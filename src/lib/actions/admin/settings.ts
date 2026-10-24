@@ -4,6 +4,7 @@ import { refresh } from "next/cache"
 import { z } from "zod"
 import { todayInMarketZone } from "@/core/dates"
 import type { ActionResult } from "@/core/domain/types"
+import { TRADER_LEVELS } from "@/core/levels"
 import { CLASS_AUDIENCES } from "@/core/schedule"
 import { normalizeMeetingId } from "@/core/zoom"
 import { writeAudit } from "@/server/members"
@@ -138,6 +139,7 @@ const visibilityInput = z.object({
   showPositions: z.boolean(),
   showClosedTrades: z.boolean(),
   positionDelayHours: z.number().int().min(0).max(168),
+  openFrom: z.enum(TRADER_LEVELS),
 })
 
 /** What members see of HG's portfolio. The standing is recomputed right away so the change shows. */

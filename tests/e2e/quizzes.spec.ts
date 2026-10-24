@@ -60,10 +60,10 @@ test("HG makes a practice quiz from class notes and members practice with instan
   await member.close()
 })
 
-test("passing an assigned test makes a beginner an Advanced trader", async ({ page, browser }) => {
+test("passing the exam with 80% or more makes a beginner Intermediate", async ({ page, browser }) => {
   await signIn(page, ACCOUNTS.admin)
   await expect(page).toHaveURL(/\/admin$/)
-  await createQuiz(page, "Advanced trader test", "Test", 5)
+  await createQuiz(page, "Intermediate exam", "Test", 5)
   await page.getByLabel("Find a member").fill("Ben")
   await page.getByRole("checkbox").first().click()
   await page.getByRole("button", { name: "Assign to 1 member" }).click()
@@ -82,9 +82,13 @@ test("passing an assigned test makes a beginner an Advanced trader", async ({ pa
     await answerCorrectly(ben)
     await ben.getByRole("button", { name: i === 5 ? "Submit test" : "Next", exact: true }).click()
   }
-  await expect(ben.getByText("You are now an Advanced trader.")).toBeVisible()
+  await expect(ben.getByText("You are now an Intermediate trader.")).toBeVisible()
   await expect(ben.getByText("100%")).toBeVisible()
+  // The level guide marks the new level and says what comes next.
   await ben.goto("/members/settings")
-  await expect(ben.getByText("Advanced", { exact: true })).toBeVisible()
+  const levels = ben.locator("#levels")
+  await expect(levels.getByText("Intermediate", { exact: true }).first()).toBeVisible()
+  await expect(levels.locator('[aria-current="step"]')).toContainText("Intermediate")
+  await expect(levels.getByText("HG moves traders up to Advanced when they are ready.")).toBeVisible()
   await member.close()
 })

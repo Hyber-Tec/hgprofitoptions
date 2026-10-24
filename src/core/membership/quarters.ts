@@ -113,6 +113,7 @@ export function membershipStatus(args: {
   const { role, status, today, expiringSoonDays = 14 } = args
   if (role === "admin") return { kind: "admin" }
   if (status === "suspended") return { kind: "suspended" }
+  if (role === "editor") return { kind: "editor" }
 
   const sorted = sortByStart(args.periods)
   const current = sorted.find((p) => p.start <= today && today <= p.end)
@@ -128,7 +129,7 @@ export function membershipStatus(args: {
 }
 
 export function hasAccess(status: MembershipStatus): boolean {
-  return status.kind === "admin" || status.kind === "active"
+  return status.kind === "admin" || status.kind === "editor" || status.kind === "active"
 }
 
 /**

@@ -167,7 +167,7 @@ export function NotificationPrefs({ initial, emailAvailable }: { initial: PrefsV
           <span>
             <span className="block text-sm font-medium">Chat</span>
             <span className="block text-sm text-muted-foreground">
-              Answers to your questions. Experts and admins also hear about new questions.
+              Answers to your questions. Advanced traders and admins also hear about new questions.
             </span>
           </span>
           <Switch checked={prefs.chat} onCheckedChange={(v) => setPrefs((p) => ({ ...p, chat: v }))} />

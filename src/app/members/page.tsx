@@ -49,7 +49,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/member
               <PerformanceCard viewer={viewer} />
             </Suspense>
             <Suspense fallback={<CardSkeleton lines={2} />}>
-              <StandingCard />
+              <StandingCard viewer={viewer} />
             </Suspense>
           </div>
           <Suspense fallback={<CardSkeleton lines={1} />}>

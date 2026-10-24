@@ -6,6 +6,7 @@ import { SiWhatsapp, SiZoom } from "react-icons/si"
 import { addDays, daysBetween, todayInMarketZone } from "@/core/dates"
 import type { IsoDate } from "@/core/domain/types"
 import { formatDate, formatLevel, formatPercent, formatShortDate } from "@/core/format"
+import { LEVEL_GUIDE, LEVEL_LABELS, reachesLevel } from "@/core/levels"
 import { describePeriodRange, quarterOf } from "@/core/membership/quarters"
 import { membershipSummary } from "@/core/membership/summary"
 import { diffTargets } from "@/core/parsers/strike-targets"
@@ -86,6 +87,23 @@ export function MembershipCard({ viewer, bookingHref }: { viewer: Viewer; bookin
           </span>
           {status.kind === "active" && <span className="font-medium text-foreground">{summary.detail}</span>}
         </div>
+        {viewer.role === "member" && (
+          <Link
+            href="/members/settings#levels"
+            className="-mx-2 flex flex-col gap-0.5 rounded-lg px-2 py-1.5 outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50"
+          >
+            <span className="flex items-center justify-between gap-2 text-sm">
+              <span>
+                Trader level <span className="font-medium">{LEVEL_LABELS[viewer.member.level]}</span>
+              </span>
+              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                How levels work
+                <LuArrowRight aria-hidden="true" className="size-3" />
+              </span>
+            </span>
+            <span className="text-xs text-muted-foreground">{LEVEL_GUIDE[viewer.member.level].means}</span>
+          </Link>
+        )}
         {status.kind === "active" && status.expiringSoon && (
           <Alert>
             <AlertTitle>Your membership ends {formatDate(status.coverageEnd)}</AlertTitle>
@@ -214,7 +232,26 @@ export async function PerformanceCard({ viewer }: { viewer: Viewer }) {
 
 // ---- HG standing ----------------------------------------------------------------------------
 
-export async function StandingCard() {
+export async function StandingCard({ viewer }: { viewer: Viewer }) {
+  const { hgPortfolio } = await getMemberSettings()
+  if (!reachesLevel(viewer.member, hgPortfolio.openFrom))
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>HG standing</CardTitle>
+          <CardDescription>Opens at the {LEVEL_LABELS[hgPortfolio.openFrom]} level</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col items-start gap-3">
+          <p className="text-sm text-muted-foreground">
+            HG shares his own portfolio with {LEVEL_LABELS[hgPortfolio.openFrom]} traders and up.{" "}
+            {LEVEL_GUIDE[viewer.member.level].next}
+          </p>
+          <ButtonLink variant="outline" size="sm" href="/members/settings#levels">
+            How levels work
+          </ButtonLink>
+        </CardContent>
+      </Card>
+    )
   const standing = await getStanding()
   const curve = standing?.hgPortfolio?.curve.slice(-90).map((p) => p.index) ?? []
   const record = standing?.alertsTrackRecord

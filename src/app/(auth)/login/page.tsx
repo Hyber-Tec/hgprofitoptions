@@ -8,6 +8,6 @@ export const metadata: Metadata = { title: "Member login", robots: { index: fals
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const { next } = await searchParams
   const viewer = await getViewer()
-  if (viewer) redirect(viewer.role === "admin" ? "/admin" : "/members")
+  if (viewer) redirect(viewer.role === "member" ? "/members" : "/admin")
   return <LoginForm next={typeof next === "string" ? next : null} />
 }

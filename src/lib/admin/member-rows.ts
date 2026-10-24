@@ -32,8 +32,8 @@ export function toMemberListRow({ member, periods, status }: MemberRow): MemberL
     statusLabel: summary.status,
     tone: TONES[summary.tone],
     periodLabel:
-      status.kind === "admin"
-        ? "Admin"
+      status.kind === "admin" || status.kind === "editor"
+        ? summary.label
         : status.kind === "suspended"
           ? (latest?.label ?? null)
           : status.kind === "none"

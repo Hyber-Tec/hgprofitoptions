@@ -78,7 +78,7 @@ export const isoDate = z.string().refine(isIsoDate, "Expected YYYY-MM-DD")
 
 // ---- Membership -------------------------------------------------------------------------------
 
-export const roleSchema = z.enum(["admin", "member"])
+export const roleSchema = z.enum(["admin", "editor", "member"])
 export const memberStatusSchema = z.enum(["active", "suspended"])
 
 export const notificationPrefsSchema = z.object({
@@ -89,7 +89,7 @@ export const notificationPrefsSchema = z.object({
   mutedSymbols: z.array(z.string()).default([]),
   targetsPublished: z.boolean().default(true),
   membershipReminders: z.boolean().default(true),
-  /** Chat: answers to my questions (experts and admins: new questions). */
+  /** Chat: answers to my questions (advanced traders and admins: new questions). */
   chat: z.boolean().default(true),
   /** The AI recap of a class is ready. */
   classRecaps: z.boolean().default(true),
@@ -407,10 +407,10 @@ export type FcmTokenDoc = z.infer<typeof fcmTokenSchema> & { id: string }
 export const threadSchema = z.object({
   askerUid: z.string(),
   askerName: z.string(),
-  /** "class": every member with access reads it; "staff": only the asker, experts and admins. */
+  /** "class": every member with access reads it; "staff": only the asker, advanced traders and admins. */
   visibility: z.enum(["class", "staff"]),
   title: z.string(),
-  /** "answered" once an expert or admin replied after the last question from the asker. */
+  /** "answered" once an advanced trader or admin replied after the last question from the asker. */
   status: z.enum(["open", "answered"]),
   createdAt: timestamp,
   lastMessageAt: timestamp,
@@ -838,8 +838,16 @@ export const memberSettingsSchema = z.object({
       showPositions: z.boolean(),
       showClosedTrades: z.boolean(),
       positionDelayHours: z.number().int().min(0).max(168),
+      /** HG standing is open to members from this level up (staff always see it). */
+      openFrom: z.enum(TRADER_LEVELS).default("intermediate"),
     })
-    .default({ showDollars: false, showPositions: false, showClosedTrades: true, positionDelayHours: 0 }),
+    .default({
+      showDollars: false,
+      showPositions: false,
+      showClosedTrades: true,
+      positionDelayHours: 0,
+      openFrom: "intermediate",
+    }),
 })
 export type MemberSettings = z.infer<typeof memberSettingsSchema>
 

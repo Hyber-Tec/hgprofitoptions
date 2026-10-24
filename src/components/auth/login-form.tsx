@@ -4,6 +4,7 @@ import type { MultiFactorResolver } from "firebase/auth"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState, type SubmitEvent } from "react"
+import type { Role } from "@/core/domain/types"
 import { signInWithGoogle, signInWithPassword, type SignInResult } from "@/lib/auth/client"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -15,9 +16,9 @@ import { PasswordInput } from "./password-input"
 import { TotpStep } from "./totp-step"
 
 /** Only same-site paths are allowed as a post-login destination. */
-function safeNext(next: string | null, role: "admin" | "member"): string {
+function safeNext(next: string | null, role: Role): string {
   if (next && next.startsWith("/") && !next.startsWith("//")) return next
-  return role === "admin" ? "/admin" : "/members"
+  return role === "member" ? "/members" : "/admin"
 }
 
 export function LoginForm({ next }: { next: string | null }) {

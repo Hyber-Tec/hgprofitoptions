@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation"
 import { useEffect, useState, useTransition } from "react"
 import { LuArchive, LuEyeOff, LuSend, LuSparkles, LuTriangleAlert } from "react-icons/lu"
-import { LEVEL_LABELS } from "@/core/levels"
+import { LEVEL_LABELS, type TraderLevel } from "@/core/levels"
 import { createQuiz, setQuizStatus, updateQuizSettings, writeMoreQuestions } from "@/lib/actions/admin/quizzes"
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -11,11 +11,16 @@ import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Spinner } from "@/components/ui/spinner"
-import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/components/ui/toast"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { UploadField, type UploadedFile } from "./upload-field"
+
+const AWARD_ITEMS: { value: TraderLevel | "none"; label: string }[] = [
+  { value: "intermediate", label: `Move them up to ${LEVEL_LABELS.intermediate}` },
+  { value: "advanced", label: `Move them up to ${LEVEL_LABELS.advanced}` },
+  { value: "none", label: "Keep their level as it is" },
+]
 
 export interface QuizDocumentOption {
   path: string
@@ -93,7 +98,7 @@ export function NewQuizForm({ documents, aiReady }: { documents: QuizDocumentOpt
           <FieldDescription>
             {kind === "practice"
               ? "Every member can practice as often as they like and sees the answers as they go."
-              : "Only members you assign take it, once each. Passing makes a beginner an Advanced trader."}
+              : "Only members you assign take it, once each. Passing the exam (80% by default) makes a beginner Intermediate."}
           </FieldDescription>
         </Field>
         <Field>
@@ -272,7 +277,7 @@ export function QuizSettingsForm({
   const [description, setDescription] = useState(initial.description ?? "")
   const [perAttempt, setPerAttempt] = useState(String(initial.perAttempt))
   const [passPercent, setPassPercent] = useState(String(Math.round(initial.passScore * 100)))
-  const [awards, setAwards] = useState(initial.awardsLevel !== null)
+  const [awards, setAwards] = useState<TraderLevel | "none">((initial.awardsLevel as TraderLevel | null) ?? "none")
   const [pending, startTransition] = useTransition()
   const save = () =>
     startTransition(async () => {
@@ -281,7 +286,7 @@ export function QuizSettingsForm({
         description: description.trim() || null,
         perAttempt: Number(perAttempt),
         passScore: Number(passPercent) / 100,
-        awardsLevel: awards ? "advanced" : null,
+        awardsLevel: awards === "none" ? null : awards,
       })
       toast.add(
         result.ok
@@ -340,15 +345,29 @@ export function QuizSettingsForm({
           )}
         </div>
         {kind === "test" && (
-          <label className="flex items-start justify-between gap-4 rounded-lg border p-3">
-            <span>
-              <span className="block text-sm font-medium">Passing makes a beginner {LEVEL_LABELS.advanced}</span>
-              <span className="block text-sm text-muted-foreground">
-                Levels only go up this way. You can still set anyone&apos;s level on their member page.
-              </span>
-            </span>
-            <Switch checked={awards} onCheckedChange={setAwards} />
-          </label>
+          <Field>
+            <FieldLabel htmlFor="s-awards">When someone passes</FieldLabel>
+            <Select
+              items={AWARD_ITEMS}
+              value={awards}
+              onValueChange={(v: string | null) => v && setAwards(v as TraderLevel | "none")}
+            >
+              <SelectTrigger id="s-awards" className="w-full sm:w-80">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {AWARD_ITEMS.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <FieldDescription>
+              It happens the moment they pass, and a level only ever goes up this way. You can still set anyone&apos;s
+              level on their member page.
+            </FieldDescription>
+          </Field>
         )}
       </FieldGroup>
       <div>

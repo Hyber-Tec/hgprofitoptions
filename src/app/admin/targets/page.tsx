@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { LuPlus } from "react-icons/lu"
 import { formatDateTimeET, formatDateWithWeekday } from "@/core/format"
-import { requireAdmin } from "@/lib/auth/guards"
+import { requireEditor } from "@/lib/auth/guards"
 import { listTargetUpdates } from "@/lib/data/tools"
 import { listDrafts } from "@/lib/admin/targets-data"
 import { ToneBadge } from "@/components/portal/display"
@@ -14,7 +14,7 @@ import { ButtonLink } from "@/components/shared/button-link"
 export const metadata: Metadata = { title: "Strike targets" }
 
 export default async function AdminTargetsPage() {
-  await requireAdmin({ next: "/admin/targets" })
+  await requireEditor({ next: "/admin/targets" })
   const [published, drafts] = await Promise.all([listTargetUpdates(), listDrafts()])
   return (
     <>

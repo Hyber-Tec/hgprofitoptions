@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react"
 import { LuPlus, LuRefreshCw, LuSave, LuTrash2 } from "react-icons/lu"
+import { LEVEL_LABELS, type TraderLevel } from "@/core/levels"
 import { AUDIENCE_LABELS, CLASS_AUDIENCES, WEEKDAYS, type ClassAudience, type ClassSession } from "@/core/schedule"
 import { formatMeetingId, zoomMeetingNumber } from "@/core/zoom"
 import {
@@ -437,10 +438,22 @@ export function MemberSettingsForm({
   )
 }
 
+const OPEN_FROM_ITEMS = [
+  { value: "beginner", label: "Everyone with a membership" },
+  { value: "intermediate", label: `${LEVEL_LABELS.intermediate} and ${LEVEL_LABELS.advanced} traders` },
+  { value: "advanced", label: `${LEVEL_LABELS.advanced} traders only` },
+]
+
 export function HgVisibilityForm({
   initial,
 }: {
-  initial: { showDollars: boolean; showPositions: boolean; showClosedTrades: boolean; positionDelayHours: number }
+  initial: {
+    showDollars: boolean
+    showPositions: boolean
+    showClosedTrades: boolean
+    positionDelayHours: number
+    openFrom: TraderLevel
+  }
 }) {
   const [form, setForm] = useState(initial)
   const [pending, startTransition] = useTransition()
@@ -455,6 +468,29 @@ export function HgVisibilityForm({
   )
   return (
     <FieldGroup>
+      <Field>
+        <FieldLabel htmlFor="h-open">Who sees HG standing</FieldLabel>
+        <Select
+          items={OPEN_FROM_ITEMS}
+          value={form.openFrom}
+          onValueChange={(v: string | null) => v && setForm({ ...form, openFrom: v as TraderLevel })}
+        >
+          <SelectTrigger id="h-open" className="w-full sm:w-80">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {OPEN_FROM_ITEMS.map((item) => (
+              <SelectItem key={item.value} value={item.value}>
+                {item.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <FieldDescription>
+          The others see what it takes to unlock it. The alerts&apos; track record stays on the Alerts page for
+          everyone.
+        </FieldDescription>
+      </Field>
       {toggle("showDollars", "Show dollar amounts", "Off by default: members see percentages only.")}
       {toggle("showPositions", "Show open positions", "Off by default. Members see positions by weight.")}
       {toggle("showClosedTrades", "Show closed trades", "On by default: the result of each closed trade.")}

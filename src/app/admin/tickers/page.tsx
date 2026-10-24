@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { requireAdmin } from "@/lib/auth/guards"
+import { requireEditor } from "@/lib/auth/guards"
 import { listTickers } from "@/lib/data/tools"
 import { integrations } from "@/lib/env.server"
 import { TickersManager } from "@/components/admin/tickers-manager"
@@ -8,7 +8,7 @@ import { PageHeader } from "@/components/portal/page-header"
 export const metadata: Metadata = { title: "Tickers" }
 
 export default async function AdminTickersPage() {
-  await requireAdmin({ next: "/admin/tickers" })
+  await requireEditor({ next: "/admin/tickers" })
   const tickers = await listTickers()
   return (
     <>

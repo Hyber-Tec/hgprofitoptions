@@ -9,7 +9,7 @@ import type { ActionResult } from "@/core/domain/types"
 import { writeAudit } from "@/server/members"
 import { COLLECTIONS } from "@/server/model"
 import { addTicker } from "@/server/tickers"
-import { adminForAction } from "@/lib/auth/guards"
+import { editorForAction } from "@/lib/auth/guards"
 import { invalidate } from "@/lib/data/cache"
 import { marketDataConfig } from "@/lib/env.server"
 import { adminDb } from "@/lib/firebase/admin"
@@ -17,7 +17,7 @@ import { adminDb } from "@/lib/firebase/admin"
 const forbidden = {
   ok: false,
   code: "forbidden",
-  message: "Admins only. If you are an admin, sign in again with two-step verification.",
+  message: "Admins and data editors only. If you are one, sign in again with two-step verification.",
 } as const
 const symbol = z
   .string()
@@ -53,7 +53,7 @@ const tickerInput = z
 export type TickerInput = z.input<typeof tickerInput>
 
 export async function updateTicker(rawSymbol: string, input: TickerInput): Promise<ActionResult> {
-  const viewer = await adminForAction()
+  const viewer = await editorForAction()
   if (!viewer) return forbidden
   const sym = symbol.safeParse(rawSymbol)
   const parsed = tickerInput.safeParse(input)
@@ -93,7 +93,7 @@ export async function createTicker(input: {
   symbol: string
   channelSize: number | null
 }): Promise<ActionResult<{ name: string | null; bars: number; addedToWeek: string | null; priced: boolean }>> {
-  const viewer = await adminForAction()
+  const viewer = await editorForAction()
   if (!viewer) return forbidden
   const sym = symbol.safeParse(input.symbol)
   if (!sym.success) return { ok: false, code: "validation", message: "Use a ticker like TSM." }
@@ -136,7 +136,7 @@ const etfInput = z.object({
 })
 
 export async function updateEtfConfig(input: z.input<typeof etfInput>): Promise<ActionResult> {
-  const viewer = await adminForAction()
+  const viewer = await editorForAction()
   if (!viewer) return forbidden
   const parsed = etfInput.safeParse(input)
   if (!parsed.success)
@@ -179,7 +179,7 @@ export async function saveIndexValues(
   weekStart: string,
   values: Record<string, z.input<typeof indexRow>>,
 ): Promise<ActionResult> {
-  const viewer = await adminForAction()
+  const viewer = await editorForAction()
   if (!viewer) return forbidden
   if (!isIsoDate(weekStart)) return { ok: false, code: "validation", message: "Pick the week." }
   const rows: Record<string, { pfcp: number; high: number; low: number; close: number; range: number; svi: number }> =

@@ -94,7 +94,7 @@ export async function ensureMember(
   })
 
   await recomputeAccess(db, decoded.uid)
-  if (invite.role === "admin") await adminAuth().setCustomUserClaims(decoded.uid, { role: "admin" })
+  if (invite.role !== "member") await adminAuth().setCustomUserClaims(decoded.uid, { role: invite.role })
   if (provider === "password" && !decoded.email_verified)
     await adminAuth().updateUser(decoded.uid, { emailVerified: true })
   if (invite.notes) {

@@ -49,7 +49,7 @@ export async function PortalShell({
           </a>
           <AppSidebar
             area={area}
-            isAdmin={viewer.role === "admin"}
+            role={viewer.role}
             hasAccess={viewer.hasAccess}
             membership={summary}
             chat={{ count: chatCount, staff: answersQuestions(viewer.member) }}

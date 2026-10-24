@@ -14,7 +14,7 @@ import { COLLECTIONS } from "@/server/model"
 import { notifyTargetsOnce } from "@/server/notifications"
 import { publishTargets, updateTitle } from "@/server/targets"
 import { addTicker } from "@/server/tickers"
-import { adminForAction } from "@/lib/auth/guards"
+import { editorForAction } from "@/lib/auth/guards"
 import { invalidate } from "@/lib/data/cache"
 import { marketDataConfig } from "@/lib/env.server"
 import { adminDb, adminMessaging } from "@/lib/firebase/admin"
@@ -22,7 +22,7 @@ import { adminDb, adminMessaging } from "@/lib/firebase/admin"
 const forbidden = {
   ok: false,
   code: "forbidden",
-  message: "Admins only. If you are an admin, sign in again with two-step verification.",
+  message: "Admins and data editors only. If you are one, sign in again with two-step verification.",
 } as const
 
 const symbol = z
@@ -67,7 +67,7 @@ export async function saveTargetDraft(
   input: TargetUpdateInput,
   draftId: string | null,
 ): Promise<ActionResult<{ id: string }>> {
-  const viewer = await adminForAction()
+  const viewer = await editorForAction()
   if (!viewer) return forbidden
   const parsed = updateInput.safeParse(input)
   if (!parsed.success)
@@ -107,7 +107,7 @@ export async function publishTargetUpdate(
   input: TargetUpdateInput & { changeNote: string | null; notify: boolean },
   draftId: string | null,
 ): Promise<ActionResult<{ revision: number }>> {
-  const viewer = await adminForAction()
+  const viewer = await editorForAction()
   if (!viewer) return forbidden
   const parsed = updateInput.safeParse(input)
   if (!parsed.success)
@@ -184,7 +184,7 @@ export interface SymbolLookup {
  * show their names and catch a typo before publishing. Null when market data is not connected.
  */
 export async function lookUpSymbols(symbols: string[]): Promise<ActionResult<SymbolLookup[] | null>> {
-  const viewer = await adminForAction()
+  const viewer = await editorForAction()
   if (!viewer) return forbidden
   const list = z.array(symbol).max(200).safeParse(symbols)
   if (!list.success) return { ok: false, code: "validation", message: "Some tickers were not valid." }
@@ -203,7 +203,7 @@ export async function lookUpSymbols(symbols: string[]): Promise<ActionResult<Sym
 }
 
 export async function deleteTargetDraft(draftId: string): Promise<ActionResult> {
-  const viewer = await adminForAction()
+  const viewer = await editorForAction()
   if (!viewer) return forbidden
   const ref = adminDb().collection(COLLECTIONS.targetUpdates).doc(draftId)
   const snap = await ref.get()

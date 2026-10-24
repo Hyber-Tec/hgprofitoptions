@@ -4,7 +4,7 @@ import { addDays, isIsoDate, lastCompletedWeek, mondayOf, todayInMarketZone } fr
 import { formatDateTimeET } from "@/core/format"
 import { describePeriodRange } from "@/core/membership/quarters"
 import { COLLECTIONS, jobRunSchema, parseDoc, type JobRun } from "@/server/model"
-import { requireAdmin } from "@/lib/auth/guards"
+import { requireEditor } from "@/lib/auth/guards"
 import { integrations } from "@/lib/env.server"
 import { getWeek, listWeeks } from "@/lib/data/tools"
 import { adminDb } from "@/lib/firebase/admin"
@@ -18,7 +18,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 export const metadata: Metadata = { title: "Market data" }
 
 export default async function AdminMarketDataPage({ searchParams }: PageProps<"/admin/market-data">) {
-  await requireAdmin({ next: "/admin/market-data" })
+  await requireEditor({ next: "/admin/market-data" })
   const requested = (await searchParams).week
   const weekStart =
     typeof requested === "string" && isIsoDate(requested)

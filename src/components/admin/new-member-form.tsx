@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation"
 import { useMemo, useState, useTransition, type SubmitEvent } from "react"
 import { LuSend } from "react-icons/lu"
-import type { IsoDate, Quarter } from "@/core/domain/types"
+import type { IsoDate, Quarter, Role } from "@/core/domain/types"
 import { describePeriodRange, periodFromQuarters, quarterRange } from "@/core/membership/quarters"
 import { inviteMember } from "@/lib/actions/admin/members"
 import { Button } from "@/components/ui/button"
@@ -42,7 +42,7 @@ export function NewMemberForm({
     timezone: "America/New_York",
     notes: "",
   })
-  const [role, setRole] = useState<"member" | "admin">("member")
+  const [role, setRole] = useState<Role>("member")
   const [year, setYear] = useState(defaultYear)
   const [quarter, setQuarter] = useState<Quarter>(defaultQuarter)
   const [count, setCount] = useState(1)
@@ -64,6 +64,11 @@ export function NewMemberForm({
 
   const preview = useMemo(() => {
     if (role === "admin") return { text: "Admins have full access without a membership period.", error: null }
+    if (role === "editor")
+      return {
+        text: "Data editors keep the market data and the tools up to date, and see the member area. No membership period needed.",
+        error: null,
+      }
     try {
       const p = periodFromQuarters(year, quarter, count, customStart ? (customStart as IsoDate) : undefined)
       return { text: `${p.label} · ${describePeriodRange(p.start, p.end)}`, error: null }
@@ -83,7 +88,7 @@ export function NewMemberForm({
         whatsapp: form.whatsapp || null,
         location: form.location || null,
         notes: form.notes || null,
-        start: role === "admin" ? null : { year, quarter, count, customStart: customStart || null },
+        start: role === "member" ? { year, quarter, count, customStart: customStart || null } : null,
         sendEmail: sendEmail && emailAvailable,
       })
       if (!result.ok) {
@@ -187,10 +192,11 @@ export function NewMemberForm({
                   variant="outline"
                   spacing={0}
                   value={[role]}
-                  onValueChange={(v: string[]) => v[0] && setRole(v[0] as "member" | "admin")}
+                  onValueChange={(v: string[]) => v[0] && setRole(v[0] as Role)}
                   aria-label="Role"
                 >
                   <ToggleGroupItem value="member">Member</ToggleGroupItem>
+                  <ToggleGroupItem value="editor">Data editor</ToggleGroupItem>
                   <ToggleGroupItem value="admin">Admin</ToggleGroupItem>
                 </ToggleGroup>
               </Field>
@@ -221,7 +227,7 @@ export function NewMemberForm({
             <CardDescription>Pick the start quarter and length. Dates are calculated for you.</CardDescription>
           </CardHeader>
           <CardContent>
-            <FieldGroup className={role === "admin" ? "pointer-events-none opacity-50" : undefined}>
+            <FieldGroup className={role !== "member" ? "pointer-events-none opacity-50" : undefined}>
               <Field>
                 <FieldLabel>Start quarter</FieldLabel>
                 <ToggleGroup
