@@ -5,7 +5,9 @@ import { LuArrowRight, LuCalendarPlus, LuFileText, LuLink2, LuPresentation, LuVi
 import { SiWhatsapp, SiZoom } from "react-icons/si"
 import { addDays, daysBetween, todayInMarketZone } from "@/core/dates"
 import type { IsoDate } from "@/core/domain/types"
-import { formatDate, formatLevel, formatPercent, formatShortDate } from "@/core/format"
+import { formatDate, formatPercent, formatShortDate } from "@/core/format"
+import { describeEarnings } from "@/core/earnings"
+import { INDEX_NAMES, INDEX_SYMBOLS } from "@/core/indices"
 import { LEVEL_GUIDE, LEVEL_LABELS, reachesLevel } from "@/core/levels"
 import { describePeriodRange, quarterOf } from "@/core/membership/quarters"
 import { membershipSummary } from "@/core/membership/summary"
@@ -26,12 +28,14 @@ import {
   resolveWeek,
 } from "@/lib/data/tools"
 import { isOpen, postsCutoff } from "@/lib/data/visibility"
+import { integrations } from "@/lib/env.server"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Progress } from "@/components/ui/progress"
 import { ButtonAnchor, ButtonLink } from "@/components/shared/button-link"
 import { AlertCard, toAlertView } from "../alerts/alert-card"
+import { MarketPulseRows, type PulseRow } from "./market-pulse"
 import { Signed, Stat, ToneBadge, type Tone } from "../display"
 import { Sparkline } from "../sparkline"
 
@@ -376,10 +380,17 @@ export async function TargetsCard({ viewer }: { viewer: Viewer }) {
 
 // ---- Market pulse and movers ------------------------------------------------------------------
 
-const INDEX_NAMES: Record<string, string> = { DJI: "Dow Jones", SPX: "S&P 500", IXIC: "Nasdaq" }
-
 export async function MarketPulseCard() {
   const { week } = await resolveWeek(null)
+  const rows: PulseRow[] = INDEX_SYMBOLS.map((symbol) => {
+    const row = week?.indices[symbol]
+    return {
+      symbol,
+      name: INDEX_NAMES[symbol],
+      close: row?.close ?? null,
+      gapPct: row ? (row.close - row.pfcp) / row.pfcp : null,
+    }
+  })
   return (
     <Card>
       <CardHeader>
@@ -393,23 +404,8 @@ export async function MarketPulseCard() {
           <ViewAll href="/members/market-data">Data</ViewAll>
         </CardAction>
       </CardHeader>
-      <CardContent className="flex flex-col divide-y">
-        {Object.keys(INDEX_NAMES).map((symbol) => {
-          const row = week?.indices[symbol]
-          const change = row ? (row.close - row.pfcp) / row.pfcp : null
-          return (
-            <div key={symbol} className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
-              <div className="min-w-0">
-                <p className="text-sm font-medium">{INDEX_NAMES[symbol]}</p>
-                <p className="font-mono text-xs text-muted-foreground">{symbol}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-sm font-medium tabular-nums">{row ? formatLevel(row.close) : "-"}</p>
-                <Signed value={change} className="text-xs" />
-              </div>
-            </div>
-          )
-        })}
+      <CardContent className="flex flex-col gap-3">
+        <MarketPulseRows rows={rows} live={integrations.marketData} />
       </CardContent>
     </Card>
   )
@@ -494,9 +490,8 @@ export async function EarningsCard() {
                   >
                     {t.symbol}
                   </Link>
-                  <span className="flex items-center gap-2 text-muted-foreground tabular-nums">
-                    {formatShortDate(start)}
-                    {t.earningsEnd !== t.earningsStart && ` to ${formatShortDate(t.earningsEnd as IsoDate)}`}
+                  <span className="flex items-center gap-2 text-right text-muted-foreground tabular-nums">
+                    {describeEarnings(start, t.earningsEnd, t.earningsTiming)}
                     <ToneBadge tone={days <= 7 ? "warning" : "muted"}>{days <= 0 ? "Now" : `${days} d`}</ToneBadge>
                   </span>
                 </li>

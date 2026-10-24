@@ -29,6 +29,7 @@ export default async function AdminTickersPage() {
           ssLevels: t.ssLevels,
           earningsStart: t.earningsStart,
           earningsEnd: t.earningsEnd,
+          earningsTiming: t.earningsTiming,
           notes: t.notes,
           lastClose: t.metrics?.lastClose ?? null,
           asOf: t.metrics?.asOf ?? null,

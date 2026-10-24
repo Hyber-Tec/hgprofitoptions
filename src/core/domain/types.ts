@@ -43,6 +43,15 @@ export interface DailyBar {
   volume: number | null
 }
 
+/** An intraday bar (5 minutes for the weekly index highs and lows). */
+export interface IntradayBar {
+  /** Epoch milliseconds of the bar's start. */
+  at: number
+  high: number
+  low: number
+  close: number
+}
+
 export interface WeeklyStats {
   weekStart: IsoDate
   weekEnd: IsoDate

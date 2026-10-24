@@ -22,7 +22,7 @@ import { syncAllBrokerages, type BrokerageConfig } from "@/server/brokerage/sync
 import { runClassSummary } from "@/server/classes"
 import type { EmailConfig } from "@/server/email"
 import { pruneJobRuns, recordJob, runJob, skipped, succeeded } from "@/server/jobs"
-import { finalizeWeek, ingestDailyBars } from "@/server/market/jobs"
+import { describeSync, runRequestedSync, syncMarket } from "@/server/market/jobs"
 import type { MarketDataConfig } from "@/server/market/provider"
 import { refreshAllAccess } from "@/server/members"
 import { COLLECTIONS } from "@/server/model"
@@ -256,7 +256,11 @@ export const afterClose = onSchedule(
   },
 )
 
-/** 18:30 on weekdays: the session's prices and each ticker's high/low windows. */
+/**
+ * 18:30 on weekdays: the session's prices and each ticker's high/low windows, plus anything a missed run
+ * left out. On Fridays (or the week's last session) it also writes the week's Key Market Data and HG's
+ * index close.
+ */
 export const marketDaily = onSchedule(
   {
     schedule: "30 18 * * 1-5",
@@ -269,27 +273,32 @@ export const marketDaily = onSchedule(
     await runJob(db(), "market-daily", async () => {
       const config = marketConfig()
       if (!config) return skipped("No market data provider")
-      const today = todayInMarketZone()
-      const result = await ingestDailyBars(db(), config, today)
-      if (!result) return skipped(`No session on ${today}`)
-      const missing = result.missing.length > 0 ? `; no data for ${result.missing.slice(0, 12).join(", ")}` : ""
-      const resplit =
-        result.resplit.length > 0 ? `; history re-fetched after a split: ${result.resplit.join(", ")}` : ""
-      return succeeded(`${result.updated} tickers${missing}${resplit}`)
+      return succeeded(describeSync(await syncMarket(db(), config)))
     })
   },
 )
 
-/** Saturday 07:00: Key Market Data for the week that just ended. */
+/** Saturday 07:00: the 5-day windows move on to the week that just ended (and anything still missing). */
 export const marketWeekly = onSchedule(
   { schedule: "0 7 * * 6", timeZone: NEW_YORK, timeoutSeconds: 540, memory: "512MiB", secrets: [MARKET_DATA_API_KEY] },
   async () => {
     await runJob(db(), "market-weekly", async () => {
-      if (!marketConfig()) return skipped("No market data provider")
-      const week = await finalizeWeek(db(), todayInMarketZone())
-      return week.rows > 0
-        ? succeeded(`Week of ${week.weekStart}: ${week.rows} tickers`)
-        : skipped(`No prices stored for the week of ${week.weekStart}`)
+      const config = marketConfig()
+      if (!config) return skipped("No market data provider")
+      return succeeded(describeSync(await syncMarket(db(), config)))
+    })
+  },
+)
+
+/** An admin's "Update now" on the Market data page. */
+export const syncMarketOnRequest = onDocumentWritten(
+  { document: "config/marketSync", secrets: [MARKET_DATA_API_KEY], timeoutSeconds: 540, memory: "512MiB" },
+  async (event) => {
+    const after = event.data?.after
+    if (!after?.exists || after.get("status") !== "pending") return
+    await runJob(db(), "market-update", async () => {
+      const result = await runRequestedSync(db(), marketConfig(), event.id)
+      return result ? succeeded(describeSync(result)) : skipped("Already running, or no market data provider")
     })
   },
 )

@@ -3,8 +3,8 @@
 import { useMemo, useState, useTransition } from "react"
 import { LuDownload, LuPencil, LuPlus, LuSearch } from "react-icons/lu"
 import type { IsoDate } from "@/core/domain/types"
-import { formatDate, formatLevel, formatPrice, plural } from "@/core/format"
-import { describePeriodRange } from "@/core/membership/quarters"
+import { EARNINGS_TIMINGS, EARNINGS_TIMING_LABELS, describeEarnings, type EarningsTiming } from "@/core/earnings"
+import { formatLevel, formatPrice, plural } from "@/core/format"
 import { createTicker, updateTicker } from "@/lib/actions/admin/market"
 import { Button } from "@/components/ui/button"
 import {
@@ -38,6 +38,7 @@ export interface TickerAdminRow {
   ssLevels: number[]
   earningsStart: string | null
   earningsEnd: string | null
+  earningsTiming: EarningsTiming | null
   notes: string | null
   lastClose: number | null
   asOf: string | null
@@ -50,11 +51,13 @@ const KINDS = [
   { value: "index", label: "Indices" },
 ]
 
-function earningsLabel(start: string | null, end: string | null): string {
-  if (!start) return "-"
-  if (!end || end === start) return formatDate(start as IsoDate)
-  return describePeriodRange(start as IsoDate, end as IsoDate)
-}
+const TIMING_ITEMS = [
+  { value: "unknown", label: "Time not known" },
+  ...EARNINGS_TIMINGS.map((t) => ({
+    value: t,
+    label: EARNINGS_TIMING_LABELS[t].charAt(0).toUpperCase() + EARNINGS_TIMING_LABELS[t].slice(1),
+  })),
+]
 
 const levels = (text: string) =>
   text
@@ -76,6 +79,7 @@ export function TickersManager({ rows, marketData }: { rows: TickerAdminRow[]; m
     ss: "",
     earningsStart: "",
     earningsEnd: "",
+    earningsTiming: "unknown",
     notes: "",
   })
   const [newTicker, setNewTicker] = useState({ symbol: "", ch: "" })
@@ -99,6 +103,7 @@ export function TickersManager({ rows, marketData }: { rows: TickerAdminRow[]; m
       ss: r.ssLevels.join(", "),
       earningsStart: r.earningsStart ?? "",
       earningsEnd: r.earningsEnd ?? "",
+      earningsTiming: r.earningsTiming ?? "unknown",
       notes: r.notes ?? "",
     })
   }
@@ -115,6 +120,7 @@ export function TickersManager({ rows, marketData }: { rows: TickerAdminRow[]; m
         ssLevels: levels(form.ss),
         earningsStart: form.earningsStart || null,
         earningsEnd: form.earningsEnd || null,
+        earningsTiming: form.earningsTiming === "unknown" ? null : (form.earningsTiming as EarningsTiming),
         notes: form.notes.trim() || null,
       })
       toast.add(
@@ -253,7 +259,11 @@ export function TickersManager({ rows, marketData }: { rows: TickerAdminRow[]; m
                     .join(" · ") || "-"}
                 </TableCell>
                 <TableCell className="text-xs whitespace-nowrap text-muted-foreground">
-                  {earningsLabel(r.earningsStart, r.earningsEnd)}
+                  {describeEarnings(
+                    r.earningsStart as IsoDate | null,
+                    r.earningsEnd as IsoDate | null,
+                    r.earningsTiming,
+                  ) ?? "-"}
                 </TableCell>
                 <TableCell>
                   {r.active ? (
@@ -358,6 +368,26 @@ export function TickersManager({ rows, marketData }: { rows: TickerAdminRow[]; m
                   value={form.earningsEnd}
                   onChange={(e) => setForm({ ...form, earningsEnd: e.target.value })}
                 />
+                <FieldDescription>Leave empty for a single day.</FieldDescription>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="k-et">On the day</FieldLabel>
+                <Select
+                  items={TIMING_ITEMS}
+                  value={form.earningsTiming}
+                  onValueChange={(v: string | null) => v && setForm({ ...form, earningsTiming: v })}
+                >
+                  <SelectTrigger id="k-et" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TIMING_ITEMS.map((item) => (
+                      <SelectItem key={item.value} value={item.value}>
+                        {item.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </Field>
             </div>
             <Field>

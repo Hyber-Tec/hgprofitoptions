@@ -1,13 +1,18 @@
 "use server"
 
-import { Timestamp } from "firebase-admin/firestore"
+import { randomUUID } from "node:crypto"
+import { FieldValue, Timestamp } from "firebase-admin/firestore"
 import { refresh } from "next/cache"
+import { after } from "next/server"
 import { z } from "zod"
 import { signedRange, svi } from "@/core/calc/kmd"
-import { addDays, isIsoDate } from "@/core/dates"
-import type { ActionResult } from "@/core/domain/types"
+import { addDays, isIsoDate, zonedDateTime } from "@/core/dates"
+import type { ActionResult, IsoDate } from "@/core/domain/types"
+import { EARNINGS_TIMINGS } from "@/core/earnings"
+import { INDEX_NAMES, isIndexSymbol } from "@/core/indices"
+import { MARKET_SYNC_DOC, runRequestedSync } from "@/server/market/jobs"
 import { writeAudit } from "@/server/members"
-import { COLLECTIONS } from "@/server/model"
+import { COLLECTIONS, type IndexWeekRow } from "@/server/model"
 import { addTicker } from "@/server/tickers"
 import { editorForAction } from "@/lib/auth/guards"
 import { invalidate } from "@/lib/data/cache"
@@ -37,6 +42,7 @@ const tickerInput = z
     ssLevels: levelList,
     earningsStart: z.string().nullable(),
     earningsEnd: z.string().nullable(),
+    earningsTiming: z.enum(EARNINGS_TIMINGS).nullable(),
     notes: z.string().max(4000).nullable(),
   })
   .superRefine((v, ctx) => {
@@ -69,6 +75,11 @@ export async function updateTicker(rawSymbol: string, input: TickerInput): Promi
     ...parsed.data,
     earningsStart: parsed.data.earningsStart || null,
     earningsEnd: parsed.data.earningsEnd || parsed.data.earningsStart || null,
+    // A time of day only fits a known day, not a window.
+    earningsTiming:
+      parsed.data.earningsStart && (!parsed.data.earningsEnd || parsed.data.earningsEnd === parsed.data.earningsStart)
+        ? parsed.data.earningsTiming
+        : null,
     updatedAt: Timestamp.now(),
     updatedBy: viewer.uid,
   })
@@ -172,32 +183,68 @@ const indexRow = z.object({
   high: z.number().positive(),
   low: z.number().positive(),
   close: z.number().positive(),
+  /** "2026-10-21T12:30", New York time (a datetime-local field). */
+  highAt: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/)
+    .nullable(),
+  lowAt: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/)
+    .nullable(),
 })
+export type IndexValuesInput = z.input<typeof indexRow>
 
-/** Weekly index values (DJI, SPX, IXIC) entered by hand when index data is not licensed. */
+/** A New York wall-clock time from a datetime-local field, as an ISO instant. */
+const instant = (local: string | null) =>
+  local ? zonedDateTime(local.slice(0, 10) as IsoDate, local.slice(11, 16)).toISOString() : null
+
+/**
+ * HG's weekly close of the indexes, typed in: it wins over market data for that week (which is how the
+ * indexes are kept when the market data plan does not include them).
+ */
 export async function saveIndexValues(
   weekStart: string,
-  values: Record<string, z.input<typeof indexRow>>,
+  values: Partial<Record<string, IndexValuesInput>>,
 ): Promise<ActionResult> {
   const viewer = await editorForAction()
   if (!viewer) return forbidden
   if (!isIsoDate(weekStart)) return { ok: false, code: "validation", message: "Pick the week." }
-  const rows: Record<string, { pfcp: number; high: number; low: number; close: number; range: number; svi: number }> =
-    {}
+  const rows: Record<string, IndexWeekRow> = {}
   for (const [sym, raw] of Object.entries(values)) {
-    if (!["DJI", "SPX", "IXIC"].includes(sym)) continue
+    if (!isIndexSymbol(sym)) continue
     const parsed = indexRow.safeParse(raw)
     if (!parsed.success)
-      return { ok: false, code: "validation", message: `${sym}: enter the previous Friday close, high, low and close.` }
-    if (parsed.data.low > parsed.data.high)
-      return { ok: false, code: "validation", message: `${sym}: the low is above the high.` }
-    const range = signedRange(parsed.data.pfcp, parsed.data.high, parsed.data.low, parsed.data.close)
-    rows[sym] = { ...parsed.data, range, svi: svi(range, parsed.data.close) }
+      return {
+        ok: false,
+        code: "validation",
+        message: `${INDEX_NAMES[sym]}: enter the close, last Friday's close, the high and the low.`,
+      }
+    const v = parsed.data
+    if (v.low > v.high)
+      return { ok: false, code: "validation", message: `${INDEX_NAMES[sym]}: the low is above the high.` }
+    const range = signedRange(v.pfcp, v.high, v.low, v.close)
+    rows[sym] = {
+      pfcp: v.pfcp,
+      high: v.high,
+      low: v.low,
+      close: v.close,
+      range,
+      svi: svi(range, v.close),
+      highAt: instant(v.highAt),
+      lowAt: instant(v.lowAt),
+      entered: true,
+    }
   }
+  if (Object.keys(rows).length === 0)
+    return {
+      ok: false,
+      code: "validation",
+      message: "Fill in at least one index: close, last Friday's close, high and low.",
+    }
   const ref = adminDb().collection(COLLECTIONS.weeks).doc(weekStart)
   const snap = await ref.get()
-  if (snap.exists)
-    await ref.update({ indices: { ...((snap.get("indices") as Record<string, unknown> | undefined) ?? {}), ...rows } })
+  if (snap.exists) await ref.set({ indices: rows }, { merge: true })
   else
     await ref.set({
       weekStart,
@@ -213,8 +260,67 @@ export async function saveIndexValues(
     action: "market.index_values",
     targetType: "week",
     targetId: weekStart,
+    detail: { indexes: Object.keys(rows) },
   })
   invalidate("tools:")
   refresh()
   return { ok: true, data: undefined }
+}
+
+/** Removes the typed-in index values of a week, so market data fills them in at its next update. */
+export async function clearIndexValues(weekStart: string): Promise<ActionResult> {
+  const viewer = await editorForAction()
+  if (!viewer) return forbidden
+  if (!isIsoDate(weekStart)) return { ok: false, code: "validation", message: "Pick the week." }
+  const ref = adminDb().collection(COLLECTIONS.weeks).doc(weekStart)
+  const snap = await ref.get()
+  const indices = (snap.get("indices") ?? {}) as Record<string, { entered?: boolean }>
+  const typed = Object.keys(indices).filter((sym) => indices[sym]?.entered === true)
+  if (typed.length > 0)
+    await ref.update(Object.fromEntries(typed.map((sym) => [`indices.${sym}`, FieldValue.delete()])))
+  await writeAudit(adminDb(), {
+    actorUid: viewer.uid,
+    actorEmail: viewer.email,
+    action: "market.index_values_cleared",
+    targetType: "week",
+    targetId: weekStart,
+    detail: { indexes: typed },
+  })
+  if (marketDataConfig()) await queueMarketSync(viewer.uid)
+  invalidate("tools:")
+  refresh()
+  return { ok: true, data: undefined }
+}
+
+/** Starts a market data update now (the scheduled one runs after each close). */
+export async function requestMarketSync(): Promise<ActionResult> {
+  const viewer = await editorForAction()
+  if (!viewer) return forbidden
+  if (!marketDataConfig())
+    return { ok: false, code: "unavailable", message: "No market data provider is connected yet." }
+  const ref = adminDb().collection(COLLECTIONS.config).doc(MARKET_SYNC_DOC)
+  const status = (await ref.get()).get("status") as string | undefined
+  if (status !== "pending" && status !== "running") await queueMarketSync(viewer.uid)
+  await writeAudit(adminDb(), {
+    actorUid: viewer.uid,
+    actorEmail: viewer.email,
+    action: "market.update_requested",
+    targetType: "config",
+    targetId: MARKET_SYNC_DOC,
+  })
+  refresh()
+  return { ok: true, data: undefined }
+}
+
+/** Queues an update: a Cloud Function picks it up (locally without one, the web server does it). */
+async function queueMarketSync(uid: string): Promise<void> {
+  await adminDb()
+    .collection(COLLECTIONS.config)
+    .doc(MARKET_SYNC_DOC)
+    .set({ status: "pending", requestedAt: Timestamp.now(), requestedBy: uid, message: null, finishedAt: null })
+  if (process.env.DELIVER_ALERTS_INLINE === "true")
+    after(async () => {
+      await runRequestedSync(adminDb(), marketDataConfig(), `inline-${randomUUID()}`)
+      invalidate("tools:")
+    })
 }

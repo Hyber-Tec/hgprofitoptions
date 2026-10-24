@@ -5,6 +5,7 @@
  */
 import { z } from "zod"
 import { isIsoDate } from "@/core/dates"
+import { EARNINGS_TIMINGS } from "@/core/earnings"
 import { TRADER_LEVELS } from "@/core/levels"
 import { CLASS_AUDIENCES } from "@/core/schedule"
 
@@ -230,6 +231,8 @@ export const tickerSchema = z.object({
   ssLevels: z.array(z.number()).default([]),
   earningsStart: isoDate.nullable().default(null),
   earningsEnd: isoDate.nullable().default(null),
+  /** Before the open or after the close, when the day is known. */
+  earningsTiming: z.enum(EARNINGS_TIMINGS).nullable().default(null),
   earningsNote: z.string().nullable().default(null),
   notes: z.string().nullable().default(null),
   categories: z.array(z.string()).default([]),
@@ -279,11 +282,21 @@ export const weekRowSchema = z.object({
   range: z.number(),
   svi: z.number(),
 })
+/** An index's week, as HG posts it: also when its high and low happened. */
+export const indexWeekRowSchema = weekRowSchema.extend({
+  /** ISO instants (the start of the 5-minute bar), when market data provides them. */
+  highAt: z.string().nullable().default(null),
+  lowAt: z.string().nullable().default(null),
+  /** Typed in by an admin: market data never replaces it. */
+  entered: z.boolean().default(false),
+})
+export type IndexWeekRow = z.infer<typeof indexWeekRowSchema>
+
 export const weekSchema = z.object({
   weekStart: isoDate,
   weekEnd: isoDate,
   rows: z.record(z.string(), weekRowSchema),
-  indices: z.record(z.string(), weekRowSchema).default({}),
+  indices: z.record(z.string(), indexWeekRowSchema).default({}),
   source: z.enum(["import", "provider", "manual"]),
   computedAt: timestamp,
 })

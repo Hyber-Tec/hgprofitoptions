@@ -6,6 +6,7 @@ import { alertInstrument } from "@/core/alerts"
 import { channelLadder, nearestLevels } from "@/core/calc/channels"
 import { medians } from "@/core/calc/medians"
 import { daysBetween, isoDateInZone, todayInMarketZone } from "@/core/dates"
+import { describeEarnings } from "@/core/earnings"
 import {
   formatDate,
   formatExpiry,
@@ -183,6 +184,8 @@ export default async function StockPage({ params }: PageProps<"/members/stocks/[
               <ToneBadge tone={earningsIn <= 7 ? "warning" : "muted"}>
                 <LuCalendarClock aria-hidden="true" />
                 {earningsIn === 0 ? "Earnings now" : `Earnings in ${earningsIn} d`}
+                {" · "}
+                {describeEarnings(ticker.earningsStart, ticker.earningsEnd, ticker.earningsTiming)}
               </ToneBadge>
             )}
             {metrics && <AsOf>As of {formatDate(metrics.asOf)}</AsOf>}

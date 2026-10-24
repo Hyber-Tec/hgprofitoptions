@@ -1,8 +1,8 @@
 /**
  * A stand-in for the market data API, for local development and the end-to-end tests only. It answers the
- * endpoints the app uses (snapshots with bid and ask, daily bars, ticker details, splits) with made-up but
- * believable numbers around each ticker's last close in the emulators, so live prices and the order book
- * can be seen without a paid key.
+ * endpoints the app uses (snapshots with bid and ask, daily and 5-minute bars, the indexes, ticker details,
+ * splits) with made-up but believable numbers around each ticker's last close in the emulators, so live
+ * prices, the order book and the weekly index close can be seen without a paid key.
  *
  *   pnpm market:fake                 # http://127.0.0.1:7655; then set in .env.local:
  *                                    #   MARKET_DATA_API_KEY=fake  MARKET_DATA_BASE_URL=http://127.0.0.1:7655
@@ -10,7 +10,15 @@
  * Unknown symbols get a generated history; "ZZZZ" is never found (to test that path).
  */
 import { createServer, type ServerResponse } from "node:http"
-import { addDays, dayOfWeek, isIsoDate, isoDateInZone, todayInMarketZone, zonedStartOfDay } from "../src/core/dates"
+import {
+  addDays,
+  dayOfWeek,
+  isIsoDate,
+  isoDateInZone,
+  lastClosedSession,
+  zonedDateTime,
+  zonedStartOfDay,
+} from "../src/core/dates"
 import type { IsoDate } from "../src/core/domain/types"
 import { initAdmin, option } from "./lib/admin"
 
@@ -34,7 +42,14 @@ function hash(text: string): number {
 
 const NOT_FOUND = "ZZZZ"
 const round = (n: number, step: number) => Number((Math.round(n / step) * step).toFixed(4))
-const baseOf = (symbol: string) => reference.get(symbol) ?? round(20 + hash(symbol) * 280, 0.01)
+/** The indexes, around HG's weekly close of Oct 23, 2026. */
+const INDEX_LEVELS: Record<string, number> = { "I:DJI": 52215.16, "I:SPX": 7623.68, "I:COMP": 25955.34 }
+const INDEX_NAMES: Record<string, string> = {
+  "I:DJI": "Dow Jones Industrial Average",
+  "I:SPX": "S&P 500",
+  "I:COMP": "Nasdaq Composite",
+}
+const baseOf = (symbol: string) => INDEX_LEVELS[symbol] ?? reference.get(symbol) ?? round(20 + hash(symbol) * 280, 0.01)
 
 /** A price that drifts gently through the day, so live pages visibly update. */
 function livePrice(symbol: string, now = Date.now()): number {
@@ -162,28 +177,105 @@ function chain(underlying: string, params: URLSearchParams) {
   return results
 }
 
-/** Weekday bars from `from` to `to`, ending near the ticker's reference price. */
-function history(symbol: string, from: IsoDate, to: IsoDate) {
+interface Bar {
+  t: number
+  o: number
+  h: number
+  l: number
+  c: number
+  v: number
+}
+
+const series = new Map<string, { last: IsoDate; bars: Map<string, Bar> }>()
+
+/**
+ * About two years of weekday bars ending on the last closed session at the ticker's reference price. The
+ * same day always gets the same bar, whichever range is asked for, so daily, grouped and 5-minute
+ * requests agree.
+ */
+function seriesOf(symbol: string): Map<string, Bar> {
+  const last = lastClosedSession()
+  const hit = series.get(symbol)
+  if (hit && hit.last === last) return hit.bars
   const days: IsoDate[] = []
-  for (let d = from; d <= to; d = addDays(d, 1)) if (dayOfWeek(d) !== 0 && dayOfWeek(d) !== 6) days.push(d)
+  for (let d = addDays(last, -800); d <= last; d = addDays(d, 1))
+    if (dayOfWeek(d) !== 0 && dayOfWeek(d) !== 6) days.push(d)
+  const step = 0.01
   let price = baseOf(symbol)
-  const bars = []
+  const newestFirst: [string, Bar][] = []
   for (let i = days.length - 1; i >= 0; i--) {
     const day = days[i] as IsoDate
     const r = hash(`${symbol}${day}`)
-    const close = round(price, 0.01)
-    const open = round(close * (1 + (r - 0.5) * 0.02), 0.01)
-    bars.unshift({
-      t: zonedStartOfDay(day).getTime(),
-      o: open,
-      h: round(Math.max(open, close) * (1 + r * 0.012), 0.01),
-      l: round(Math.min(open, close) * (1 - (1 - r) * 0.012), 0.01),
-      c: close,
-      v: Math.round(1_000_000 + r * 9_000_000),
-    })
+    const close = round(price, step)
+    const open = round(close * (1 + (r - 0.5) * 0.02), step)
+    newestFirst.push([
+      day,
+      {
+        t: zonedStartOfDay(day).getTime(),
+        o: open,
+        h: round(Math.max(open, close) * (1 + r * 0.012), step),
+        l: round(Math.min(open, close) * (1 - (1 - r) * 0.012), step),
+        c: close,
+        v: symbol.startsWith("I:") ? 0 : Math.round(1_000_000 + r * 9_000_000),
+      },
+    ])
     price = close / (1 + (hash(`${day}${symbol}`) - 0.5) * 0.03)
   }
+  // Oldest first, as the API sorts them.
+  const bars = new Map(newestFirst.reverse())
+  series.set(symbol, { last, bars })
   return bars
+}
+
+/** Daily bars from `from` to `to`. */
+function history(symbol: string, from: IsoDate, to: IsoDate): Bar[] {
+  return [...seriesOf(symbol).entries()].filter(([day]) => day >= from && day <= to).map(([, bar]) => bar)
+}
+
+/**
+ * 5-minute bars through each session from 9:30 AM to 4 PM, walking from the day's open to its close and
+ * touching its high and low once each, so they agree with the daily bar.
+ */
+function intraday(symbol: string, from: IsoDate, to: IsoDate, minutes: number) {
+  const out = []
+  for (const [day, bar] of seriesOf(symbol)) {
+    if (day < from || day > to) continue
+    const count = Math.floor(390 / minutes)
+    const highAt = Math.floor(hash(`${symbol}${day}h`) * count)
+    const lowAt = (highAt + 1 + Math.floor(hash(`${symbol}${day}l`) * (count - 1))) % count
+    const open = zonedDateTime(day as IsoDate, "09:30").getTime()
+    for (let i = 0; i < count; i++) {
+      const mid = bar.o + ((bar.c - bar.o) * (i + 1)) / count
+      const swing = (bar.h - bar.l) * 0.15
+      const high = i === highAt ? bar.h : Math.min(bar.h - swing * 0.1, mid + swing * hash(`${day}${i}u`))
+      const low = i === lowAt ? bar.l : Math.max(bar.l + swing * 0.1, mid - swing * hash(`${day}${i}d`))
+      out.push({
+        t: open + i * minutes * 60_000,
+        o: mid,
+        h: round(high, 0.01),
+        l: round(low, 0.01),
+        c: round(mid, 0.01),
+      })
+    }
+  }
+  return out
+}
+
+/** An index's level in the indices snapshot. */
+function indexSnapshot(ticker: string) {
+  if (!(ticker in INDEX_LEVELS)) return { ticker, error: "NOT_FOUND", message: "Ticker not found." }
+  const previous = [...seriesOf(ticker).values()].at(-1)?.c ?? baseOf(ticker)
+  const status = marketStatus()
+  return {
+    ticker,
+    name: INDEX_NAMES[ticker],
+    type: "indices",
+    value: status === "open" ? livePrice(ticker) : previous,
+    market_status: status === "open" ? "regular_trading" : status,
+    timeframe: "DELAYED",
+    last_updated: Date.now() * 1e6,
+    session: { previous_close: previous, close: previous },
+  }
 }
 
 function send(res: ServerResponse, status: number, body: unknown) {
@@ -199,7 +291,14 @@ const server = createServer((req, res) => {
 
   if (path === "/v3/snapshot") {
     const tickers = (url.searchParams.get("ticker.any_of") ?? "").split(",").filter(Boolean)
-    return send(res, 200, { status: "OK", results: tickers.map(snapshot) })
+    return send(res, 200, {
+      status: "OK",
+      results: tickers.map((t) => (t.startsWith("I:") ? indexSnapshot(t) : snapshot(t))),
+    })
+  }
+  if (path === "/v3/snapshot/indices") {
+    const tickers = (url.searchParams.get("ticker.any_of") ?? "").split(",").filter(Boolean)
+    return send(res, 200, { status: "OK", results: tickers.map(indexSnapshot) })
   }
   const options = /^\/v3\/snapshot\/options\/([^/]+)$/.exec(path)
   if (options) {
@@ -212,21 +311,21 @@ const server = createServer((req, res) => {
     if (symbol === NOT_FOUND) return send(res, 404, { status: "NOT_FOUND" })
     return send(res, 200, { status: "OK", results: { ticker: symbol, name: `${symbol} Holdings Inc.`, type: "CS" } })
   }
-  const range = /^\/v2\/aggs\/ticker\/([^/]+)\/range\/1\/day\/([\d-]+)\/([\d-]+)$/.exec(path)
+  const range = /^\/v2\/aggs\/ticker\/([^/]+)\/range\/(\d+)\/(day|minute)\/([\d-]+)\/([\d-]+)$/.exec(path)
   if (range) {
-    const [, rawSymbol = "", from = "", to = ""] = range
+    const [, rawSymbol = "", multiplier = "1", timespan = "day", from = "", to = ""] = range
     const symbol = decodeURIComponent(rawSymbol).toUpperCase()
     if (symbol === NOT_FOUND || !isIsoDate(from) || !isIsoDate(to)) return send(res, 200, { status: "OK", results: [] })
-    const last = to >= todayInMarketZone() ? addDays(todayInMarketZone(), -1) : to
-    return send(res, 200, { status: "OK", results: history(symbol, from, last) })
+    const results = timespan === "minute" ? intraday(symbol, from, to, Number(multiplier)) : history(symbol, from, to)
+    return send(res, 200, { status: "OK", results })
   }
   const grouped = /^\/v2\/aggs\/grouped\/locale\/us\/market\/stocks\/([\d-]+)$/.exec(path)
   if (grouped) {
     const date = grouped[1] ?? ""
     if (!isIsoDate(date) || dayOfWeek(date) === 0 || dayOfWeek(date) === 6) return send(res, 200, { results: [] })
-    const results = [...reference.keys()].map((symbol) => {
-      const [bar] = history(symbol, date, date)
-      return { T: symbol, ...bar }
+    const results = [...reference.keys()].flatMap((symbol) => {
+      const bar = seriesOf(symbol).get(date)
+      return bar ? [{ T: symbol, ...bar }] : []
     })
     return send(res, 200, { status: "OK", resultsCount: results.length, results })
   }

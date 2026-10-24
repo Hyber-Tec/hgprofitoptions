@@ -222,3 +222,39 @@ test("HG makes a data editor, who keeps the market data up to date but never see
   await page.getByRole("menuitem", { name: "Remove data editor role" }).click()
   await expect(page.getByText("Data editor role removed")).toBeVisible()
 })
+
+test("Update now brings market data up to date, and typed-in index values stay", async ({ page }) => {
+  await signIn(page, ACCOUNTS.admin)
+  await expect(page).toHaveURL(/\/admin$/)
+  await page.goto("/admin/market-data")
+  await page.getByRole("button", { name: "Update now" }).click()
+  await expect(page.getByRole("status")).toContainText(/Updated .*Up to date through the \w{3} \d{1,2}, \d{4} close/, {
+    timeout: 60_000,
+  })
+
+  // HG types in the Dow's close for the week as he posted it; it is kept, marked as typed in.
+  const monday = await page.getByLabel("Week", { exact: true }).inputValue()
+  const day = (offset: number) => {
+    const date = new Date(`${monday}T12:00:00Z`)
+    date.setUTCDate(date.getUTCDate() + offset)
+    return date.toISOString().slice(0, 10)
+  }
+  const dow = page.getByRole("group", { name: "Dow Jones" })
+  await dow.getByLabel("Close", { exact: true }).fill("52215.16")
+  await dow.getByLabel("Last Friday's close").fill("52002.41")
+  await dow.getByLabel("Week high").fill("52923.38")
+  await dow
+    .getByLabel("When")
+    .first()
+    .fill(`${day(2)}T12:30`)
+  await dow.getByLabel("Week low").fill("51885.99")
+  await dow
+    .getByLabel("When")
+    .last()
+    .fill(`${day(0)}T09:55`)
+  await expect(dow).toContainText("Gap vs last Friday: +212.75")
+  await page.getByRole("button", { name: "Save index values" }).click()
+  await expect(page.getByText("Index values saved")).toBeVisible()
+  await page.reload()
+  await expect(page.getByRole("group", { name: "Dow Jones" })).toContainText("Typed in")
+})

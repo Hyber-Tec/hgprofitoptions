@@ -128,6 +128,20 @@ export function formatTimeET(instant: Date): string {
   return `${new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", timeZone: MARKET_TZ }).format(instant)} ET`
 }
 
+/** "Wed, Oct 21, 12:30 PM": when something happened during a week, in New York time. */
+export function formatMomentET(instant: Date): string {
+  const day = new Intl.DateTimeFormat("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    timeZone: MARKET_TZ,
+  }).format(instant)
+  const time = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", timeZone: MARKET_TZ }).format(
+    instant,
+  )
+  return `${day}, ${time}`
+}
+
 /** "Oct 7, 2026, 9:42 AM ET". */
 export function formatDateTimeET(instant: Date): string {
   const date = new Intl.DateTimeFormat("en-US", {

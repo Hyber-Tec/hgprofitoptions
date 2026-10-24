@@ -1,4 +1,5 @@
 import { LuDownload, LuPencil } from "react-icons/lu"
+import type { IsoDate } from "@/core/domain/types"
 import { formatDate, formatDateWithWeekday } from "@/core/format"
 import type { Viewer } from "@/lib/auth/guards"
 import { openTargetUpdates } from "@/lib/data/tools"
@@ -32,7 +33,10 @@ export async function TargetsView({
   // On a free trial, the newest updates wait (members get them as they are published).
   const held = all.length - updates.length
   const options = updates.map((u) => ({ value: u.effectiveDate, label: formatDateWithWeekday(u.effectiveDate) }))
-  const lastClose = rows.find((r) => r.lastCloseDate)?.lastCloseDate ?? null
+  const lastClose = rows.reduce<IsoDate | null>(
+    (latest, r) => (r.lastCloseDate && (!latest || r.lastCloseDate > latest) ? r.lastCloseDate : latest),
+    null,
+  )
   return (
     <>
       <PageHeader
@@ -47,9 +51,9 @@ export async function TargetsView({
               </span>
             )}
             {integrations.marketData ? (
-              <AsOf>Live prices</AsOf>
+              <AsOf>Prices update live during the day</AsOf>
             ) : (
-              lastClose && <AsOf>Prices as of the {formatDate(lastClose)} close</AsOf>
+              lastClose && <AsOf>Prices from the {formatDate(lastClose)} close</AsOf>
             )}
             {update.effectiveDate !== latest && (
               <span className="font-medium text-warning">You are viewing an older update</span>

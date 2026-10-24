@@ -4,6 +4,8 @@ import {
   MarketDataError,
   fetchDailyRange,
   fetchGroupedDaily,
+  fetchIndexSnapshots,
+  fetchIntradayBars,
   fetchOptionChain,
   fetchSnapshots,
   fetchSplits,
@@ -217,5 +219,47 @@ describe("options chain", () => {
       impl,
     )
     expect(chain.strikes).toEqual([])
+  })
+})
+
+describe("indexes", () => {
+  it("reads 5-minute bars by their start time, without the stock-only adjustment", async () => {
+    const { impl, calls } = fakeFetch(200, {
+      status: "OK",
+      results: [{ t: 1792603800000, o: 52900, h: 52923.38, l: 52880, c: 52910 }],
+    })
+    const bars = await fetchIntradayBars(config, "I:DJI", 5, date, date, impl)
+    expect(bars).toEqual([{ at: 1792603800000, high: 52923.38, low: 52880, close: 52910 }])
+    expect(calls[0]?.url).toBe(
+      "https://api.example.com/v2/aggs/ticker/I%3ADJI/range/5/minute/2026-10-07/2026-10-07?sort=asc&limit=50000",
+    )
+  })
+
+  it("reads the live levels, leaving out indexes the plan does not include", async () => {
+    const { impl, calls } = fakeFetch(200, {
+      status: "OK",
+      results: [
+        {
+          ticker: "I:SPX",
+          type: "indices",
+          value: 7623.68,
+          market_status: "regular_trading",
+          timeframe: "DELAYED",
+          last_updated: 1792800000000000000,
+          session: { previous_close: 7659.44, change: -35.76 },
+        },
+        { ticker: "I:DJI", error: "NOT_ENTITLED", message: "Not entitled to this ticker." },
+      ],
+    })
+    const quotes = await fetchIndexSnapshots(config, ["I:SPX", "I:DJI"], impl)
+    expect([...quotes.keys()]).toEqual(["I:SPX"])
+    expect(quotes.get("I:SPX")).toMatchObject({
+      last: 7623.68,
+      previousClose: 7659.44,
+      realTime: false,
+      marketStatus: "open",
+      updatedAt: 1792800000000,
+    })
+    expect(calls[0]?.url).toBe("https://api.example.com/v3/snapshot/indices?ticker.any_of=I%3ASPX%2CI%3ADJI&limit=250")
   })
 })

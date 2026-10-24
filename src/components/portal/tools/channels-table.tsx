@@ -3,7 +3,8 @@
 import Link from "next/link"
 import { useMemo, useState } from "react"
 import { LuSearch, LuTriangle } from "react-icons/lu"
-import { formatFixed, formatPlain, formatPrice, formatShortDate, plural } from "@/core/format"
+import { describeEarnings } from "@/core/earnings"
+import { formatFixed, formatPlain, formatPrice, plural } from "@/core/format"
 import type { ChannelRow } from "@/lib/tools/channels"
 import { useLiveQuotes } from "@/hooks/use-live-quotes"
 import { useResponsiveRows } from "@/hooks/use-responsive-rows"
@@ -44,10 +45,7 @@ function Levels({ label, values }: { label: string; values: readonly number[] })
 
 function Earnings({ row }: { row: ChannelRow }) {
   if (row.earningsIn === null || !row.earningsStart) return null
-  const range =
-    row.earningsEnd && row.earningsEnd !== row.earningsStart
-      ? `${formatShortDate(row.earningsStart)} to ${formatShortDate(row.earningsEnd)}`
-      : formatShortDate(row.earningsStart)
+  const when = describeEarnings(row.earningsStart, row.earningsEnd, row.earningsTiming)
   return (
     <Tooltip>
       <TooltipTrigger render={<span className="inline-flex" />}>
@@ -55,7 +53,7 @@ function Earnings({ row }: { row: ChannelRow }) {
           {row.earningsIn === 0 ? "Earnings now" : `Earnings in ${row.earningsIn} d`}
         </ToneBadge>
       </TooltipTrigger>
-      <TooltipContent>Earnings window {range}</TooltipContent>
+      <TooltipContent>Earnings {when}</TooltipContent>
     </Tooltip>
   )
 }

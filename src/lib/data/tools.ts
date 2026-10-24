@@ -1,6 +1,6 @@
 import "server-only"
 import { cache } from "react"
-import { lastCompletedWeek, todayInMarketZone } from "@/core/dates"
+import { todayInMarketZone } from "@/core/dates"
 import type { IsoDate } from "@/core/domain/types"
 import {
   COLLECTIONS,
@@ -140,13 +140,17 @@ export function getWeek(weekStart: string): Promise<WeekDoc | null> {
   })
 }
 
-/** The requested week, else the last completed week, else the newest week on file. */
+/**
+ * The requested week, else the newest week on file that is over (Friday evening's update adds that
+ * week), else the newest one. A week whose index values were typed in early waits until it ends.
+ */
 export async function resolveWeek(
   requested: string | null,
 ): Promise<{ week: WeekDoc | null; previous: WeekDoc | null; weeks: { weekStart: IsoDate; weekEnd: IsoDate }[] }> {
-  const weeks = await listWeeks()
-  const preferred = requested ?? lastCompletedWeek(todayInMarketZone()).start
-  const chosen = weeks.find((w) => w.weekStart === preferred) ?? weeks[0]
+  const all = await listWeeks()
+  const today = todayInMarketZone()
+  const weeks = all.filter((w) => w.weekEnd <= today || w.weekStart === requested)
+  const chosen = (requested ? weeks.find((w) => w.weekStart === requested) : undefined) ?? weeks[0] ?? all[0]
   if (!chosen) return { week: null, previous: null, weeks }
   const index = weeks.indexOf(chosen)
   const previousStart = weeks[index + 1]?.weekStart

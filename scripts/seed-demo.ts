@@ -23,6 +23,7 @@ import {
   lastCompletedWeek,
   nextFriday,
   todayInMarketZone,
+  zonedDateTime,
   zonedStartOfDay,
 } from "../src/core/dates"
 import type { DailyBar, Fill, Instrument, IsoDate, Quarter } from "../src/core/domain/types"
@@ -173,8 +174,10 @@ async function ensureMarketData(db: Firestore, today: IsoDate): Promise<Ticker[]
       bocSize: ch / 2,
       fsLevels: [roundStrike(close * 0.9)],
       ssLevels: [roundStrike(close * 1.1)],
-      earningsStart: symbol === "TSM" || symbol === "TSLA" ? addDays(today, 9) : null,
-      earningsEnd: symbol === "TSM" || symbol === "TSLA" ? addDays(today, 11) : null,
+      // TSM reports within a window; TSLA on a known day, after the close.
+      earningsStart: symbol === "TSM" ? addDays(today, 9) : symbol === "TSLA" ? addDays(today, 4) : null,
+      earningsEnd: symbol === "TSM" ? addDays(today, 11) : symbol === "TSLA" ? addDays(today, 4) : null,
+      earningsTiming: symbol === "TSLA" ? "after-close" : null,
       earningsNote: null,
       notes: null,
       categories: [],
@@ -199,20 +202,37 @@ async function ensureMarketData(db: Firestore, today: IsoDate): Promise<Ticker[]
     const row = weekRow(bars)
     if (row) weekRows[symbol] = row
   }
-  const indexRow = (level: number) => {
-    const pfcp = level * (1 + normal(0, 0.01))
-    const close = level
-    const high = Math.max(pfcp, close) * 1.008
-    const low = Math.min(pfcp, close) * 0.992
+  // HG's weekly close of Oct 19 to 23, 2026, moved onto the demo week: [close, last Friday's close, high and
+  // when (day of the week, New York time), low and when].
+  const indexRow = (
+    close: number,
+    pfcp: number,
+    [high, highDay, highTime]: [number, number, string],
+    [low, lowDay, lowTime]: [number, number, string],
+  ) => {
     const range = signedRange(pfcp, high, low, close)
-    return { pfcp: round2(pfcp), high: round2(high), low: round2(low), close, range, svi: svi(range, close) }
+    return {
+      pfcp,
+      high,
+      low,
+      close,
+      range,
+      svi: svi(range, close),
+      highAt: zonedDateTime(addDays(week.start, highDay), highTime).toISOString(),
+      lowAt: zonedDateTime(addDays(week.start, lowDay), lowTime).toISOString(),
+      entered: false,
+    }
   }
   void writer.set(db.collection(COLLECTIONS.weeks).doc(week.start), {
     weekStart: week.start,
     weekEnd: week.end,
     rows: weekRows,
-    indices: { DJI: indexRow(46758.3), SPX: indexRow(6715.8), IXIC: indexRow(22780.5) },
-    source: "manual",
+    indices: {
+      DJI: indexRow(52215.16, 52002.41, [52923.38, 2, "12:30"], [51885.99, 0, "09:55"]),
+      SPX: indexRow(7623.68, 7659.44, [7769.27, 2, "14:35"], [7616.56, 4, "10:25"]),
+      IXIC: indexRow(25955.34, 26140.03, [26772.4, 2, "13:20"], [25893.4, 4, "09:40"]),
+    },
+    source: "provider",
     computedAt: Timestamp.now(),
   })
 

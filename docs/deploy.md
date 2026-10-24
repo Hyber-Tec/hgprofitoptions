@@ -184,6 +184,22 @@ Turning on an integration: set its secret (and `EMAIL_FROM` or `SNAPTRADE_CLIENT
 console, Settings, then Connected services shows what is on, and Market data lists every scheduled
 job run.
 
+## Market data
+
+Prices, medians, channel lines, Key Market Data and HG's weekly index close come from Massive (formerly
+Polygon.io) with the `MARKET_DATA_API_KEY` secret. What each part needs from the Massive plan:
+
+| Part of the site                                                    | Massive plan                                                     |
+| ------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Daily prices, medians, channel lines, Key Market Data               | Stocks, any plan                                                 |
+| Live prices and the order book                                      | Stocks Starter or up (bid and ask need a plan with quotes)       |
+| The options chain on Strike Price Targets                           | Options Starter or up                                            |
+| The weekly index close (Dow, S&P 500, Nasdaq) and live index levels | Indices Starter or up (Basic leaves out the Dow and the S&P 500) |
+
+The daily job runs at 6:30 PM ET on market days and fills in any session or week a missed run left out,
+so after adding (or replacing) the key, Admin > Market data > Update now brings everything up to date at
+once. When the plan has no index data, the weekly index close is typed in on the same page.
+
 ## Zoom classes and recaps
 
 Members join the weekly class inside the site, and after each recorded class the AI writes its recap

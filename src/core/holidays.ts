@@ -1,4 +1,4 @@
-import { addDays, dayOfWeek, isWeekend } from "./dates"
+import { addDays, dayOfWeek, isWeekend, mondayOf } from "./dates"
 import type { IsoDate } from "./domain/types"
 
 const iso = (year: number, month: number, day: number) =>
@@ -71,4 +71,30 @@ export function isMarketHoliday(date: IsoDate): boolean {
 /** A weekday the market is open (special closures, such as a national day of mourning, are not known). */
 export function isTradingDay(date: IsoDate): boolean {
   return !isWeekend(date) && !isMarketHoliday(date)
+}
+
+/** The latest trading day on or before `date`. */
+export function tradingDayOnOrBefore(date: IsoDate): IsoDate {
+  let day = date
+  while (!isTradingDay(day)) day = addDays(day, -1)
+  return day
+}
+
+/** The trading days after `after`, up to and including `through`, oldest first. */
+export function tradingDaysAfter(after: IsoDate, through: IsoDate): IsoDate[] {
+  const days: IsoDate[] = []
+  for (let day = addDays(after, 1); day <= through; day = addDays(day, 1)) if (isTradingDay(day)) days.push(day)
+  return days
+}
+
+/**
+ * The latest Monday-to-Friday week whose sessions are all over by `through` (its last trading day is on
+ * or before it): on a Friday evening, that Friday's week.
+ */
+export function lastCompleteWeek(through: IsoDate): { start: IsoDate; end: IsoDate } {
+  const monday = mondayOf(through)
+  const thisWeek = { start: monday, end: addDays(monday, 4) }
+  if (tradingDayOnOrBefore(thisWeek.end) <= through && tradingDayOnOrBefore(thisWeek.end) >= monday) return thisWeek
+  const previous = addDays(monday, -7)
+  return { start: previous, end: addDays(previous, 4) }
 }

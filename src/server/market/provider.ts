@@ -7,7 +7,15 @@
  */
 import { z } from "zod"
 import { isoDateInZone } from "@/core/dates"
-import type { ChainQuote, ChainStrike, DailyBar, IsoDate, LiveQuote, OptionChain } from "@/core/domain/types"
+import type {
+  ChainQuote,
+  ChainStrike,
+  DailyBar,
+  IntradayBar,
+  IsoDate,
+  LiveQuote,
+  OptionChain,
+} from "@/core/domain/types"
 
 export interface MarketDataConfig {
   apiKey: string
@@ -82,7 +90,10 @@ export async function fetchGroupedDaily(
 
 const rangeSchema = z.object({ results: z.array(aggregateSchema.extend({ t: z.number() }).loose()).nullish() }).loose()
 
-/** One ticker's split-adjusted daily bars from `from` to `to` (inclusive), oldest first. */
+/**
+ * One ticker's daily bars from `from` to `to` (inclusive), oldest first: split-adjusted for a stock, the
+ * index level for an index ticker ("I:SPX", which takes no adjustment).
+ */
 export async function fetchDailyRange(
   config: MarketDataConfig,
   symbol: string,
@@ -93,7 +104,7 @@ export async function fetchDailyRange(
   const body = await getJson(
     config,
     `/v2/aggs/ticker/${encodeURIComponent(symbol)}/range/1/day/${from}/${to}`,
-    { adjusted: "true", sort: "asc", limit: "50000" },
+    symbol.startsWith("I:") ? { sort: "asc", limit: "50000" } : { adjusted: "true", sort: "asc", limit: "50000" },
     fetchImpl,
     symbol,
   )
@@ -107,6 +118,28 @@ export async function fetchDailyRange(
     close: r.c,
     volume: r.v ?? null,
   }))
+}
+
+/**
+ * A ticker's bars of `minutes` minutes from `from` to `to` (inclusive dates), oldest first. Index bars
+ * skip minutes in which the index did not move, so there can be gaps.
+ */
+export async function fetchIntradayBars(
+  config: MarketDataConfig,
+  symbol: string,
+  minutes: number,
+  from: IsoDate,
+  to: IsoDate,
+  fetchImpl: typeof fetch = fetch,
+): Promise<IntradayBar[]> {
+  const body = await getJson(
+    config,
+    `/v2/aggs/ticker/${encodeURIComponent(symbol)}/range/${String(minutes)}/minute/${from}/${to}`,
+    symbol.startsWith("I:") ? { sort: "asc", limit: "50000" } : { adjusted: "true", sort: "asc", limit: "50000" },
+    fetchImpl,
+    `${symbol} intraday`,
+  )
+  return (rangeSchema.parse(body).results ?? []).map((r) => ({ at: r.t, high: r.h, low: r.l, close: r.c }))
 }
 
 const splitsSchema = z
@@ -251,6 +284,71 @@ export async function fetchSnapshots(
         marketStatus: MARKET_STATUS.has(r.market_status ?? "") ? (r.market_status as LiveQuote["marketStatus"]) : null,
       })
     }
+  }
+  return quotes
+}
+
+const indexSnapshotSchema = z
+  .object({
+    results: z
+      .array(
+        z
+          .object({
+            ticker: z.string(),
+            error: z.string().nullish(),
+            value: z.number().nullish(),
+            market_status: z.string().nullish(),
+            timeframe: z.string().nullish(),
+            last_updated: z.number().nullish(),
+            session: z.object({ previous_close: z.number().nullish() }).loose().nullish(),
+          })
+          .loose(),
+      )
+      .nullish(),
+  })
+  .loose()
+
+/** An index's market status, in the words the stock snapshots use. */
+const INDEX_MARKET_STATUS: Record<string, LiveQuote["marketStatus"]> = {
+  regular_trading: "open",
+  open: "open",
+  closed: "closed",
+  early_trading: "early_trading",
+  late_trading: "late_trading",
+}
+
+/**
+ * The latest level of each index ("I:DJI"), from the indices snapshot (Indices Starter plans and up; 15
+ * minutes delayed on Starter). Indexes the plan does not include are left out.
+ */
+export async function fetchIndexSnapshots(
+  config: MarketDataConfig,
+  tickers: readonly string[],
+  fetchImpl: typeof fetch = fetch,
+): Promise<Map<string, LiveQuote>> {
+  const body = await getJson(
+    config,
+    "/v3/snapshot/indices",
+    { "ticker.any_of": tickers.join(","), limit: "250" },
+    fetchImpl,
+    "index levels",
+    { timeoutMs: 15_000 },
+  )
+  const quotes = new Map<string, LiveQuote>()
+  for (const r of indexSnapshotSchema.parse(body).results ?? []) {
+    if (r.error || r.value === null || r.value === undefined) continue
+    quotes.set(r.ticker, {
+      ticker: r.ticker,
+      last: r.value,
+      bid: null,
+      ask: null,
+      bidSize: null,
+      askSize: null,
+      previousClose: r.session?.previous_close ?? null,
+      updatedAt: nanosToMillis(r.last_updated),
+      realTime: r.timeframe === "REAL-TIME",
+      marketStatus: INDEX_MARKET_STATUS[r.market_status ?? ""] ?? null,
+    })
   }
   return quotes
 }

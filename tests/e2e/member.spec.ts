@@ -152,3 +152,14 @@ test("members cannot open the admin console", async ({ page, allowConsole }) => 
   expect(response?.status()).toBe(404)
   await expect(page.getByRole("heading", { name: "This page does not exist" })).toBeVisible()
 })
+
+test("Key Market Data shows HG's weekly index close: gap, and the high and low with when", async ({ page }) => {
+  await page.goto("/members/market-data")
+  const dow = page.locator('[data-slot="card"]', { hasText: "Dow Jones" }).first()
+  await expect(dow).toContainText("52,215.16")
+  // HG's gap: this Friday's close minus last Friday's (52,002.41).
+  await expect(dow).toContainText(/Gap vs last Friday\s*\+212\.75/)
+  await expect(dow).toContainText("52,923.38")
+  await expect(dow).toContainText(/Wed, \w{3} \d{1,2}, 12:30 PM/)
+  await expect(dow).toContainText(/Mon, \w{3} \d{1,2}, 9:55 AM/)
+})
