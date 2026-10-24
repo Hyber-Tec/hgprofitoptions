@@ -27,9 +27,11 @@ import {
   zonedStartOfDay,
 } from "../src/core/dates"
 import type { DailyBar, Fill, Instrument, IsoDate, Quarter } from "../src/core/domain/types"
+import { formatWeekdayDate } from "../src/core/format"
 import { addQuarters, periodFromQuarters, quarterOf, quarterRange } from "../src/core/membership/quarters"
 import { CONSENT_VERSION } from "../src/server/brokerage/sync"
 import { recomputeAccess } from "../src/server/members"
+import { trackSpikes } from "../src/server/spikes"
 import {
   ACCOUNT_SUBCOLLECTIONS,
   COLLECTIONS,
@@ -500,7 +502,14 @@ async function resetDemo(db: Firestore, auth: Auth, bucket: Bucket): Promise<voi
     await db.recursiveDelete(db.collection(COLLECTIONS.members).doc(uidOf(m.key)))
     await db.collection(COLLECTIONS.invites).doc(m.email).delete()
   }
-  for (const name of [COLLECTIONS.alerts, COLLECTIONS.presentations, COLLECTIONS.resources]) {
+  for (const name of [
+    COLLECTIONS.alerts,
+    COLLECTIONS.presentations,
+    COLLECTIONS.resources,
+    COLLECTIONS.briefs,
+    COLLECTIONS.spikePosts,
+    COLLECTIONS.spikes,
+  ]) {
     const snap = await db.collection(name).get()
     for (const doc of snap.docs) if (doc.id.startsWith("demo-")) await db.recursiveDelete(doc.ref)
   }
@@ -1077,6 +1086,88 @@ async function seedContent(db: Firestore, bucket: Bucket, today: IsoDate): Promi
 }
 
 // ---------------------------------------------------------------------------------------------
+// Market brief and spikes
+// ---------------------------------------------------------------------------------------------
+
+/** No later than a minute ago, so nothing seeded is dated in the future when the seed runs early. */
+const notAfterNow = (date: Date) => new Date(Math.min(date.getTime(), Date.now() - 60_000))
+
+async function seedBriefsAndSpikes(db: Firestore, stocks: readonly Ticker[], today: IsoDate, adminUid: string) {
+  const lastSession = weekdayOnOrBefore(today)
+  const briefs = [
+    {
+      id: "demo-b1",
+      title: "Pre-market view",
+      body: "New strike prices will post for today. Yesterday's movers are on the spike list, and the calls' break and PUT levels were tightened.\n\nThe levels to watch at the open:\n- The Dow against last Friday's close\n- The channel lines on the stocks that spiked\n\nUpdates follow at 9:40, 10:00 and 10:30 AM.",
+      at: notAfterNow(at(lastSession, 5, 30)),
+    },
+    {
+      id: "demo-b2",
+      title: "10:30 AM update",
+      body: "The first hour held inside the projected range. The strike targets stand as posted.",
+      at: at(weekdayOnOrBefore(addDays(lastSession, -1)), 10, 30),
+    },
+  ]
+  for (const b of briefs)
+    await db
+      .collection(COLLECTIONS.briefs)
+      .doc(b.id)
+      .set({
+        title: b.title,
+        body: b.body,
+        status: "published",
+        source: "admin",
+        publishAt: null,
+        publishedAt: ts(b.at),
+        notify: true,
+        notifiedAt: ts(b.at),
+        createdAt: ts(b.at),
+        createdBy: adminUid,
+        updatedAt: ts(b.at),
+      })
+
+  // HG posts the spikes from the session before, early in the morning.
+  const session = weekdayOnOrBefore(addDays(lastSession, -1))
+  const postedAt = ts(notAfterNow(at(lastSession, 6, 0)))
+  const spiked = stocks.slice(0, 8)
+  await db
+    .collection(COLLECTIONS.spikePosts)
+    .doc("demo-sp1")
+    .set({
+      title: `Spikes from ${formatWeekdayDate(session)}`,
+      date: session,
+      count: spiked.length,
+      notify: true,
+      notifiedAt: postedAt,
+      postedAt,
+      createdBy: adminUid,
+    })
+  for (const [i, t] of spiked.entries()) {
+    const close = t.metrics?.lastClose ?? 100
+    const price = round2(close * (1 + between(0.01, 0.06)))
+    await db
+      .collection(COLLECTIONS.spikes)
+      .doc(`demo-sk${i + 1}`)
+      .set({
+        postId: "demo-sp1",
+        line: i + 2,
+        symbol: t.symbol,
+        price,
+        date: session,
+        at: i === spiked.length - 1 ? "close" : "open",
+        time: i === spiked.length - 1 ? "16:20" : null,
+        close: round2(close),
+        direction: "up",
+        group: "Profit options",
+        recoveredOn: null,
+        sessionsToRecover: null,
+        postedAt,
+      })
+  }
+  await trackSpikes(db)
+}
+
+// ---------------------------------------------------------------------------------------------
 
 async function main(): Promise<void> {
   if (flag("prod")) throw new Error("seed:demo only runs against the emulators.")
@@ -1337,6 +1428,7 @@ async function main(): Promise<void> {
     })
 
   await seedContent(db, bucket, today)
+  await seedBriefsAndSpikes(db, stocks, today, adminUid)
   await computeStanding(db, today)
   await db.collection(COLLECTIONS.jobRuns).add({
     job: "seed-demo",

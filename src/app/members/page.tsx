@@ -8,11 +8,13 @@ import {
   ClassroomCard,
   EarningsCard,
   LatestAlertsCard,
+  MarketBriefCard,
   MarketPulseCard,
   MembershipCard,
   MoversCard,
   PerformanceCard,
   RecentContentCard,
+  SpikesCard,
   StandingCard,
   TargetsCard,
 } from "@/components/portal/dashboard/cards"
@@ -44,6 +46,12 @@ export default async function DashboardPage({ searchParams }: PageProps<"/member
           {viewer.status.kind === "trial" ? <TrialCard daysLeft={viewer.status.daysLeft} /> : <PushPromptCard />}
           <Suspense fallback={<CardSkeleton lines={3} />}>
             <LatestAlertsCard viewer={viewer} />
+          </Suspense>
+          <Suspense fallback={null}>
+            <MarketBriefCard viewer={viewer} />
+          </Suspense>
+          <Suspense fallback={null}>
+            <SpikesCard viewer={viewer} />
           </Suspense>
           <div className="grid gap-6 md:grid-cols-2">
             <Suspense fallback={<CardSkeleton lines={2} />}>

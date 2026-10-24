@@ -229,7 +229,7 @@ describe("indexes", () => {
       results: [{ t: 1792603800000, o: 52900, h: 52923.38, l: 52880, c: 52910 }],
     })
     const bars = await fetchIntradayBars(config, "I:DJI", 5, date, date, impl)
-    expect(bars).toEqual([{ at: 1792603800000, high: 52923.38, low: 52880, close: 52910 }])
+    expect(bars).toEqual([{ at: 1792603800000, open: 52900, high: 52923.38, low: 52880, close: 52910, volume: null }])
     expect(calls[0]?.url).toBe(
       "https://api.example.com/v2/aggs/ticker/I%3ADJI/range/5/minute/2026-10-07/2026-10-07?sort=asc&limit=50000",
     )

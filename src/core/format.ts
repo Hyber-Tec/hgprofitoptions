@@ -111,6 +111,13 @@ export function formatDateWithWeekday(date: IsoDate): string {
   }).format(isoToUtcDate(date))
 }
 
+/** "Thu, Oct 22": a recent day, without the year. */
+export function formatWeekdayDate(date: IsoDate): string {
+  return new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" }).format(
+    isoToUtcDate(date),
+  )
+}
+
 /** "Oct 23". */
 export function formatShortDate(date: IsoDate): string {
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" }).format(

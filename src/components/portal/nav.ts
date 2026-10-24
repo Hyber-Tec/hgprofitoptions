@@ -2,6 +2,7 @@ import type { Route } from "next"
 import type { IconType } from "react-icons"
 import type { Role } from "@/core/domain/types"
 import {
+  LuActivity,
   LuBell,
   LuBellRing,
   LuBriefcase,
@@ -17,6 +18,7 @@ import {
   LuLayoutDashboard,
   LuListOrdered,
   LuMessagesSquare,
+  LuNewspaper,
   LuNotebookPen,
   LuPresentation,
   LuQuote,
@@ -105,6 +107,8 @@ export const ADMIN_NAV: NavGroup[] = [
     label: "Publishing",
     items: [
       { title: "Alerts", href: "/admin/alerts", icon: LuBellRing },
+      { title: "Market brief", href: "/admin/briefs", icon: LuNewspaper, editor: true },
+      { title: "Spikes", href: "/admin/spikes", icon: LuActivity, editor: true },
       { title: "Strike targets", href: "/admin/targets", icon: LuCrosshair, editor: true },
       { title: "HG portfolio", href: "/admin/hg-portfolio", icon: LuBriefcase },
     ],
@@ -152,6 +156,9 @@ export const SEGMENT_LABELS: Record<string, string> = {
   members: "Member area",
   admin: "Admin",
   alerts: "Alerts",
+  brief: "Market brief",
+  briefs: "Market brief",
+  spikes: "Spikes",
   chat: "Chat",
   portfolio: "Portfolio",
   journal: "Journal",

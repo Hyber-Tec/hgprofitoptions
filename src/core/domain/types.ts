@@ -47,9 +47,11 @@ export interface DailyBar {
 export interface IntradayBar {
   /** Epoch milliseconds of the bar's start. */
   at: number
+  open: number | null
   high: number
   low: number
   close: number
+  volume: number | null
 }
 
 export interface WeeklyStats {

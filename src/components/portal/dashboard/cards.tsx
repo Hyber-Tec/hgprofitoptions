@@ -1,11 +1,11 @@
 import type { Route } from "next"
 import Link from "next/link"
 import type { ReactNode } from "react"
-import { LuArrowRight, LuCalendarPlus, LuFileText, LuLink2, LuPresentation, LuVideo } from "react-icons/lu"
+import { LuArrowRight, LuCalendarPlus, LuCheck, LuFileText, LuLink2, LuPresentation, LuVideo } from "react-icons/lu"
 import { SiWhatsapp, SiZoom } from "react-icons/si"
-import { addDays, daysBetween, todayInMarketZone } from "@/core/dates"
+import { addDays, daysBetween, isoDateInZone, todayInMarketZone } from "@/core/dates"
 import type { IsoDate } from "@/core/domain/types"
-import { formatDate, formatPercent, formatShortDate } from "@/core/format"
+import { formatDate, formatLevel, formatPercent, formatShortDate, formatTimeET, plural } from "@/core/format"
 import { describeEarnings } from "@/core/earnings"
 import { INDEX_NAMES, INDEX_SYMBOLS } from "@/core/indices"
 import { LEVEL_GUIDE, LEVEL_LABELS, reachesLevel } from "@/core/levels"
@@ -15,10 +15,12 @@ import { diffTargets } from "@/core/parsers/strike-targets"
 import { AUDIENCE_LABELS, formatDayIn, formatTimeIn, upcomingSessions, zoneAbbreviation } from "@/core/schedule"
 import type { Viewer } from "@/lib/auth/guards"
 import { listFeedAlerts, readReceipts } from "@/lib/data/alerts"
+import { listPublishedBriefs } from "@/lib/data/briefs"
 import { listPresentations, listResources } from "@/lib/data/content"
 import { listTrades } from "@/lib/data/journal"
 import { getSiteSettings } from "@/lib/data/public"
 import { getMemberSettings } from "@/lib/data/settings"
+import { listSpikeLists } from "@/lib/data/spikes"
 import {
   getStanding,
   getTargetGroups,
@@ -35,6 +37,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/u
 import { Progress } from "@/components/ui/progress"
 import { ButtonAnchor, ButtonLink } from "@/components/shared/button-link"
 import { AlertCard, toAlertView } from "../alerts/alert-card"
+import { BriefExcerpt } from "../alerts/brief-body"
 import { MarketPulseRows, type PulseRow } from "./market-pulse"
 import { Signed, Stat, ToneBadge, type Tone } from "../display"
 import { Sparkline } from "../sparkline"
@@ -166,6 +169,87 @@ export async function LatestAlertsCard({ viewer }: { viewer: Viewer }) {
             />
           ))
         )}
+      </CardContent>
+    </Card>
+  )
+}
+
+// ---- Market brief and spikes ------------------------------------------------------------------
+
+/** The newest market brief, its opening lines, and a link to the rest. */
+export async function MarketBriefCard({ viewer }: { viewer: Viewer }) {
+  const [briefs, cutoff] = await Promise.all([listPublishedBriefs(cutoffWindow), postsCutoff(viewer)])
+  const brief = briefs.find((b) => isOpen(cutoff, b.publishedAt))
+  if (!brief?.publishedAt) {
+    if (briefs.length === 0) return null
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Market brief</CardTitle>
+          <CardDescription>
+            HG&apos;s market brief is for members. On your free trial it shows here a few days later.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+    )
+  }
+  const today = todayInMarketZone()
+  const day = isoDateInZone(brief.publishedAt)
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{brief.title}</CardTitle>
+        <CardDescription>
+          {day === today ? "Today" : formatShortDate(day)}, {formatTimeET(brief.publishedAt)}
+        </CardDescription>
+        <CardAction>
+          <ViewAll href={`/members/alerts/brief#brief-${brief.id}` as Route}>Read</ViewAll>
+        </CardAction>
+      </CardHeader>
+      <CardContent>
+        <BriefExcerpt body={brief.body} />
+      </CardContent>
+    </Card>
+  )
+}
+
+/** Briefs to look through for one a free trial may see (they are held back a few days). */
+const cutoffWindow = 40
+
+/** Today's spike list: each stock and its spike, marked once the price is reached again. */
+export async function SpikesCard({ viewer }: { viewer: Viewer }) {
+  const [lists, cutoff] = await Promise.all([listSpikeLists(3), postsCutoff(viewer)])
+  const today = todayInMarketZone()
+  const list = lists.find((l) => isOpen(cutoff, l.postedAt) && isoDateInZone(l.postedAt) === today)
+  if (!list) return null
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Today&apos;s spikes</CardTitle>
+        <CardDescription>
+          {plural(list.spikes.length, "spike")} from {formatShortDate(list.date)}, posted {formatTimeET(list.postedAt)}
+        </CardDescription>
+        <CardAction>
+          <ViewAll href={`/members/alerts/spikes#spikes-${list.id}` as Route}>Open</ViewAll>
+        </CardAction>
+      </CardHeader>
+      <CardContent className="flex flex-wrap gap-2">
+        {list.spikes.map((spike) => (
+          <Link
+            key={spike.id}
+            href={`/members/stocks/${spike.symbol}`}
+            className="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-sm transition-colors outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
+          >
+            <span className="font-mono font-medium">{spike.symbol}</span>
+            <span className="text-muted-foreground tabular-nums">{formatLevel(spike.price)}</span>
+            {spike.recoveredOn && (
+              <LuCheck
+                className="size-3.5 text-positive"
+                aria-label={`Reached again ${formatShortDate(spike.recoveredOn)}`}
+              />
+            )}
+          </Link>
+        ))}
       </CardContent>
     </Card>
   )

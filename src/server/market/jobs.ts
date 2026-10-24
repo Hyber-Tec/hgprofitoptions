@@ -14,6 +14,7 @@ import type { DailyBar, IsoDate } from "@/core/domain/types"
 import { formatDate, formatShortDate } from "@/core/format"
 import { lastCompleteWeek, tradingDayOnOrBefore, tradingDaysAfter } from "@/core/holidays"
 import { INDEX_PROVIDER_TICKERS, INDEX_SYMBOLS, indexWeeklyStats } from "@/core/indices"
+import { trackSpikes } from "../spikes"
 import {
   COLLECTIONS,
   indexWeekRowSchema,
@@ -97,6 +98,8 @@ export interface SyncResult {
   indexWeeks: IsoDate[]
   /** Why the indexes were left as they were, when they were (for example a plan without index data). */
   indexNote: string | null
+  /** Spikes whose stock traded back to the spike price in the new sessions. */
+  spikesReached: number
 }
 
 /**
@@ -305,6 +308,7 @@ export async function syncMarket(
     weeks.filter((w) => written.includes(w.start)),
     fetchImpl,
   )
+  const spikesReached = await trackSpikes(db)
 
   return {
     through,
@@ -315,6 +319,7 @@ export async function syncMarket(
     weeks: written,
     indexWeeks: indexes.written,
     indexNote: indexes.note,
+    spikesReached,
   }
 }
 
@@ -333,6 +338,10 @@ export function describeSync(result: SyncResult): string {
       `Key Market Data for the week${result.weeks.length === 1 ? "" : "s"} of ${list(result.weeks.map(formatShortDate))}`,
     )
   if (result.indexNote) parts.push(result.indexNote)
+  if (result.spikesReached > 0)
+    parts.push(
+      `${result.spikesReached === 1 ? "1 spike" : `${String(result.spikesReached)} spikes`} traded back to the spike price`,
+    )
   if (result.resplit.length > 0) parts.push(`history fetched again after a split: ${list(result.resplit)}`)
   if (result.missing.length > 0) parts.push(`no prices for ${list(result.missing.slice(0, 12))}`)
   return `${parts.join(". ")}.`

@@ -1,6 +1,7 @@
 /**
- * Member notifications other than alerts: new strike targets, class recaps, class and membership reminders.
- * Shared by Cloud Functions (scheduled and triggered) and, in local development, the web server.
+ * Member notifications other than alerts: new strike targets, the market brief, spikes, class recaps,
+ * and class and membership reminders. Shared by Cloud Functions (scheduled and triggered) and the web
+ * server.
  */
 import { Timestamp, type Firestore } from "firebase-admin/firestore"
 import type { Messaging } from "firebase-admin/messaging"
@@ -87,6 +88,81 @@ export async function notifyTargetsOnce(
     return current
   })
   return revision === null ? null : notifyTargetsPublished(db, messaging, effectiveDate, revision)
+}
+
+/**
+ * "New market brief" to members with full access (free trials see briefs later) who keep it on: once per
+ * brief, however many times the trigger fires. Returns how many were notified, or null with nothing to send.
+ */
+export async function notifyBriefOnce(
+  db: Firestore,
+  messaging: Messaging,
+  briefId: string,
+  claimId: string,
+): Promise<number | null> {
+  const ref = db.collection(COLLECTIONS.briefs).doc(briefId)
+  const brief = await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref)
+    if (!snap.exists || snap.get("status") !== "published" || snap.get("notify") !== true) return null
+    const claim = snap.get("notifyClaim") as { id: string } | undefined
+    if (snap.get("notifiedAt") || (claim && claim.id !== claimId)) return null
+    tx.update(ref, { notifyClaim: { id: claimId, at: Timestamp.now() }, notifiedAt: Timestamp.now() })
+    return { title: snap.get("title") as string, body: snap.get("body") as string }
+  })
+  if (!brief) return null
+  const recipients = (await activeMembers(db, todayInMarketZone()))
+    .filter(({ member, status }) => hasFullAccess(status) && member.prefs.marketBrief)
+    .map(({ member }) => member.uid)
+  const firstLine =
+    brief.body
+      .split("\n")
+      .find((line) => line.trim() !== "")
+      ?.trim() ?? ""
+  const result = await sendToMembers(db, messaging, recipients, {
+    title: brief.title,
+    body: firstLine.length > 140 ? `${firstLine.slice(0, 137)}...` : firstLine,
+    url: `/members/alerts/brief#brief-${briefId}`,
+    tag: `brief-${briefId}`,
+  })
+  return result.sent
+}
+
+/**
+ * HG's spike list, to members with full access who keep spike notifications on: once per list, however
+ * many times the trigger fires. Returns how many were notified, or null with nothing to send.
+ */
+export async function notifySpikesOnce(
+  db: Firestore,
+  messaging: Messaging,
+  postId: string,
+  claimId: string,
+): Promise<number | null> {
+  const ref = db.collection(COLLECTIONS.spikePosts).doc(postId)
+  const post = await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref)
+    if (!snap.exists || snap.get("notify") !== true || snap.get("notifiedAt")) return null
+    const claim = snap.get("notifyClaim") as { id: string } | undefined
+    if (claim && claim.id !== claimId) return null
+    tx.update(ref, { notifyClaim: { id: claimId, at: Timestamp.now() }, notifiedAt: Timestamp.now() })
+    return { title: snap.get("title") as string }
+  })
+  if (!post) return null
+  const spikes = await db.collection(COLLECTIONS.spikes).where("postId", "==", postId).get()
+  const symbols = spikes.docs
+    .map((d) => ({ symbol: d.get("symbol") as string, line: (d.get("line") as number | undefined) ?? 0 }))
+    .sort((a, b) => a.line - b.line)
+    .map((s) => s.symbol)
+  const recipients = (await activeMembers(db, todayInMarketZone()))
+    .filter(({ member, status }) => hasFullAccess(status) && member.prefs.spikes)
+    .map(({ member }) => member.uid)
+  const named = symbols.slice(0, 4).join(", ")
+  const result = await sendToMembers(db, messaging, recipients, {
+    title: post.title,
+    body: symbols.length > 4 ? `${named} and ${String(symbols.length - 4)} more` : named,
+    url: "/members/alerts/spikes",
+    tag: `spikes-${postId}`,
+  })
+  return result.sent
 }
 
 /** "Class recap is ready" to members with access who keep that notification on. */

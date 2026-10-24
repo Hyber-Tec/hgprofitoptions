@@ -234,7 +234,7 @@ function history(symbol: string, from: IsoDate, to: IsoDate): Bar[] {
 
 /**
  * 5-minute bars through each session from 9:30 AM to 4 PM, walking from the day's open to its close and
- * touching its high and low once each, so they agree with the daily bar.
+ * touching its high and low once each, so they agree with the daily bar, with a volume for the VWAP.
  */
 function intraday(symbol: string, from: IsoDate, to: IsoDate, minutes: number) {
   const out = []
@@ -255,6 +255,8 @@ function intraday(symbol: string, from: IsoDate, to: IsoDate, minutes: number) {
         h: round(high, 0.01),
         l: round(low, 0.01),
         c: round(mid, 0.01),
+        // Busier at the open and the close, as trading is.
+        v: Math.round((i < 6 || i > count - 6 ? 40_000 : 12_000) * (0.5 + hash(`${symbol}${day}${i}v`))),
       })
     }
   }

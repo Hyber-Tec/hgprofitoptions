@@ -22,6 +22,8 @@ export interface PrefsValues {
   chat: boolean
   classRecaps: boolean
   classReminders: boolean
+  marketBrief: boolean
+  spikes: boolean
 }
 
 export function NotificationPrefs({ initial, emailAvailable }: { initial: PrefsValues; emailAvailable: boolean }) {
@@ -141,6 +143,22 @@ export function NotificationPrefs({ initial, emailAvailable }: { initial: PrefsV
       </section>
 
       <section className="flex flex-col gap-4">
+        <label className="flex items-start justify-between gap-4">
+          <span>
+            <span className="block text-sm font-medium">Market brief</span>
+            <span className="block text-sm text-muted-foreground">
+              The pre-market view and the updates in the first hour of trading.
+            </span>
+          </span>
+          <Switch checked={prefs.marketBrief} onCheckedChange={(v) => setPrefs((p) => ({ ...p, marketBrief: v }))} />
+        </label>
+        <label className="flex items-start justify-between gap-4">
+          <span>
+            <span className="block text-sm font-medium">Spikes</span>
+            <span className="block text-sm text-muted-foreground">When HG posts a list of spikes.</span>
+          </span>
+          <Switch checked={prefs.spikes} onCheckedChange={(v) => setPrefs((p) => ({ ...p, spikes: v }))} />
+        </label>
         <label className="flex items-start justify-between gap-4">
           <span>
             <span className="block text-sm font-medium">New strike targets published</span>

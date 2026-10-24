@@ -80,6 +80,8 @@ const prefsInput = z.object({
   chat: z.boolean(),
   classRecaps: z.boolean(),
   classReminders: z.boolean(),
+  marketBrief: z.boolean(),
+  spikes: z.boolean(),
 })
 
 export async function updateNotificationPrefs(input: z.input<typeof prefsInput>): Promise<ActionResult> {

@@ -225,6 +225,11 @@ describe("server-only collections", () => {
       "invoices/i1",
       "counters/invoices",
       "settings/billing",
+      // The market brief and spike lists: the server holds the newest back from free trials.
+      "briefs/b1",
+      "settings/brief",
+      "spikePosts/p1",
+      "spikes/s1",
     ])
       await assertFails(getDoc(doc(as("hg", true), path)))
   })

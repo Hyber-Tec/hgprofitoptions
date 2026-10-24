@@ -27,7 +27,7 @@ export interface IndexWeek extends WeeklyStats {
  */
 export function indexWeeklyStats(
   daily: readonly DailyBar[],
-  intraday: readonly IntradayBar[],
+  intraday: readonly Pick<IntradayBar, "at" | "high" | "low" | "close">[],
   week: { start: IsoDate; end: IsoDate },
 ): IndexWeek | null {
   const stats = weeklyStats(daily, week)
@@ -37,7 +37,7 @@ export function indexWeeklyStats(
     return day >= week.start && day <= week.end
   })
   if (inWeek.length === 0) return { ...stats, highAt: null, lowAt: null }
-  let high = inWeek[0] as IntradayBar
+  let high = inWeek[0] as Pick<IntradayBar, "at" | "high" | "low" | "close">
   let low = high
   for (const bar of inWeek) {
     if (bar.high > high.high) high = bar

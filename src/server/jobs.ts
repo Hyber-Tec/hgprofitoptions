@@ -26,7 +26,11 @@ export async function runJob(db: Firestore, job: string, fn: () => Promise<JobOu
 }
 
 /** Records a run that is already over, for jobs that only report when they had something to do. */
-export async function recordJob(db: Firestore, job: string, outcome: JobOutcome): Promise<void> {
+export async function recordJob(
+  db: Firestore,
+  job: string,
+  outcome: { status: JobOutcome["status"] | "failed"; detail: string | null },
+): Promise<void> {
   const now = Timestamp.now()
   await db
     .collection(COLLECTIONS.jobRuns)

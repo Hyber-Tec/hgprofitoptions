@@ -80,6 +80,14 @@ export function tradingDayOnOrBefore(date: IsoDate): IsoDate {
   return day
 }
 
+/** The last `count` trading days up to and including `through` (or before it, on a day off), oldest first. */
+export function lastTradingDays(through: IsoDate, count: number): IsoDate[] {
+  const days: IsoDate[] = []
+  for (let day = tradingDayOnOrBefore(through); days.length < count; day = tradingDayOnOrBefore(addDays(day, -1)))
+    days.unshift(day)
+  return days
+}
+
 /** The trading days after `after`, up to and including `through`, oldest first. */
 export function tradingDaysAfter(after: IsoDate, through: IsoDate): IsoDate[] {
   const days: IsoDate[] = []

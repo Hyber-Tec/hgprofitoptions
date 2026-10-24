@@ -1,7 +1,10 @@
 import "server-only"
-import type { IsoDate, LiveQuote, OptionChain } from "@/core/domain/types"
+import { todayInMarketZone } from "@/core/dates"
+import type { IntradayBar, IsoDate, LiveQuote, OptionChain } from "@/core/domain/types"
+import { lastTradingDays } from "@/core/holidays"
 import { INDEX_PROVIDER_TICKERS, isIndexSymbol } from "@/core/indices"
-import { fetchIndexSnapshots, fetchOptionChain, fetchSnapshots } from "@/server/market/provider"
+import { INTRADAY_MINUTES, INTRADAY_SESSIONS } from "@/core/intraday"
+import { fetchIndexSnapshots, fetchIntradayBars, fetchOptionChain, fetchSnapshots } from "@/server/market/provider"
 import { marketDataConfig } from "@/lib/env.server"
 
 /** Quotes are shared by every member on this server for this long, so many open pages cost one request. */
@@ -88,5 +91,37 @@ export async function optionChain(request: {
   } catch (error) {
     console.error("Options chain failed:", error instanceof Error ? error.message : error)
     return { chain: hit?.chain ?? null, failed: hit === undefined }
+  }
+}
+
+const intraday = new Map<string, { at: number; bars: IntradayBar[] }>()
+const INTRADAY_TTL_MS = 60_000
+
+/**
+ * A stock's 5-minute bars over the last five sessions (with the hours before and after the bell), shared
+ * for a minute. Null when no market data provider is set up; when the provider fails, the last bars this
+ * server saw, and `failed` when it has none.
+ */
+export async function intradayBars(symbol: string): Promise<{ bars: IntradayBar[]; failed: boolean } | null> {
+  const config = marketDataConfig()
+  if (!config) return null
+  const now = Date.now()
+  const hit = intraday.get(symbol)
+  if (hit && now - hit.at <= INTRADAY_TTL_MS) return { bars: hit.bars, failed: false }
+  const days = lastTradingDays(todayInMarketZone(), INTRADAY_SESSIONS)
+  try {
+    const bars = await fetchIntradayBars(
+      config,
+      symbol,
+      INTRADAY_MINUTES,
+      days[0] ?? todayInMarketZone(),
+      days.at(-1) ?? todayInMarketZone(),
+    )
+    intraday.set(symbol, { at: now, bars })
+    if (intraday.size > 200) for (const [k, v] of intraday) if (now - v.at > 10 * INTRADAY_TTL_MS) intraday.delete(k)
+    return { bars, failed: false }
+  } catch (error) {
+    console.error("Intraday bars failed:", error instanceof Error ? error.message : error)
+    return { bars: hit?.bars ?? [], failed: hit === undefined }
   }
 }

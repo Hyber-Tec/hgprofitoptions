@@ -10,7 +10,7 @@ import { initializeApp } from "firebase-admin/app"
 import { getFirestore, type Timestamp } from "firebase-admin/firestore"
 import { getMessaging } from "firebase-admin/messaging"
 import { getStorage } from "firebase-admin/storage"
-import { onDocumentWritten } from "firebase-functions/firestore"
+import { onDocumentCreated, onDocumentWritten } from "firebase-functions/firestore"
 import { HttpsError, beforeUserCreated } from "firebase-functions/identity"
 import { setGlobalOptions } from "firebase-functions/options"
 import { defineSecret, defineString } from "firebase-functions/params"
@@ -18,6 +18,7 @@ import { onSchedule } from "firebase-functions/scheduler"
 import { isIsoDate, todayInMarketZone } from "@/core/dates"
 import type { AiConfig } from "@/server/ai"
 import { deliverAlert, deliverStragglers, publishDueAlerts } from "@/server/alerts"
+import { publishDueBriefs, writeScheduledBrief } from "@/server/briefs"
 import { syncAllBrokerages, type BrokerageConfig } from "@/server/brokerage/sync"
 import { runClassSummary } from "@/server/classes"
 import type { EmailConfig } from "@/server/email"
@@ -28,6 +29,8 @@ import { refreshAllAccess } from "@/server/members"
 import { COLLECTIONS } from "@/server/model"
 import {
   emailAdminsExpired,
+  notifyBriefOnce,
+  notifySpikesOnce,
   notifyTargetsOnce,
   sendClassReminders,
   sendMembershipReminders,
@@ -125,14 +128,31 @@ export const notifyTargets = onDocumentWritten("targetUpdates/{date}", async (ev
   await notifyTargetsOnce(db(), getMessaging(), date, event.id)
 })
 
-/** Every minute: publish scheduled alerts that are due, and send any alert a missed trigger left behind. */
+/**
+ * Every minute: publish scheduled alerts and market briefs that are due, and send any alert a missed
+ * trigger left behind.
+ */
 export const publishScheduledAlerts = onSchedule(
   { schedule: "every 1 minutes", timeZone: NEW_YORK, secrets: [RESEND_API_KEY], timeoutSeconds: 300 },
   async () => {
     await publishDueAlerts(db())
+    await publishDueBriefs(db())
     await deliverStragglers(db(), getMessaging(), { email: emailConfig(), siteUrl: siteUrl() })
   },
 )
+
+/** HG's spike list, once it is posted. */
+export const notifySpikes = onDocumentCreated("spikePosts/{postId}", async (event) => {
+  if (event.data?.get("notify") !== true) return
+  await notifySpikesOnce(db(), getMessaging(), event.params.postId, event.id)
+})
+
+/** "New market brief" once it is published (now, or by the schedule). */
+export const notifyBriefs = onDocumentWritten("briefs/{briefId}", async (event) => {
+  const after = event.data?.after
+  if (!after?.exists || after.get("status") !== "published" || after.get("notifiedAt")) return
+  await notifyBriefOnce(db(), getMessaging(), event.params.briefId, event.id)
+})
 
 // ---- AI -------------------------------------------------------------------------------------------
 
@@ -163,6 +183,24 @@ export const summarizeClassRecap = onDocumentWritten(
       event.params.recapId,
       event.id,
     )
+  },
+)
+
+/**
+ * Every 5 minutes on weekdays: when the AI writes the market brief, it does at each of the brief's times
+ * on market days (5:30, 9:40, 10:00 and 10:30 AM by default; admins can change them).
+ */
+export const marketBriefs = onSchedule(
+  { schedule: "*/5 * * * 1-5", timeZone: NEW_YORK, secrets: [AI_API_KEY], timeoutSeconds: 540, memory: "512MiB" },
+  async () => {
+    try {
+      const id = await writeScheduledBrief(db(), aiConfig())
+      if (id) await recordJob(db(), "market-brief", succeeded("The AI wrote and posted the brief"))
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error)
+      await recordJob(db(), "market-brief", { status: "failed", detail: detail.slice(0, 500) })
+      throw error
+    }
   },
 )
 

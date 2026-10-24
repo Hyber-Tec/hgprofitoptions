@@ -9,6 +9,7 @@ import { getStanding, tickerMap } from "@/lib/data/tools"
 import { isOpen, postsCutoff } from "@/lib/data/visibility"
 import { AlertCard, toAlertView } from "@/components/portal/alerts/alert-card"
 import { AlertFilters } from "@/components/portal/alerts/alert-filters"
+import { AlertsTabs } from "@/components/portal/alerts/alerts-tabs"
 import { AlertsSidePanel } from "@/components/portal/alerts/alerts-side-panel"
 import { PageHeader } from "@/components/portal/page-header"
 import { HeldBackNotice } from "@/components/portal/trial-notice"
@@ -76,6 +77,7 @@ export default async function AlertsPage({ searchParams }: PageProps<"/members/a
         }
         meta={unreadCount > 0 ? `${unreadCount} unread` : "All caught up"}
       />
+      <AlertsTabs current="alerts" />
       <AlertFilters unreadCount={unreadCount} />
       {held > 0 && <HeldBackNotice>{plural(held, "newer alert")} for members</HeldBackNotice>}
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start">

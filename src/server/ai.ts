@@ -220,3 +220,44 @@ export async function summarizeClass(
       .filter((q) => q.question !== ""),
   }
 }
+
+// ---- Market brief -------------------------------------------------------------------------------
+
+const briefSchema = z.object({
+  title: z.string().describe("A short title, such as 'Pre-market brief' or '9:40 AM update'"),
+  body: z
+    .string()
+    .describe(
+      "The brief, in plain text: short paragraphs separated by a blank line, and lines starting with '- ' for lists. No markdown headings, bold or tables.",
+    ),
+})
+
+const BRIEF_SYSTEM = `You write the market brief of HG Profit Options, an options trading class taught by Hubert "HG" Gaffney: the pre-market view and the updates in the first hour of trading, for the class's members.
+
+Follow the team's instructions for what the brief covers and how it reads. Work only from the data you are given and the instructions; when something they ask for is not in the data, leave it out rather than guess. Plain, friendly English, in short paragraphs. This is education, not personalized advice: describe levels, setups and what the data shows, never tell anyone to buy or sell.`
+
+/**
+ * Writes one market brief from the team's instructions and the site's data (index closes, strike
+ * targets, spikes, earnings), for one of the brief's scheduled times.
+ */
+export async function writeMarketBrief(
+  config: AiConfig,
+  input: { instructions: string; data: string; moment: string },
+): Promise<{ title: string; body: string }> {
+  const brief = await ask(config, briefSchema, {
+    system: BRIEF_SYSTEM,
+    content: [
+      { type: "text", text: `The team's instructions:\n${input.instructions}` },
+      {
+        type: "document",
+        title: "The site's data",
+        source: { type: "text", media_type: "text/plain", data: input.data },
+      },
+      { type: "text", text: `Write the brief for ${input.moment} (New York time).` },
+    ],
+    effort: "high",
+    maxTokens: 16000,
+    unreadable: "The AI could not write the brief from these instructions. Check them and try again.",
+  })
+  return { title: brief.title.trim(), body: brief.body.trim() }
+}

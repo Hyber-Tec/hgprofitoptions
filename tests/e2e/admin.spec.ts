@@ -208,10 +208,13 @@ test("HG makes a data editor, who keeps the market data up to date but never see
   await signIn(julia, "julia.brooks@example.com")
   // Data editors start on Market data, with only the data pages in the console.
   await expect(julia).toHaveURL(/\/admin\/market-data$/)
-  for (const name of ["Strike targets", "Tickers", "Market data", "Leveraged ETFs"])
-    await expect(julia.getByRole("link", { name, exact: true })).toBeVisible()
-  await expect(julia.getByRole("link", { name: "Members", exact: true })).toHaveCount(0)
-  expect((await julia.goto("/admin/members"))?.status()).toBe(404)
+  const consoleNav = julia.getByRole("navigation", { name: "Admin console" })
+  for (const name of ["Market brief", "Spikes", "Strike targets", "Tickers", "Market data", "Leveraged ETFs"])
+    await expect(consoleNav.getByRole("link", { name, exact: true })).toBeVisible()
+  await expect(consoleNav.getByRole("link", { name: "Members", exact: true })).toHaveCount(0)
+  // The page streams in, so the status is sent before the guard says no: check what the editor sees.
+  await julia.goto("/admin/members")
+  await expect(julia.getByRole("heading", { name: "This page does not exist" })).toBeVisible()
   // The member area stays open to them, to check the tools.
   await julia.goto("/members/channels")
   await expect(julia.getByRole("heading", { level: 1, name: "Median & Channel Chart" })).toBeVisible()
@@ -228,9 +231,12 @@ test("Update now brings market data up to date, and typed-in index values stay",
   await expect(page).toHaveURL(/\/admin$/)
   await page.goto("/admin/market-data")
   await page.getByRole("button", { name: "Update now" }).click()
-  await expect(page.getByRole("status")).toContainText(/Updated .*Up to date through the \w{3} \d{1,2}, \d{4} close/, {
-    timeout: 60_000,
-  })
+  await expect(page.getByRole("status").filter({ hasText: "Updated" })).toContainText(
+    /Up to date through the \w{3} \d{1,2}, \d{4} close/,
+    {
+      timeout: 60_000,
+    },
+  )
 
   // HG types in the Dow's close for the week as he posted it; it is kept, marked as typed in.
   const monday = await page.getByLabel("Week", { exact: true }).inputValue()

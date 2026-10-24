@@ -7,6 +7,7 @@ import {
   createSeriesMarkers,
   LineStyle,
   TickMarkType,
+  type AutoscaleInfo,
   type SeriesMarker,
   type Time,
 } from "lightweight-charts"
@@ -54,11 +55,30 @@ export interface ChartBar {
 export interface ChartLevel {
   value: number
   label: string
-  kind: "line" | "anchor" | "median" | "target"
+  /** A spike stays on the chart until the price trades back to it. */
+  kind: "line" | "anchor" | "median" | "target" | "spike"
 }
 
 /** Room a marker label needs, in pixels ("My sell" at the chart's font size, plus a gap). */
 const LABEL_WIDTH = 56
+
+/**
+ * Widens the price scale to take in `prices` as well as the candles, so a spike above or below the
+ * recent range still shows as a line, with the trade left to it in view.
+ */
+export function includePrices(prices: readonly number[]) {
+  return (original: () => AutoscaleInfo | null): AutoscaleInfo | null => {
+    const info = original()
+    if (!info?.priceRange || prices.length === 0) return info
+    return {
+      ...info,
+      priceRange: {
+        minValue: Math.min(info.priceRange.minValue, ...prices),
+        maxValue: Math.max(info.priceRange.maxValue, ...prices),
+      },
+    }
+  }
+}
 
 export interface ChartMarker {
   date: string
@@ -67,7 +87,7 @@ export interface ChartMarker {
 }
 
 /** Resolves a CSS custom property (oklch, etc.) to an rgb() string the chart library can parse. */
-function cssColor(variable: string, alpha = 1): string {
+export function cssColor(variable: string, alpha = 1): string {
   const probe = document.createElement("canvas").getContext("2d")
   const raw = getComputedStyle(document.documentElement).getPropertyValue(variable).trim()
   if (!probe || !raw) return `rgba(128, 128, 128, ${alpha})`
@@ -105,6 +125,7 @@ export function PriceChart({
     const positive = cssColor("--positive")
     const negative = cssColor("--negative")
     const warning = cssColor("--warning")
+    const spike = cssColor("--chart-spike")
 
     const chart = createChart(el, {
       height,
@@ -132,6 +153,7 @@ export function PriceChart({
       wickUpColor: positive,
       wickDownColor: negative,
       priceLineVisible: false,
+      autoscaleInfoProvider: includePrices(levels.filter((l) => l.kind === "spike").map((l) => l.value)),
     })
     series.setData(
       bars.map((b) => ({ time: b.date, open: b.open ?? b.close, high: b.high, low: b.low, close: b.close })),
@@ -143,14 +165,22 @@ export function PriceChart({
         color:
           level.kind === "median"
             ? warning
-            : level.kind === "target"
-              ? fg
-              : level.kind === "anchor"
-                ? cssColor("--foreground", 0.55)
-                : cssColor("--muted-foreground", 0.45),
-        lineWidth: 1,
+            : level.kind === "spike"
+              ? spike
+              : level.kind === "target"
+                ? fg
+                : level.kind === "anchor"
+                  ? cssColor("--foreground", 0.55)
+                  : cssColor("--muted-foreground", 0.45),
+        lineWidth: level.kind === "spike" ? 2 : 1,
         lineStyle:
-          level.kind === "line" ? LineStyle.Dotted : level.kind === "median" ? LineStyle.Dashed : LineStyle.Solid,
+          level.kind === "line"
+            ? LineStyle.Dotted
+            : level.kind === "median"
+              ? LineStyle.Dashed
+              : level.kind === "spike"
+                ? LineStyle.LargeDashed
+                : LineStyle.Solid,
         axisLabelVisible: level.kind !== "line",
         title: level.kind === "line" ? "" : level.label,
       })

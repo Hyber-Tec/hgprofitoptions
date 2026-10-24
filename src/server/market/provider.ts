@@ -139,7 +139,14 @@ export async function fetchIntradayBars(
     fetchImpl,
     `${symbol} intraday`,
   )
-  return (rangeSchema.parse(body).results ?? []).map((r) => ({ at: r.t, high: r.h, low: r.l, close: r.c }))
+  return (rangeSchema.parse(body).results ?? []).map((r) => ({
+    at: r.t,
+    open: r.o ?? null,
+    high: r.h,
+    low: r.l,
+    close: r.c,
+    volume: r.v ?? null,
+  }))
 }
 
 const splitsSchema = z

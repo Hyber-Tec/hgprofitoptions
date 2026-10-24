@@ -36,6 +36,13 @@ export const COLLECTIONS = {
   classReminders: "classReminders",
   /** trialStarts/{hash of network and day}: free trials started, to cap them per network and day. */
   trialStarts: "trialStarts",
+  /** briefs/{id}: HG's market briefs (the pre-market view and the updates in the first hour). */
+  briefs: "briefs",
+  /** briefSlots/{date-time}: one per scheduled time the AI writes the brief, so it is written once. */
+  briefSlots: "briefSlots",
+  /** spikePosts/{id}: a spike list HG posts (one notification each); spikes/{id}: its stocks. */
+  spikePosts: "spikePosts",
+  spikes: "spikes",
   invoices: "invoices",
   /** counters/invoices: the last invoice number used each year ({ "2026": 7 }). */
   counters: "counters",
@@ -98,6 +105,10 @@ export const notificationPrefsSchema = z.object({
   classRecaps: z.boolean().default(true),
   /** A reminder with the Zoom link before each class meant for this member. */
   classReminders: z.boolean().default(true),
+  /** A new market brief is posted. */
+  marketBrief: z.boolean().default(true),
+  /** HG posts a spike list. */
+  spikes: z.boolean().default(true),
 })
 export type NotificationPrefs = z.infer<typeof notificationPrefsSchema>
 export const DEFAULT_PREFS: NotificationPrefs = notificationPrefsSchema.parse({})
@@ -455,6 +466,79 @@ export const threadMessageSchema = z.object({
   removed: z.boolean().default(false),
 })
 export type ThreadMessageDoc = z.infer<typeof threadMessageSchema> & { id: string }
+
+// ---- Market brief -------------------------------------------------------------------------------
+
+/**
+ * briefs/{id}: a market brief: the pre-market view or an update in the first hour, posted by an admin
+ * (pasted in, often) or written by AI at a scheduled time. Only the server reads them.
+ */
+export const briefSchema = z.object({
+  title: z.string(),
+  body: z.string(),
+  status: z.enum(["draft", "scheduled", "published"]),
+  source: z.enum(["admin", "ai"]).default("admin"),
+  publishAt: optionalTimestamp,
+  publishedAt: optionalTimestamp,
+  /** Members get a notification when it is published (once). */
+  notify: z.boolean().default(true),
+  notifiedAt: optionalTimestamp,
+  createdAt: timestamp,
+  createdBy: z.string().nullable().default(null),
+  updatedAt: timestamp,
+})
+export type BriefDoc = z.infer<typeof briefSchema> & { id: string }
+
+/** settings/brief: the brief's times on market days, and how the AI writes it when it does. */
+export const briefSettingsSchema = z.object({
+  /** "05:30", "09:40"... New York time, on market days. */
+  times: z.array(z.string()).default(["05:30", "09:40", "10:00", "10:30"]),
+  /**
+   * When on, the AI writes and posts the brief at each time, following these instructions (the process
+   * the team uses today), with the site's own data: index closes, strike targets, spikes, earnings.
+   */
+  ai: z.object({ enabled: z.boolean(), instructions: z.string() }).default({ enabled: false, instructions: "" }),
+})
+export type BriefSettings = z.infer<typeof briefSettingsSchema>
+
+// ---- Spikes -------------------------------------------------------------------------------------
+
+/** spikePosts/{id}: one spike list as HG posts it, which members are told about once. */
+export const spikePostSchema = z.object({
+  title: z.string(),
+  /** The session most of its spikes happened in. */
+  date: isoDate,
+  count: z.number().int(),
+  notify: z.boolean().default(true),
+  notifiedAt: optionalTimestamp,
+  postedAt: timestamp,
+  createdBy: z.string().nullable().default(null),
+})
+export type SpikePostDoc = z.infer<typeof spikePostSchema> & { id: string }
+
+/** spikes/{id}: one stock's spike, from a spike list. HG notes spikes rather than changing the targets. */
+export const spikeSchema = z.object({
+  postId: z.string(),
+  /** Its place in the list as HG wrote it. */
+  line: z.number().int().default(0),
+  symbol: z.string(),
+  price: z.number(),
+  date: isoDate,
+  /** On the open, on the close, or at another time of day. */
+  at: z.enum(["open", "close", "time"]),
+  /** "16:20", New York, when known. */
+  time: z.string().nullable().default(null),
+  /** That session's close: how much trade is left to the spike. */
+  close: z.number().nullable().default(null),
+  /** Above the close (a buy spike) or below it. */
+  direction: z.enum(["up", "down"]),
+  group: z.string().nullable().default(null),
+  /** The first session after the spike that traded back to its price, and how many sessions it took. */
+  recoveredOn: isoDate.nullable().default(null),
+  sessionsToRecover: z.number().int().nullable().default(null),
+  postedAt: timestamp,
+})
+export type SpikeDoc = z.infer<typeof spikeSchema> & { id: string }
 
 // ---- Quizzes and tests --------------------------------------------------------------------------
 

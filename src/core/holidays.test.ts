@@ -4,6 +4,7 @@ import {
   isMarketHoliday,
   isTradingDay,
   lastCompleteWeek,
+  lastTradingDays,
   marketHolidays,
   tradingDayOnOrBefore,
   tradingDaysAfter,
@@ -73,5 +74,19 @@ describe("trading days", () => {
     expect(lastCompleteWeek(asIsoDate("2026-10-22"))).toEqual({ start: "2026-10-12", end: "2026-10-16" })
     // Good Friday 2027 (Mar 26): the week ends on Thursday.
     expect(lastCompleteWeek(asIsoDate("2027-03-25"))).toEqual({ start: "2027-03-22", end: "2027-03-26" })
+  })
+})
+
+describe("the last few trading days", () => {
+  it("counts back over weekends and holidays", () => {
+    // Monday after Thanksgiving week: Nov 27 (half day, open), Nov 25, Nov 24; Thursday Nov 26 is closed.
+    expect(lastTradingDays(asIsoDate("2026-11-30"), 4)).toEqual([
+      "2026-11-24",
+      "2026-11-25",
+      "2026-11-27",
+      "2026-11-30",
+    ])
+    // On a Saturday, the week that just ended.
+    expect(lastTradingDays(asIsoDate("2026-10-24"), 2)).toEqual(["2026-10-22", "2026-10-23"])
   })
 })
