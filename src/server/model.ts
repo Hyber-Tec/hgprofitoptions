@@ -665,6 +665,11 @@ export const classRecapSchema = z.object({
   published: z.boolean().default(false),
   /** Members were told about it: once, the first time it is published. */
   notifiedAt: optionalTimestamp,
+  /** The class recording to watch (Zoom's share link, with its passcode), from Zoom or pasted by an admin. */
+  recordingUrl: z.string().nullable().default(null),
+  /** When an admin last sent the recording to members, and to how many. */
+  recordingSentAt: optionalTimestamp,
+  recordingSentTo: z.number().int().nullable().default(null),
   createdAt: timestamp,
   updatedAt: timestamp,
 })
@@ -844,6 +849,9 @@ export const presentationSchema = z.object({
   slidesPath: z.string().nullable().default(null),
   videoUrl: z.string().nullable().default(null),
   published: z.boolean(),
+  /** When an admin last sent it to members, and to how many. */
+  sentAt: optionalTimestamp,
+  sentTo: z.number().int().nullable().default(null),
   createdAt: timestamp,
 })
 export type PresentationDoc = z.infer<typeof presentationSchema> & { id: string }

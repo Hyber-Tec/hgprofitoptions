@@ -4,6 +4,7 @@ import {
   downloadRecordingText,
   isZoomUrl,
   meetingSdkSignature,
+  recordingLink,
   transcriptFromEvent,
   urlValidationResponse,
   verifyZoomWebhook,
@@ -62,6 +63,8 @@ describe("webhooks", () => {
           uuid: "abc/def==",
           topic: "Saturday class",
           start_time: "2026-10-24T22:00:00Z",
+          share_url: "https://us06web.zoom.us/rec/share/AbC123",
+          recording_play_passcode: "p4ss.Code",
           recording_files: [
             { file_type: "MP4", download_url: "https://zoom.us/rec/download/video" },
             {
@@ -87,11 +90,22 @@ describe("webhooks", () => {
       startTime: new Date("2026-10-24T22:00:00Z"),
       downloadUrls: ["https://zoom.us/rec/download/vtt-1", "https://zoom.us/rec/download/vtt-2"],
       downloadToken: "dl-token",
+      shareUrl: "https://us06web.zoom.us/rec/share/AbC123?pwd=p4ss.Code",
     })
     expect(
       transcriptFromEvent({ ...event, payload: { object: { ...event.payload.object, recording_files: [] } } }),
     ).toBeNull()
     expect(transcriptFromEvent({ event: "meeting.started" })).toBeNull()
+  })
+
+  it("adds the playback passcode to the recording's link, once, and only to https links", () => {
+    expect(recordingLink("https://zoom.us/rec/share/x?pwd=given", "other")).toBe(
+      "https://zoom.us/rec/share/x?pwd=given",
+    )
+    expect(recordingLink("https://zoom.us/rec/share/x", null)).toBe("https://zoom.us/rec/share/x")
+    expect(recordingLink("http://zoom.us/rec/share/x", "code")).toBeNull()
+    expect(recordingLink("not a link", "code")).toBeNull()
+    expect(recordingLink(null, "code")).toBeNull()
   })
 })
 

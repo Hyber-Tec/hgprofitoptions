@@ -220,7 +220,10 @@ that hosts the class (an app joining another account's meetings needs Zoom's rev
    Server-to-Server OAuth app (scope to read cloud recordings) instead: `ZOOM_ACCOUNT_ID` and
    `ZOOM_CLIENT_ID` in `functions/.env.hgprofitoptions-hybertec`, and the `ZOOM_CLIENT_SECRET` secret.
 
-Without Zoom, admins can still add a recap with a transcript file under Admin > Class recaps.
+The same event carries the recording's share link (with its passcode), which fills in the recap's
+recording link; Send the recording on the recap emails it to members and tells them in the app.
+Without Zoom, admins can still add a recap with a transcript file under Admin > Class recaps, paste the
+recording's link there, or send the slides and recording from Admin > Presentations.
 
 ## Serving the app at hgprofitoptions.web.app
 

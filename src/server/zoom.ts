@@ -84,6 +84,8 @@ const recordingEventSchema = z
             uuid: z.string(),
             topic: z.string().nullish(),
             start_time: z.string().nullish(),
+            share_url: z.string().nullish(),
+            recording_play_passcode: z.string().nullish(),
             recording_files: z
               .array(
                 z
@@ -114,6 +116,22 @@ export interface TranscriptReady {
   downloadUrls: string[]
   /** Short-lived token Zoom sends with the event, when the app's event subscription asks for one. */
   downloadToken: string | null
+  /** The recording's share link, with its playback passcode so members are not asked for it. */
+  shareUrl: string | null
+}
+
+/** Zoom's share link with the playback passcode added (Zoom's documented `pwd` parameter). */
+export function recordingLink(shareUrl: string | null | undefined, passcode: string | null | undefined): string | null {
+  if (!shareUrl) return null
+  let url: URL
+  try {
+    url = new URL(shareUrl)
+  } catch {
+    return null
+  }
+  if (url.protocol !== "https:") return null
+  if (passcode && !url.searchParams.has("pwd")) url.searchParams.set("pwd", passcode)
+  return url.toString()
 }
 
 /** The transcript files in a recording event, or null when the event has none. */
@@ -140,6 +158,7 @@ export function transcriptFromEvent(body: unknown): TranscriptReady | null {
     startTime: start && !Number.isNaN(start.getTime()) ? start : null,
     downloadUrls,
     downloadToken: parsed.data.download_token ?? null,
+    shareUrl: recordingLink(object.share_url, object.recording_play_passcode),
   }
 }
 

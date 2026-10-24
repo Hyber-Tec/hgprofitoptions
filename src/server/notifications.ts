@@ -1,13 +1,14 @@
 /**
  * Member notifications other than alerts: new strike targets, the market brief, spikes, class recaps,
- * and class and membership reminders. Shared by Cloud Functions (scheduled and triggered) and the web
- * server.
+ * class slides and recordings, and class and membership reminders. Shared by Cloud Functions (scheduled
+ * and triggered) and the web server.
  */
 import { Timestamp, type Firestore } from "firebase-admin/firestore"
 import type { Messaging } from "firebase-admin/messaging"
 import { addDays, daysBetween, todayInMarketZone } from "@/core/dates"
 import type { IsoDate } from "@/core/domain/types"
-import { formatDate } from "@/core/format"
+import { formatDate, formatDateWithWeekday } from "@/core/format"
+import type { TraderLevel } from "@/core/levels"
 import { hasAccess, hasFullAccess, membershipStatus } from "@/core/membership/quarters"
 import { formatDayIn, formatTimeIn, nextOccurrence, zoneAbbreviation, type ClassSession } from "@/core/schedule"
 import { layout, sendEmail, sendEmailBatch, type EmailConfig } from "./email"
@@ -339,6 +340,90 @@ export async function sendClassReminders(
     reminded.push({ title: session.title, date: next.date, members: recipients.length })
   }
   return reminded
+}
+
+/** Who an admin sends something to: every member, members at some levels, or chosen people. */
+export type Audience = { to: "everyone" } | { to: "levels"; levels: TraderLevel[] } | { to: "members"; uids: string[] }
+
+/** A class's slides, its recording, or both, as an admin sends them. */
+export interface ClassMaterial {
+  title: string
+  date: IsoDate
+  /** The slides' page in the member area (they carry each member's name), when they are sent. */
+  slidesPath: string | null
+  /** The recording link, when it is sent. */
+  recordingUrl: string | null
+  /** Where the notification opens in the member area. */
+  openPath: string
+  tag: string
+}
+
+/**
+ * Sends a class's slides and recording to the members with access in the audience: a notification in the
+ * app, and an email when email is set up. Every member and the levels mean members only (not staff); a
+ * chosen person gets it whatever their role. Returns how many people it went to and how many emails left.
+ */
+export async function sendClassMaterial(
+  db: Firestore,
+  messaging: Messaging,
+  email: EmailConfig | null,
+  siteUrl: string,
+  material: ClassMaterial,
+  audience: Audience,
+): Promise<{ members: number; emailed: number }> {
+  const recipients = (await activeMembers(db, todayInMarketZone()))
+    .filter(({ member, status }) => {
+      if (!hasAccess(status)) return false
+      if (audience.to === "members") return audience.uids.includes(member.uid)
+      if (member.role !== "member") return false
+      return audience.to === "everyone" || audience.levels.includes(member.level)
+    })
+    .map(({ member }) => member)
+  if (recipients.length === 0) return { members: 0, emailed: 0 }
+
+  const what =
+    material.slidesPath && material.recordingUrl ? "Slides and recording" : material.slidesPath ? "Slides" : "Recording"
+  const day = formatDateWithWeekday(material.date)
+  await sendToMembers(
+    db,
+    messaging,
+    recipients.map((m) => m.uid),
+    {
+      title: `${what}: ${material.title}`,
+      body: `From the class on ${day}. Tap to open.`,
+      url: material.openPath,
+      tag: material.tag,
+    },
+  )
+  if (!email) return { members: recipients.length, emailed: 0 }
+
+  const base = siteUrl.replace(/\/+$/, "")
+  const emailed = await sendEmailBatch(
+    email,
+    recipients.map((m) => {
+      const first = m.fullName.split(/\s+/)[0] ?? m.fullName
+      const paragraphs = [
+        material.slidesPath && material.recordingUrl
+          ? `Hi ${first}, here are the slides and the recording from the class on ${day}.`
+          : material.slidesPath
+            ? `Hi ${first}, here are the slides from the class on ${day}.`
+            : `Hi ${first}, here is the recording of the class on ${day}.`,
+      ]
+      if (material.slidesPath)
+        paragraphs.push(`The slides are in the member area, with your name on them: ${base}${material.slidesPath}`)
+      if (material.recordingUrl && material.slidesPath) paragraphs.push("Watch the recording with the button below.")
+      const { html, text } = layout({
+        heading: material.title,
+        paragraphs,
+        cta: material.recordingUrl
+          ? { label: "Watch the recording", href: material.recordingUrl }
+          : { label: "Open the slides", href: `${base}${material.slidesPath ?? material.openPath}` },
+        footer: "You get this as a member of HG Profit Options. Please keep class material to yourself.",
+      })
+      return { to: m.email, subject: `${what}: ${material.title}`, html, text }
+    }),
+  )
+  return { members: recipients.length, emailed }
 }
 
 /** Members whose membership ended yesterday, for the admin digest. */

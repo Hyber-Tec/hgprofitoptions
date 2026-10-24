@@ -44,6 +44,8 @@ function transcriptEvent(meetingId: string, uuid: string, downloadUrl: string) {
         uuid,
         topic: "HG Profit Options class",
         start_time: "2026-10-25T23:00:00Z",
+        share_url: "https://zoom.us/rec/share/class-recording",
+        recording_play_passcode: "p4ss",
         recording_files: [
           {
             file_type: "TRANSCRIPT",
@@ -114,6 +116,19 @@ test("HG adds a class recap from a transcript, and members read it", async ({ pa
   await member.close()
 })
 
+test("HG sends a class's slides to the beginners, by email and in the app", async ({ page }) => {
+  await signIn(page, ACCOUNTS.admin)
+  await expect(page).toHaveURL(/\/admin$/)
+  await page.goto("/admin/presentations")
+  await page.getByRole("button", { name: "Send" }).first().click()
+  const dialog = page.getByRole("dialog", { name: "Send to members" })
+  await dialog.getByRole("button", { name: "By level" }).click()
+  await expect(dialog.getByRole("checkbox", { name: "Beginner" })).toBeChecked()
+  await dialog.getByRole("button", { name: /^Send to \d+ members?$/ }).click()
+  await expect(page.getByText(/^Sent to \d+ members?$/)).toBeVisible()
+  await expect(page.getByText(/sent \w{3} \d{1,2} to \d+ members?/).first()).toBeVisible()
+})
+
 test.describe("Zoom", () => {
   let zoom: Server
   let downloadUrl = ""
@@ -156,6 +171,14 @@ test.describe("Zoom", () => {
     await rows.getByRole("link", { name: "Group class" }).click()
     await expect(page.getByText("Key points")).toBeVisible({ timeout: 30_000 })
     await expect(page.getByText("Oct 25, 2026, from Zoom's transcript")).toBeVisible()
+
+    // Zoom's event brings the recording's link, passcode included, ready to send to members.
+    await expect(page.getByLabel("Recording link")).toHaveValue("https://zoom.us/rec/share/class-recording?pwd=p4ss")
+    await page.getByRole("button", { name: "Send the recording" }).click()
+    const dialog = page.getByRole("dialog", { name: "Send the recording" })
+    await dialog.getByRole("button", { name: /^Send to \d+ members$/ }).click()
+    await expect(page.getByText(/^Sent to \d+ members$/)).toBeVisible()
+    await expect(page.getByText(/^Sent \w{3} \d{1,2} to \d+ members\.$/)).toBeVisible()
   })
 
   test("members join the class inside the site", async ({ page, browser }) => {

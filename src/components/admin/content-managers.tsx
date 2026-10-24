@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useTransition, type ReactNode } from "react"
-import { LuPencil, LuPlus, LuTrash2 } from "react-icons/lu"
+import { LuPencil, LuPlus, LuSend, LuTrash2 } from "react-icons/lu"
 import type { IsoDate } from "@/core/domain/types"
 import { formatDate } from "@/core/format"
 import { deletePresentation, deleteResource, savePresentation, saveResource } from "@/lib/actions/admin/content"
@@ -21,6 +21,7 @@ import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/components/ui/toast"
 import { ToneBadge } from "@/components/portal/display"
+import { SendDialog, type SendableMember } from "./send-dialog"
 import { UploadField, type UploadedFile } from "./upload-field"
 import { useEditorDialog } from "./use-editor-dialog"
 
@@ -83,12 +84,23 @@ export interface PresentationRow {
   slidesPath: string | null
   videoUrl: string | null
   published: boolean
+  /** "Sent Oct 25 to 23 members", when it was sent. */
+  sent: string | null
 }
 
 const EMPTY_PRESENTATION = { title: "", sessionDate: "", summary: "", videoUrl: "", published: true }
 
-export function PresentationsManager({ items }: { items: PresentationRow[] }) {
+export function PresentationsManager({
+  items,
+  members,
+  emailReady,
+}: {
+  items: PresentationRow[]
+  members: SendableMember[]
+  emailReady: boolean
+}) {
   const dialog = useEditorDialog<PresentationRow>()
+  const sending = useEditorDialog<PresentationRow>()
   const [form, setForm] = useState(EMPTY_PRESENTATION)
   const [slides, setSlides] = useState<UploadedFile | null>(null)
   const [pending, startTransition] = useTransition()
@@ -155,9 +167,19 @@ export function PresentationsManager({ items }: { items: PresentationRow[] }) {
               <p className="text-sm text-muted-foreground">
                 {formatDate(p.sessionDate as IsoDate)} · {p.slidesPath ? "Slides" : "No slides"}
                 {p.videoUrl ? " · Recording" : ""}
+                {p.sent ? ` · ${p.sent}` : ""}
               </p>
             </div>
             <div className="flex items-center gap-3">
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={!p.published || (!p.slidesPath && !p.videoUrl)}
+                onClick={() => sending.show(p)}
+              >
+                <LuSend />
+                Send
+              </Button>
               <label className="flex items-center gap-2 text-sm">
                 <Switch checked={p.published} onCheckedChange={(v) => togglePublished(p, v)} disabled={pending} />
                 Published
@@ -180,6 +202,22 @@ export function PresentationsManager({ items }: { items: PresentationRow[] }) {
           </li>
         ))}
       </ul>
+      {sending.target && (
+        <SendDialog
+          key={sending.target.id}
+          target={{
+            kind: "presentation",
+            id: sending.target.id,
+            title: sending.target.title,
+            hasSlides: sending.target.slidesPath !== null,
+            hasRecording: sending.target.videoUrl !== null,
+          }}
+          members={members}
+          emailReady={emailReady}
+          open={sending.open}
+          onOpenChange={sending.onOpenChange}
+        />
+      )}
       <EditorDialog
         open={dialog.open}
         onOpenChange={dialog.onOpenChange}

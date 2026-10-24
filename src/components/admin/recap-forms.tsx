@@ -9,6 +9,7 @@ import {
   LuPencil,
   LuPlus,
   LuRefreshCw,
+  LuSend,
   LuSparkles,
   LuTrash2,
   LuTriangleAlert,
@@ -22,6 +23,7 @@ import {
   deleteRecap,
   rewriteRecap,
   saveRecap,
+  saveRecording,
   setRecapPublished,
   uploadTranscript,
 } from "@/lib/actions/admin/recaps"
@@ -45,6 +47,7 @@ import { Spinner } from "@/components/ui/spinner"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/components/ui/toast"
 import { ButtonAnchor } from "@/components/shared/button-link"
+import { SendDialog, type SendableMember } from "./send-dialog"
 import { UploadField, type UploadedFile } from "./upload-field"
 
 const TRANSCRIPT_TYPES =
@@ -576,5 +579,85 @@ function RecapEditor({ recapId, initial, onDone }: { recapId: string; initial: E
         </Button>
       </div>
     </form>
+  )
+}
+
+/** The class recording's link (filled in from Zoom when it is connected) and sending it to members. */
+export function RecordingCard({
+  recapId,
+  title,
+  initialUrl,
+  sent,
+  members,
+  emailReady,
+}: {
+  recapId: string
+  title: string
+  initialUrl: string | null
+  /** "Sent Oct 25 to 23 members", once it was sent. */
+  sent: string | null
+  members: SendableMember[]
+  emailReady: boolean
+}) {
+  const [url, setUrl] = useState(initialUrl ?? "")
+  const [sending, setSending] = useState(false)
+  const [pending, startTransition] = useTransition()
+  const saved = (initialUrl ?? "") === url.trim()
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Recording</CardTitle>
+        <CardDescription>
+          {initialUrl
+            ? (sent ?? "Not sent to members yet.")
+            : "Paste the link to the class recording, then send it to members by email and in the app."}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        <Field>
+          <FieldLabel htmlFor="r-recording" className="sr-only">
+            Recording link
+          </FieldLabel>
+          <Input
+            id="r-recording"
+            type="url"
+            inputMode="url"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="https://zoom.us/rec/share/..."
+          />
+        </Field>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            disabled={pending || saved}
+            onClick={() =>
+              startTransition(async () => {
+                const result = await saveRecording(recapId, url)
+                toast.add(
+                  result.ok
+                    ? { title: url.trim() ? "Link saved" : "Link removed", type: "success" }
+                    : { title: "Not saved", description: result.message, type: "error" },
+                )
+              })
+            }
+          >
+            {pending && <Spinner />}
+            Save link
+          </Button>
+          <Button disabled={!initialUrl || !saved} onClick={() => setSending(true)}>
+            <LuSend />
+            {sent ? "Send again" : "Send the recording"}
+          </Button>
+        </div>
+      </CardContent>
+      <SendDialog
+        target={{ kind: "recording", recapId, title }}
+        members={members}
+        emailReady={emailReady}
+        open={sending}
+        onOpenChange={setSending}
+      />
+    </Card>
   )
 }

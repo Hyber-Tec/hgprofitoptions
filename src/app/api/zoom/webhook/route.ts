@@ -50,7 +50,11 @@ export async function POST(request: Request) {
   const queued = await adminDb().runTransaction(async (tx) => {
     const snap = await tx.get(ref)
     // A repeated event never replaces a recap that is written or on its way; a failed one starts over.
-    if (snap.exists && snap.get("transcript.status") !== "failed") return false
+    // The recording's link is kept from whichever event brings it first.
+    if (snap.exists && snap.get("transcript.status") !== "failed") {
+      if (!snap.get("recordingUrl") && transcript.shareUrl) tx.update(ref, { recordingUrl: transcript.shareUrl })
+      return false
+    }
     const now = Timestamp.now()
     tx.set(ref, {
       title: classTitle(date, classSchedule),
@@ -72,6 +76,9 @@ export async function POST(request: Request) {
       summary: null,
       published: false,
       notifiedAt: null,
+      recordingUrl: (snap.get("recordingUrl") as string | null | undefined) ?? transcript.shareUrl,
+      recordingSentAt: (snap.get("recordingSentAt") as Timestamp | null | undefined) ?? null,
+      recordingSentTo: (snap.get("recordingSentTo") as number | null | undefined) ?? null,
       createdAt: snap.exists ? (snap.get("createdAt") as Timestamp) : now,
       updatedAt: now,
     })

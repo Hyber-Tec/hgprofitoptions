@@ -3,7 +3,7 @@ import type { Query, QueryDocumentSnapshot } from "firebase-admin/firestore"
 import { todayInMarketZone } from "@/core/dates"
 import { formatDate } from "@/core/format"
 import type { IsoDate, MembershipStatus } from "@/core/domain/types"
-import { membershipStatus } from "@/core/membership/quarters"
+import { hasAccess, membershipStatus } from "@/core/membership/quarters"
 import { toMembershipPeriods } from "@/server/members"
 import {
   COLLECTIONS,
@@ -43,6 +43,15 @@ export async function listMembers(): Promise<Member[]> {
 
 export async function listMembersForSearch(): Promise<{ uid: string; fullName: string; email: string }[]> {
   return (await listMembers()).map((m) => ({ uid: m.uid, fullName: m.fullName, email: m.email }))
+}
+
+/** Members with access, for an admin to send class material to (everyone, by level, or chosen ones). */
+export async function listSendableMembers(): Promise<
+  { uid: string; fullName: string; email: string; level: Member["level"] }[]
+> {
+  return (await listMemberRows())
+    .filter(({ member, status }) => member.role === "member" && hasAccess(status))
+    .map(({ member }) => ({ uid: member.uid, fullName: member.fullName, email: member.email, level: member.level }))
 }
 
 /** Every member with their periods and computed membership status, using one collection-group read for periods. */
