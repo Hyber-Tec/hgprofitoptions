@@ -3,13 +3,13 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Suspense, lazy, useEffect, useState } from "react"
-import { LuArrowRight, LuCalendarCheck, LuLayoutDashboard, LuLogIn, LuMenu, LuShield } from "react-icons/lu"
+import { LuLayoutDashboard, LuLogIn, LuMenu, LuShield } from "react-icons/lu"
 import { ThemeToggle } from "@/components/shared/theme-toggle"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
-import { ButtonAnchor, ButtonLink } from "@/components/shared/button-link"
+import { ButtonLink } from "@/components/shared/button-link"
 import { Logo } from "./logo"
 
 /**
@@ -98,16 +98,6 @@ export function SiteHeader({ viewer }: { viewer: HeaderViewer | null }) {
               Member login
             </ButtonLink>
           )}
-          <ButtonAnchor
-            className="hidden rounded-full px-3.5 shadow-[0_4px_20px_-6px_var(--primary)] sm:inline-flex"
-            href="/book"
-            target="_blank"
-            rel="noopener"
-          >
-            Book a free call
-            <LuArrowRight data-icon="inline-end" />
-          </ButtonAnchor>
-
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger render={<Button variant="ghost" size="icon" className="lg:hidden" aria-label="Open menu" />}>
               <LuMenu />
@@ -168,10 +158,6 @@ export function SiteHeader({ viewer }: { viewer: HeaderViewer | null }) {
                     Member login
                   </ButtonLink>
                 )}
-                <ButtonAnchor size="lg" href="/book" target="_blank" rel="noopener">
-                  <LuCalendarCheck data-icon="inline-start" />
-                  Book a free call
-                </ButtonAnchor>
               </div>
             </SheetContent>
           </Sheet>

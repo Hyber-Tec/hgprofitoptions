@@ -1,9 +1,16 @@
 import { expect, expectNoHorizontalScroll, test } from "./fixtures"
 
-test("the home page introduces the class and links to booking", async ({ page }) => {
+test("the home page keeps the free call for the end, after everything else", async ({ page }) => {
   await page.goto("/")
-  await expect(page.getByRole("heading", { level: 1, name: "Trade options with a plan, not a guess." })).toBeVisible()
-  await expect(page.locator('a[href="/book"]:visible').first()).toBeVisible()
+  await expect(
+    page.getByRole("heading", {
+      level: 1,
+      name: "Taking options trading to the next level, unlocking unlimited profits for the investor.",
+    }),
+  ).toBeVisible()
+  // The class day comes from the schedule: the Sunday group class by default.
+  await expect(page.getByText("Live class every Sunday")).toBeVisible()
+  await expect(page.getByText(/starts every Sunday evening with a group class/)).toBeVisible()
   for (const name of [
     "Everything HG shares, in one place",
     "Everything you need to trade options with confidence",
@@ -18,6 +25,16 @@ test("the home page introduces the class and links to booking", async ({ page })
     await heading.scrollIntoViewIfNeeded()
     await expect(heading).toBeVisible()
   }
+  // HG wants visitors to see the whole page first: the only booking button is in the closing section.
+  const closing = page.locator("section", {
+    has: page.getByRole("heading", { level: 2, name: "Your journey toward trading excellence begins now" }),
+  })
+  await expect(closing.getByRole("link", { name: "Book a free 15-min call" })).toBeVisible()
+  await expect(page.locator('main a[href="/book"]')).toHaveCount(1)
+  await expect(page.locator('header a[href="/book"]')).toHaveCount(0)
+  // Members still sign in from the header (the menu on a phone).
+  if (test.info().project.name === "phone") await page.getByRole("button", { name: "Open menu" }).click()
+  await expect(page.getByRole("link", { name: "Member login" }).first()).toBeVisible()
   await expectNoHorizontalScroll(page)
 })
 

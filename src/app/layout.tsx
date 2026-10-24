@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(publicEnv.NEXT_PUBLIC_SITE_URL),
   title: { default: "HG Profit Options", template: "%s · HG Profit Options" },
   description:
-    "Options trading education with HG: live Saturday classes, a monthly one-on-one, real-time alerts and member tools. Book a free 15-minute intro call.",
+    "Options trading education with HG: a 24/7 classroom with live weekly classes, a personal trading plan built one-on-one with HG, real-time alerts and member tools.",
   applicationName: "HG Profit Options",
   openGraph: { type: "website", siteName: "HG Profit Options" },
 }

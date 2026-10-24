@@ -10,6 +10,8 @@ import {
   LuTarget,
   LuWallet,
 } from "react-icons/lu"
+import { WEEKDAYS, mainClass, type ClassSession } from "@/core/schedule"
+import { publicEnv } from "@/lib/env.public"
 import { CountUp } from "../count-up"
 import { LogoMark } from "../logo"
 import { RevealGroup, RevealItem } from "../motion"
@@ -28,11 +30,20 @@ const SIDEBAR: { label: string; Icon: IconType; badge?: string }[] = [
   { label: "Classroom", Icon: LuPresentation },
 ]
 
-function DashboardMockup() {
+/** "6:00 PM" from "18:00". */
+function clock(hhmm: string): string {
+  const [h = 0, m = 0] = hhmm.split(":").map(Number)
+  return `${String(((h + 11) % 12) + 1)}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`
+}
+
+const SHORT_DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const
+
+function DashboardMockup({ schedule }: { schedule: readonly ClassSession[] }) {
+  const host = new URL(publicEnv.NEXT_PUBLIC_SITE_URL).host
   return (
     <div
       role="img"
-      aria-label="A preview of the member area with demo data: a buy alert with its buy point, targets and stop, this week's strike targets, the Saturday class times, a channel ladder and a journal entry."
+      aria-label="A preview of the member area with demo data: a buy alert with its buy point, targets and stop, this week's strike targets, the class times, a channel ladder and a journal entry."
       className="@container flex flex-col text-left text-muted-foreground select-none"
     >
       <div className="flex items-center gap-3 border-b bg-muted/40 px-4 py-2.5">
@@ -41,9 +52,7 @@ function DashboardMockup() {
           <span className="size-2.5 rounded-full bg-foreground/15" />
           <span className="size-2.5 rounded-full bg-foreground/15" />
         </div>
-        <div className="mx-auto truncate rounded-md bg-background/80 px-3 py-1 text-[11px]">
-          hgprofitoptions.web.app/members
-        </div>
+        <div className="mx-auto truncate rounded-md bg-background/80 px-3 py-1 text-[11px]">{host}/members</div>
         <span className="rounded-full border bg-background px-2 py-0.5 text-[10px] font-medium tracking-wide uppercase">
           Demo data
         </span>
@@ -95,15 +104,17 @@ function DashboardMockup() {
               <MockCard title="Strike targets" aside="This week">
                 <TargetsMock />
               </MockCard>
-              <MockCard title="Next class" aside="Saturday · Zoom">
+              <MockCard title="Classes this week" aside="Live on Zoom">
                 <div className="grid gap-1.5 text-[11px] @lg:grid-cols-2">
-                  {[
-                    ["Beginner session", "6:00 PM ET"],
-                    ["All traders", "7:00 PM ET"],
-                  ].map(([session, time]) => (
-                    <div key={session} className="flex items-center justify-between rounded-md bg-muted/70 px-2 py-1.5">
-                      <span className="text-foreground">{session}</span>
-                      <span className="num">{time}</span>
+                  {schedule.slice(0, 4).map((session) => (
+                    <div
+                      key={`${String(session.day)}-${session.start}`}
+                      className="flex items-center justify-between gap-2 rounded-md bg-muted/70 px-2 py-1.5"
+                    >
+                      <span className="truncate text-foreground">{session.title}</span>
+                      <span className="num shrink-0">
+                        {SHORT_DAYS[session.day]} {clock(session.start)}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -128,14 +139,25 @@ function DashboardMockup() {
   )
 }
 
-const STATS: { label: string; count?: { value: number; suffix: string }; text?: string }[] = [
-  { count: { value: 8, suffix: "+" }, label: "countries represented by our members" },
-  { count: { value: 10, suffix: "+" }, label: "years of trading experience behind every lesson" },
-  { count: { value: 2, suffix: "" }, label: "live classes every Saturday, for beginners and all traders" },
-  { text: "1:1", label: "a private session with HG every month" },
-]
+type Stat = { label: string; count?: { value: number; suffix: string }; text?: string }
 
-export function Showcase() {
+/** The third figure follows the class schedule, so it never promises a class that moved. */
+function stats(schedule: readonly ClassSession[]): Stat[] {
+  const main = mainClass(schedule)
+  return [
+    { count: { value: 8, suffix: "+" }, label: "countries represented by our members" },
+    { count: { value: 10, suffix: "+" }, label: "years of trading experience behind every lesson" },
+    schedule.length > 0
+      ? {
+          count: { value: schedule.length, suffix: "" },
+          label: `live ${schedule.length === 1 ? "class" : "classes"} every week${main ? `, starting with the ${WEEKDAYS[main.day] ?? ""} group class` : ""}`,
+        }
+      : { text: "24/7", label: "classroom, with live classes on Zoom" },
+    { text: "1:1", label: "a personal trading plan, built with HG" },
+  ]
+}
+
+export function Showcase({ schedule }: { schedule: readonly ClassSession[] }) {
   return (
     <section id="inside" className="relative scroll-mt-20 overflow-x-clip pt-8 pb-20 sm:pb-28">
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
@@ -145,13 +167,13 @@ export function Showcase() {
           lead="Alerts, weekly strike targets, channel charts and your own trading journal, side by side. Shown here with demo data."
         />
         <ScrollTilt>
-          <DashboardMockup />
+          <DashboardMockup schedule={schedule} />
         </ScrollTilt>
         <RevealGroup
           as="dl"
           className="mx-auto mt-16 grid max-w-5xl grid-cols-2 gap-x-6 gap-y-10 sm:mt-20 lg:grid-cols-4"
         >
-          {STATS.map((stat) => (
+          {stats(schedule).map((stat) => (
             <RevealItem key={stat.label} className="flex flex-col gap-2 border-l border-brand/30 pl-4">
               <dt className="order-2 text-sm leading-snug text-muted-foreground">{stat.label}</dt>
               <dd className="num order-1 text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">

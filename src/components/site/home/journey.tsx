@@ -8,41 +8,47 @@ import { cn } from "@/lib/utils"
 import { Reveal } from "../motion"
 import { Section, SectionHeading } from "../section"
 
-const STEPS: { title: string; body: string; note: string; Icon: IconType }[] = [
-  {
-    title: "Book a free call",
-    body: "A 15-minute Zoom call with HG. Talk through your experience and goals, and ask anything about the class.",
-    note: "Free · 15 minutes · No credit card",
-    Icon: LuCalendarCheck,
-  },
-  {
-    title: "Join for a quarter",
-    body: "Memberships run by calendar quarter. HG sets yours up and you receive a personal invitation to create your login.",
-    note: "Invite-only member area",
-    Icon: LuMailCheck,
-  },
-  {
-    title: "Learn live with HG",
-    body: "Join the Saturday classes, book your monthly one-on-one, and learn alongside members in the 24/7 classroom.",
-    note: "Beginners welcome",
-    Icon: LuGraduationCap,
-  },
-  {
-    title: "Trade with a plan",
-    body: "Study HG's alerts and weekly strike targets, read the channel charts, and record every trade you choose to make in your journal.",
-    note: "Your progress, tracked",
-    Icon: LuTarget,
-  },
-]
+type Step = { title: string; body: string; note: string; Icon: IconType }
 
-export function Journey() {
+function steps(classDay: string | null): Step[] {
+  return [
+    {
+      title: "Book a free call",
+      body: "A 15-minute Zoom call with HG. Talk through your experience and goals, and ask anything about the class.",
+      note: "Free · 15 minutes · No credit card",
+      Icon: LuCalendarCheck,
+    },
+    {
+      title: "Join for a quarter",
+      body: "Memberships run by calendar quarter. HG sets yours up and you receive a personal invitation to create your login.",
+      note: "Invite-only member area",
+      Icon: LuMailCheck,
+    },
+    {
+      title: "Learn live with HG",
+      body: `Join the ${classDay ? `${classDay} group class` : "live classes"}, book your monthly one-on-one, and learn alongside members in the 24/7 classroom.`,
+      note: "Beginners welcome",
+      Icon: LuGraduationCap,
+    },
+    {
+      title: "Trade with a plan",
+      body: "Study HG's alerts and weekly strike targets, read the channel charts, and record every trade you choose to make in your journal.",
+      note: "Your progress, tracked",
+      Icon: LuTarget,
+    },
+  ]
+}
+
+/** `classDay` is the weekday of the group class for everyone ("Sunday"), from the class schedule. */
+export function Journey({ classDay }: { classDay: string | null }) {
+  const items = steps(classDay)
   const ref = useRef<HTMLDivElement>(null)
   const reduced = useReducedMotion()
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start 65%", "end 55%"] })
   const progress = useSpring(scrollYProgress, { stiffness: 140, damping: 30, restDelta: 0.001 })
   const [reached, setReached] = useState(0)
   useMotionValueEvent(scrollYProgress, "change", (value) => {
-    setReached(Math.min(STEPS.length - 1, Math.floor(value * (STEPS.length - 1) + 0.25)))
+    setReached(Math.min(items.length - 1, Math.floor(value * (items.length - 1) + 0.25)))
   })
   const lit = (index: number) => reduced === true || index <= reached
 
@@ -61,7 +67,7 @@ export function Journey() {
           className="absolute top-5 bottom-5 left-5 w-px origin-top bg-gradient-to-b from-brand via-brand-2 to-brand shadow-[0_0_12px_var(--brand)]"
         />
         <ol className="flex flex-col gap-10 sm:gap-14">
-          {STEPS.map(({ title, body, note, Icon }, index) => (
+          {items.map(({ title, body, note, Icon }, index) => (
             <li key={title} className="relative grid gap-2 pl-16 sm:pl-20">
               <span
                 className={cn(
@@ -89,8 +95,8 @@ export function Journey() {
             <LuCheck className="size-4 text-positive" /> Made for
           </p>
           <p className="mt-2 text-sm leading-relaxed text-pretty text-muted-foreground">
-            Beginners and active traders who want a rules-based way to plan every trade, and can join the live Saturday
-            classes.
+            Beginners and active traders who want a rules-based way to plan every trade, and can join the live
+            {classDay ? ` ${classDay} group class` : " classes"}.
           </p>
         </div>
         <div className="rounded-2xl border bg-card/60 p-5">

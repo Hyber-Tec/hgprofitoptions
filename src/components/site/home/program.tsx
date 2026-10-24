@@ -18,7 +18,7 @@ import {
   LuTarget,
   LuVideo,
 } from "react-icons/lu"
-import type { SiteSettings } from "@/server/model"
+import { AUDIENCE_LABELS, WEEKDAYS, describeWeek, mainClass, type ClassSession } from "@/core/schedule"
 import { cn } from "@/lib/utils"
 import { LogoMark } from "../logo"
 import { RevealGroup, RevealItem } from "../motion"
@@ -27,7 +27,7 @@ import { SpotlightGroup } from "../spotlight-group"
 import { DEMO_ALERT } from "./demo-data"
 import { JournalMock, LadderMock, TargetsMock } from "./mockups"
 
-type Schedule = SiteSettings["classSchedule"]
+type Schedule = readonly ClassSession[]
 
 const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const
 
@@ -91,11 +91,11 @@ function ClassesVisual({ schedule }: { schedule: Schedule }) {
             <span className="size-1.5 rounded-full bg-negative" />
             Live on Zoom
           </span>
-          <span className="text-muted-foreground">Every Saturday</span>
+          <span className="text-muted-foreground">Every week</span>
         </div>
         {schedule.map((session) => (
           <div
-            key={`${session.day}-${session.start}`}
+            key={`${String(session.day)}-${session.start}`}
             className="flex items-center gap-3 rounded-xl border bg-background/60 p-3"
           >
             <div className="flex w-14 shrink-0 flex-col items-center rounded-lg bg-brand/10 py-1.5 text-brand">
@@ -105,7 +105,7 @@ function ClassesVisual({ schedule }: { schedule: Schedule }) {
             <div className="min-w-0">
               <p className="truncate text-sm font-medium text-foreground">{session.title}</p>
               <p className="truncate text-xs text-muted-foreground">
-                {clock(session.start)} to {clock(session.end)} ET · {session.audience}
+                {clock(session.start)} to {clock(session.end)} ET · {AUDIENCE_LABELS[session.audience]}
               </p>
             </div>
           </div>
@@ -133,8 +133,8 @@ function ClassesVisual({ schedule }: { schedule: Schedule }) {
   )
 }
 
-function OneOnOneVisual() {
-  // A month at a glance: Saturday classes as dots, one private session highlighted.
+function OneOnOneVisual({ classDay }: { classDay: number | null }) {
+  // A month at a glance: the weekly group class as dots, one private session highlighted.
   const days = Array.from({ length: 35 }, (_, i) => i - 2)
   return (
     <div className="flex flex-col gap-4">
@@ -167,7 +167,7 @@ function OneOnOneVisual() {
             )}
           >
             {day >= 1 && day <= 31 ? day : ""}
-            {i % 7 === 6 && day >= 1 && day <= 31 && (
+            {classDay !== null && i % 7 === classDay && day >= 1 && day <= 31 && (
               <span className="absolute bottom-0.5 size-1 rounded-full bg-brand-2" />
             )}
           </span>
@@ -220,6 +220,8 @@ function CommunityVisual() {
 }
 
 export function Program({ schedule }: { schedule: Schedule }) {
+  const main = mainClass(schedule)
+  const week = describeWeek(schedule)
   return (
     <Section id="program">
       <SectionHeading
@@ -232,15 +234,15 @@ export function Program({ schedule }: { schedule: Schedule }) {
           <BentoCard
             className="md:col-span-2"
             Icon={LuVideo}
-            title="Live classes every Saturday"
-            body="A beginner session, then a class for all traders, live on Zoom with HG. Bring your questions and your charts."
+            title={main ? `A live class every ${WEEKDAYS[main.day] ?? ""}` : "Live classes every week"}
+            body={`${week ? `${week.charAt(0).toUpperCase()}${week.slice(1)}, live` : "Live"} on Zoom with HG. Bring your questions and your charts.`}
             visual={<ClassesVisual schedule={schedule} />}
           />
           <BentoCard
             Icon={LuCalendarClock}
             title="A one-on-one with HG every month"
             body="A private hour each month with HG on the method, risk management and your questions."
-            visual={<OneOnOneVisual />}
+            visual={<OneOnOneVisual classDay={main?.day ?? null} />}
           />
           <BentoCard
             Icon={LuBellRing}
