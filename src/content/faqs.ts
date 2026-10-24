@@ -74,7 +74,7 @@ export const FAQS: (Omit<FaqDoc, "id"> & { id: string })[] = [
       "A live classroom, 24/7.",
       "Breakout sessions as required.",
       "One-on-one sessions.",
-      "Weekly Saturday presentations over Zoom.",
+      "A live group class every Sunday evening over Zoom that sets the tone for the trading week.",
       "An incredible team of expert traders from around the world.",
     ],
     published: true,
@@ -86,7 +86,8 @@ export const FAQS: (Omit<FaqDoc, "id"> & { id: string })[] = [
     question: "How much time is required?",
     subtitle: null,
     answer: [
-      "A mandatory Saturday beginner session from 6 to 7 PM ET, followed by all traders from 7 to 8:30 PM ET.",
+      "The Sunday evening group class for all traders, from 7 to 8:30 PM ET.",
+      "For beginners, two sessions a week at the market open, working through the alerts live with HG.",
       "A one-hour one-on-one session once a month.",
       "Weekly preparation time varies by student: the more you put in, the more you get out.",
       "Your specific schedule can be discussed in the onboarding session once you decide to enroll.",

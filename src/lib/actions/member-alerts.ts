@@ -9,6 +9,7 @@ import type { ActionResult } from "@/core/domain/types"
 import { COLLECTIONS, MEMBER_SUBCOLLECTIONS } from "@/server/model"
 import { activeMemberForAction } from "@/lib/auth/guards"
 import { getAlert, listFeedAlerts } from "@/lib/data/alerts"
+import { isOpen, postsCutoff } from "@/lib/data/visibility"
 import { adminDb } from "@/lib/firebase/admin"
 
 const memberRef = (uid: string) => adminDb().collection(COLLECTIONS.members).doc(uid)
@@ -75,7 +76,11 @@ export async function tookAlertTrade(input: {
   const parsed = tookInput.safeParse(input)
   if (!parsed.success) return { ok: false, code: "validation", message: "Enter a quantity and a price above zero." }
   const alert = await getAlert(parsed.data.alertId)
-  if (!alert || (alert.status !== "published" && alert.status !== "closed"))
+  if (
+    !alert ||
+    (alert.status !== "published" && alert.status !== "closed") ||
+    !isOpen(await postsCutoff(viewer), alert.publishedAt)
+  )
     return { ok: false, code: "not-found", message: "This alert is not available." }
   const instrument = alertInstrument(alert)
   if (!instrument)

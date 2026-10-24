@@ -5,7 +5,12 @@ import { getBillingSettings } from "@/lib/data/invoices"
 import { getSiteSettings } from "@/lib/data/public"
 import { getMemberSettings } from "@/lib/data/settings"
 import { BillingSettingsForm } from "@/components/admin/billing-form"
-import { MemberSettingsForm, SiteSettingsForm } from "@/components/admin/settings-forms"
+import {
+  ClassScheduleForm,
+  MemberSettingsForm,
+  SiteSettingsForm,
+  TrialSettingsForm,
+} from "@/components/admin/settings-forms"
 import { ToneBadge } from "@/components/portal/display"
 import { PageHeader } from "@/components/portal/page-header"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -53,6 +58,30 @@ export default async function AdminSettingsPage() {
         title="Settings"
         description="Links, the class schedule, how the member area behaves and what invoices say."
       />
+      <Card>
+        <CardHeader>
+          <CardTitle>Class schedule</CardTitle>
+          <CardDescription>
+            The live classes each week. The website, the dashboard, the Classroom page, calendar files and reminders all
+            follow this list.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ClassScheduleForm initial={site} />
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Free trial</CardTitle>
+          <CardDescription>
+            Trial members join the classes, use the tools and ask in Chat. HG&apos;s newest posts reach them after a
+            delay; HG standing and brokerage linking open when they join. Make one a member by adding a quarter.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <TrialSettingsForm initial={site.trial} />
+        </CardContent>
+      </Card>
       <Card>
         <CardHeader>
           <CardTitle>Public site</CardTitle>

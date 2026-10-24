@@ -20,6 +20,8 @@ export function membershipSummary(status: MembershipStatus): MembershipSummary {
   switch (status.kind) {
     case "admin":
       return { status: "Admin", label: "Admin", detail: "Full access", tone: "positive" }
+    case "editor":
+      return { status: "Data editor", label: "Data editor", detail: "Market data and the tools", tone: "positive" }
     case "active": {
       const left = status.daysLeft === 0 ? "Last day today" : `${plural(status.daysLeft, "day")} left`
       // Back-to-back renewals read as one block: "Q4 2026 to Q1 2027".
@@ -35,6 +37,13 @@ export function membershipSummary(status: MembershipStatus): MembershipSummary {
         tone: status.expiringSoon ? "warning" : "positive",
       }
     }
+    case "trial":
+      return {
+        status: "Free trial",
+        label: "Free trial",
+        detail: status.daysLeft === 0 ? "Last day today" : `${plural(status.daysLeft, "day")} left`,
+        tone: "positive",
+      }
     case "upcoming":
       return {
         status: "Upcoming",
@@ -43,12 +52,14 @@ export function membershipSummary(status: MembershipStatus): MembershipSummary {
         tone: "muted",
       }
     case "expired":
-      return {
-        status: "Expired",
-        label: status.last.label,
-        detail: `Expired ${formatDate(status.last.end)}`,
-        tone: "negative",
-      }
+      return status.last.kind === "trial"
+        ? { status: "Trial ended", label: "Free trial", detail: `Ended ${formatDate(status.last.end)}`, tone: "muted" }
+        : {
+            status: "Expired",
+            label: status.last.label,
+            detail: `Expired ${formatDate(status.last.end)}`,
+            tone: "negative",
+          }
     case "suspended":
       return { status: "Suspended", label: "Suspended", detail: "Contact HG", tone: "negative" }
     case "none":

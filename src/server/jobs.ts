@@ -25,6 +25,19 @@ export async function runJob(db: Firestore, job: string, fn: () => Promise<JobOu
   }
 }
 
+/** Records a run that is already over, for jobs that only report when they had something to do. */
+export async function recordJob(
+  db: Firestore,
+  job: string,
+  outcome: { status: JobOutcome["status"] | "failed"; detail: string | null },
+): Promise<void> {
+  const now = Timestamp.now()
+  await db
+    .collection(COLLECTIONS.jobRuns)
+    .doc()
+    .set({ job, status: outcome.status, startedAt: now, finishedAt: now, detail: outcome.detail })
+}
+
 /** Deletes job runs older than `days` days. */
 export async function pruneJobRuns(db: Firestore, days = 90): Promise<number> {
   const cutoff = Timestamp.fromMillis(Date.now() - days * 24 * 60 * 60 * 1000)

@@ -8,17 +8,20 @@ import {
   ClassroomCard,
   EarningsCard,
   LatestAlertsCard,
+  MarketBriefCard,
   MarketPulseCard,
   MembershipCard,
   MoversCard,
   PerformanceCard,
   RecentContentCard,
+  SpikesCard,
   StandingCard,
   TargetsCard,
 } from "@/components/portal/dashboard/cards"
 import { PageHeader } from "@/components/portal/page-header"
 import { CardSkeleton } from "@/components/portal/page-skeleton"
 import { PushPromptCard } from "@/components/portal/push-controls"
+import { TrialCard } from "@/components/portal/trial-notice"
 
 export const metadata: Metadata = { title: "Dashboard" }
 
@@ -40,20 +43,26 @@ export default async function DashboardPage({ searchParams }: PageProps<"/member
       />
       <div className="grid gap-6 xl:grid-cols-3">
         <div className="flex min-w-0 flex-col gap-6 xl:col-span-2">
-          <PushPromptCard />
+          {viewer.status.kind === "trial" ? <TrialCard daysLeft={viewer.status.daysLeft} /> : <PushPromptCard />}
           <Suspense fallback={<CardSkeleton lines={3} />}>
             <LatestAlertsCard viewer={viewer} />
+          </Suspense>
+          <Suspense fallback={null}>
+            <MarketBriefCard viewer={viewer} />
+          </Suspense>
+          <Suspense fallback={null}>
+            <SpikesCard viewer={viewer} />
           </Suspense>
           <div className="grid gap-6 md:grid-cols-2">
             <Suspense fallback={<CardSkeleton lines={2} />}>
               <PerformanceCard viewer={viewer} />
             </Suspense>
             <Suspense fallback={<CardSkeleton lines={2} />}>
-              <StandingCard />
+              <StandingCard viewer={viewer} />
             </Suspense>
           </div>
           <Suspense fallback={<CardSkeleton lines={1} />}>
-            <TargetsCard />
+            <TargetsCard viewer={viewer} />
           </Suspense>
           <div className="grid gap-6 md:grid-cols-2">
             <Suspense fallback={<CardSkeleton lines={3} />}>

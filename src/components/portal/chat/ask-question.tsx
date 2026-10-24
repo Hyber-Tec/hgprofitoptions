@@ -20,7 +20,7 @@ import { Spinner } from "@/components/ui/spinner"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/components/ui/toast"
 
-/** "Ask a question": starts a thread that experts and admins answer. */
+/** "Ask a question": starts a thread that advanced traders and admins answer. */
 export function AskQuestion() {
   const router = useRouter()
   const [open, setOpen] = useState(false)
@@ -50,7 +50,7 @@ export function AskQuestion() {
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Ask a question</DialogTitle>
-          <DialogDescription>An expert trader or HG&apos;s team will answer here.</DialogDescription>
+          <DialogDescription>An advanced trader or HG&apos;s team will answer here.</DialogDescription>
         </DialogHeader>
         <form
           className="flex flex-col gap-5"
@@ -75,7 +75,7 @@ export function AskQuestion() {
           <label className="flex items-start gap-3 text-sm">
             <Checkbox checked={staffOnly} onCheckedChange={(v) => setStaffOnly(v)} className="mt-0.5" />
             <span>
-              <span className="block font-medium">Only experts and admins can see it</span>
+              <span className="block font-medium">Only advanced traders and admins can see it</span>
               <span className="block text-muted-foreground">
                 Otherwise the whole class can read the question and the answer.
               </span>

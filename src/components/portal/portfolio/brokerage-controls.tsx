@@ -13,13 +13,18 @@ import { toast } from "@/components/ui/toast"
 export const CONSENT_COPY =
   "Your linked accounts' positions, trades and performance will be visible to HG Profit Options admins for coaching. We never place trades. You can disconnect at any time."
 
-/** Opens the SnapTrade Connection Portal after the member agrees to the consent text. */
+/**
+ * Opens the SnapTrade Connection Portal after the member agrees to the consent text. `unavailable` says
+ * why linking is off, for example on a free trial.
+ */
 export function ConnectBrokerage({
   available,
+  unavailable = "Brokerage linking is not switched on yet.",
   reconnectId,
   label = "Connect your brokerage",
 }: {
   available: boolean
+  unavailable?: string
   reconnectId?: string
   label?: string
 }) {
@@ -49,7 +54,7 @@ export function ConnectBrokerage({
           {pending ? <Spinner /> : <LuLink2 />}
           {label}
         </Button>
-        {!available && <span className="text-sm text-muted-foreground">Brokerage linking is not switched on yet.</span>}
+        {!available && <span className="text-sm text-muted-foreground">{unavailable}</span>}
       </div>
     </div>
   )

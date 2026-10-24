@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { LuInfo } from "react-icons/lu"
-import { formatLevel, formatShortDate, formatSigned } from "@/core/format"
+import { formatDateTimeET, formatLevel, formatMomentET, formatShortDate, formatSigned } from "@/core/format"
 import { describePeriodRange } from "@/core/membership/quarters"
 import { requireActiveMember } from "@/lib/auth/guards"
 import { resolveWeek } from "@/lib/data/tools"
@@ -44,9 +44,16 @@ function Definitions() {
             </dd>
           </div>
           <div>
+            <dt className="font-medium">Gap</dt>
+            <dd className="text-muted-foreground">
+              This Friday&apos;s close minus the PFCP: how much the week gained or lost, as HG posts it for the indexes.
+            </dd>
+          </div>
+          <div>
             <dt className="font-medium">Range</dt>
             <dd className="text-muted-foreground">
-              The week&apos;s high minus its low. It is negative when the week closed below the PFCP.
+              The week&apos;s high minus its low: how far the price travelled, not where it ended. It gets a minus sign
+              when the week closed below the PFCP, as in HG&apos;s sheet.
             </dd>
           </div>
           <div>
@@ -124,7 +131,19 @@ export default async function MarketDataPage({ searchParams }: PageProps<"/membe
       <PageHeader
         title="Key Market Data"
         description="Weekly high, low, close, range and SVI for every ticker, generated after each trading week."
-        meta={<AsOf>Week of {describePeriodRange(view.weekStart, view.weekEnd)}</AsOf>}
+        meta={
+          <>
+            <AsOf>Week of {describePeriodRange(view.weekStart, view.weekEnd)}</AsOf>
+            <span>
+              {week.source === "provider"
+                ? "From market data"
+                : week.source === "import"
+                  ? "From HG's sheet"
+                  : "Entered by HG"}{" "}
+              · updated {formatDateTimeET(week.computedAt)}
+            </span>
+          </>
+        }
         actions={
           <>
             <WeekPicker options={options} current={view.weekStart} />
@@ -141,18 +160,37 @@ export default async function MarketDataPage({ searchParams }: PageProps<"/membe
                 <span className="font-mono text-xs font-normal text-muted-foreground">{index.symbol}</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="flex items-end justify-between gap-3">
-              <div className="flex flex-col gap-1 text-sm">
-                <span className="text-2xl font-semibold tracking-tight tabular-nums">{formatLevel(index.close)}</span>
-                <span className="flex items-center gap-2">
-                  <Signed value={index.changePct} />
-                  <span className="text-muted-foreground tabular-nums">{formatSigned(index.change)}</span>
-                </span>
-                <span className="text-xs text-muted-foreground tabular-nums">
-                  Range {formatSigned(index.range)} · SVI <Signed value={index.svi} icon={false} className="text-xs" />
-                </span>
+            <CardContent className="flex flex-col gap-3">
+              <div className="flex items-end justify-between gap-3">
+                <div className="flex flex-col gap-1">
+                  <span className="text-2xl font-semibold tracking-tight tabular-nums">{formatLevel(index.close)}</span>
+                  <span className="flex flex-wrap items-center gap-x-2 text-sm">
+                    <span className="text-muted-foreground">Gap vs last Friday</span>
+                    <Signed value={index.gap} as="number" />
+                    <Signed value={index.gapPct} className="text-xs" icon={false} />
+                  </span>
+                </div>
+                <Sparkline values={index.history} label={`${index.name} weekly closes`} />
               </div>
-              <Sparkline values={index.history} label={`${index.name} weekly closes`} />
+              <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 border-t pt-3 text-sm">
+                <dt className="text-muted-foreground">Week high</dt>
+                <dd className="tabular-nums">
+                  {formatLevel(index.high)}
+                  {index.highAt && (
+                    <span className="block text-xs text-muted-foreground">{formatMomentET(index.highAt)}</span>
+                  )}
+                </dd>
+                <dt className="text-muted-foreground">Week low</dt>
+                <dd className="tabular-nums">
+                  {formatLevel(index.low)}
+                  {index.lowAt && (
+                    <span className="block text-xs text-muted-foreground">{formatMomentET(index.lowAt)}</span>
+                  )}
+                </dd>
+              </dl>
+              <p className="text-xs text-muted-foreground tabular-nums">
+                Range {formatSigned(index.range)} · SVI <Signed value={index.svi} icon={false} className="text-xs" />
+              </p>
             </CardContent>
           </Card>
         ))}

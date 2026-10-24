@@ -43,12 +43,14 @@ function transcriptEvent(meetingId: string, uuid: string, downloadUrl: string) {
         id: Number(meetingId),
         uuid,
         topic: "HG Profit Options class",
-        start_time: "2026-10-24T22:00:00Z",
+        start_time: "2026-10-25T23:00:00Z",
+        share_url: "https://zoom.us/rec/share/class-recording",
+        recording_play_passcode: "p4ss",
         recording_files: [
           {
             file_type: "TRANSCRIPT",
             file_extension: "VTT",
-            recording_start: "2026-10-24T22:00:04Z",
+            recording_start: "2026-10-25T23:00:04Z",
             download_url: downloadUrl,
           },
         ],
@@ -75,8 +77,9 @@ test("HG adds a class recap from a transcript, and members read it", async ({ pa
   await signIn(page, ACCOUNTS.admin)
   await expect(page).toHaveURL(/\/admin$/)
   await page.goto("/admin/recaps/new")
-  await page.getByLabel("Date of the class").fill("2026-10-17")
-  await expect(page.getByLabel("Title")).toHaveValue("Saturday class")
+  // The title follows the class schedule: Sunday is the group class.
+  await page.getByLabel("Date of the class").fill("2026-10-18")
+  await expect(page.getByLabel("Title")).toHaveValue("Group class")
   await page.locator('input[type="file"]').setInputFiles(TRANSCRIPT)
   await expect(page.getByText("class-transcript.vtt")).toBeVisible()
   await page.getByRole("button", { name: "Write the recap" }).click()
@@ -96,8 +99,8 @@ test("HG adds a class recap from a transcript, and members read it", async ({ pa
   await expect(ava).toHaveURL(/\/members$/)
   await ava.goto("/members/classroom")
   await ava
-    .getByRole("link", { name: /Saturday class/ })
-    .filter({ hasText: "Oct 17, 2026" })
+    .getByRole("link", { name: /Group class/ })
+    .filter({ hasText: "Oct 18, 2026" })
     .click()
   await expect(ava).toHaveURL(/\/members\/classroom\/recaps\/[^/]+$/)
   await expect(ava.getByText("HG reviewed the TSM and NVDA targets and the 4 PM close rule.")).toBeVisible()
@@ -111,6 +114,19 @@ test("HG adds a class recap from a transcript, and members read it", async ({ pa
   await ava.reload()
   await expect(ava.getByRole("heading", { name: "This page does not exist" })).toBeVisible()
   await member.close()
+})
+
+test("HG sends a class's slides to the beginners, by email and in the app", async ({ page }) => {
+  await signIn(page, ACCOUNTS.admin)
+  await expect(page).toHaveURL(/\/admin$/)
+  await page.goto("/admin/presentations")
+  await page.getByRole("button", { name: "Send" }).first().click()
+  const dialog = page.getByRole("dialog", { name: "Send to members" })
+  await dialog.getByRole("button", { name: "By level" }).click()
+  await expect(dialog.getByRole("checkbox", { name: "Beginner" })).toBeChecked()
+  await dialog.getByRole("button", { name: /^Send to \d+ members?$/ }).click()
+  await expect(page.getByText(/^Sent to \d+ members?$/)).toBeVisible()
+  await expect(page.getByText(/sent \w{3} \d{1,2} to \d+ members?/).first()).toBeVisible()
 })
 
 test.describe("Zoom", () => {
@@ -142,19 +158,27 @@ test.describe("Zoom", () => {
     expect(forged.status()).toBe(401)
     const oneOnOne = await postZoomEvent(request, transcriptEvent("99999999999", "one-on-one==", downloadUrl))
     expect(oneOnOne.status()).toBe(204)
-    const recorded = await postZoomEvent(request, transcriptEvent(CLASS_MEETING, "class-oct-24==", downloadUrl))
+    const recorded = await postZoomEvent(request, transcriptEvent(CLASS_MEETING, "class-oct-25==", downloadUrl))
     expect(recorded.status()).toBe(204)
     // Zoom retries events; the class still gets one recap.
-    expect((await postZoomEvent(request, transcriptEvent(CLASS_MEETING, "class-oct-24==", downloadUrl))).status()).toBe(
+    expect((await postZoomEvent(request, transcriptEvent(CLASS_MEETING, "class-oct-25==", downloadUrl))).status()).toBe(
       204,
     )
 
     await page.goto("/admin/recaps")
-    const rows = page.getByRole("row").filter({ hasText: "Oct 24, 2026" })
+    const rows = page.getByRole("row").filter({ hasText: "Oct 25, 2026" })
     await expect(rows).toHaveCount(1)
-    await rows.getByRole("link", { name: "Saturday class" }).click()
+    await rows.getByRole("link", { name: "Group class" }).click()
     await expect(page.getByText("Key points")).toBeVisible({ timeout: 30_000 })
-    await expect(page.getByText("Oct 24, 2026, from Zoom's transcript")).toBeVisible()
+    await expect(page.getByText("Oct 25, 2026, from Zoom's transcript")).toBeVisible()
+
+    // Zoom's event brings the recording's link, passcode included, ready to send to members.
+    await expect(page.getByLabel("Recording link")).toHaveValue("https://zoom.us/rec/share/class-recording?pwd=p4ss")
+    await page.getByRole("button", { name: "Send the recording" }).click()
+    const dialog = page.getByRole("dialog", { name: "Send the recording" })
+    await dialog.getByRole("button", { name: /^Send to \d+ members$/ }).click()
+    await expect(page.getByText(/^Sent to \d+ members$/)).toBeVisible()
+    await expect(page.getByText(/^Sent \w{3} \d{1,2} to \d+ members\.$/)).toBeVisible()
   })
 
   test("members join the class inside the site", async ({ page, browser }) => {

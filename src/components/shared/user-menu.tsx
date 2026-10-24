@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useTransition } from "react"
 import { LuLayoutDashboard, LuLogOut, LuSettings, LuShield } from "react-icons/lu"
+import type { Role } from "@/core/domain/types"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
@@ -25,7 +26,7 @@ export function UserMenu({
   viewer,
   compact = false,
 }: {
-  viewer: { fullName: string; email: string; role: "admin" | "member" }
+  viewer: { fullName: string; email: string; role: Role }
   compact?: boolean
 }) {
   const router = useRouter()
@@ -75,7 +76,7 @@ export function UserMenu({
             <LuSettings />
             Settings
           </DropdownMenuItem>
-          {viewer.role === "admin" && (
+          {viewer.role !== "member" && (
             <DropdownMenuItem render={<Link href="/admin" />}>
               <LuShield />
               Admin

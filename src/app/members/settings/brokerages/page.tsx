@@ -15,7 +15,9 @@ export const metadata: Metadata = { title: "Brokerages" }
 
 export default async function BrokerageSettingsPage() {
   const viewer = await requireViewer("/members/settings/brokerages")
-  const available = brokerageConfig() !== null && viewer.hasAccess
+  // Free trials add trades by hand or CSV; linking (a paid connection) opens when they join.
+  const available = brokerageConfig() !== null && viewer.fullAccess
+  const unavailable = viewer.fullAccess ? undefined : "Linking a brokerage opens when you join."
   const [connections, accounts] = await Promise.all([
     readConnections(adminDb(), viewer.uid),
     readAccounts(adminDb(), viewer.uid),
@@ -68,7 +70,12 @@ export default async function BrokerageSettingsPage() {
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {c.status === "needs_reauth" && (
-                        <ConnectBrokerage available={available} reconnectId={c.id} label="Reconnect" />
+                        <ConnectBrokerage
+                          available={available}
+                          unavailable={unavailable}
+                          reconnectId={c.id}
+                          label="Reconnect"
+                        />
                       )}
                       <DisconnectButton connectionId={c.id} name={c.brokerageName} />
                     </div>
@@ -81,7 +88,7 @@ export default async function BrokerageSettingsPage() {
             <p className="text-sm font-medium">
               {connections.length === 0 ? "Connect a brokerage" : "Connect another brokerage"}
             </p>
-            <ConnectBrokerage available={available} />
+            <ConnectBrokerage available={available} unavailable={unavailable} />
           </div>
         </CardContent>
       </Card>

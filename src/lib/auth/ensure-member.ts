@@ -94,8 +94,9 @@ export async function ensureMember(
   })
 
   await recomputeAccess(db, decoded.uid)
-  if (invite.role === "admin") await adminAuth().setCustomUserClaims(decoded.uid, { role: "admin" })
-  if (provider === "password" && !decoded.email_verified)
+  if (invite.role !== "member") await adminAuth().setCustomUserClaims(decoded.uid, { role: invite.role })
+  // HG's invitation went to that inbox; a free trial's link went to whoever asked for it.
+  if (provider === "password" && !decoded.email_verified && !invite.trial)
     await adminAuth().updateUser(decoded.uid, { emailVerified: true })
   if (invite.notes) {
     await db

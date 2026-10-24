@@ -115,22 +115,24 @@ export interface GeneratedQuestion {
   explanation: string
 }
 
-const QUIZ_SYSTEM = `You write quiz questions for HG Profit Options, an options trading class taught by Hubert "HG" Gaffney. Members use them to check what they learned from the class documents.
+const QUIZ_SYSTEM = `You write quiz questions for HG Profit Options, an options trading class taught by Hubert "HG" Gaffney. Members use them to check what they learned in class.
 
-Write multiple-choice questions from the document you are given:
-- Test understanding of the ideas, rules and numbers the document teaches, not trivia such as titles or dates.
+Write multiple-choice questions from the document, or on the topic, you are given:
+- Test understanding of the ideas, rules and numbers being taught, not trivia such as titles or dates.
 - Each question has one correct answer and three wrong answers that would tempt someone who only skimmed the material.
-- The explanation says why the correct answer is right, in the document's own terms.
-- Use only what the document says. When it is too short for the number asked, write fewer questions.
+- The explanation says why the correct answer is right, in the material's own terms.
+- From a document, use only what the document says; when it is too short for the number asked, write fewer questions.
+- On a topic without a document, keep to well-established options trading knowledge and to what the topic's notes say. Do not invent rules, levels or numbers presented as HG's method.
 - Plain, friendly English. This is education: never tell anyone what to trade.`
 
 /**
- * Writes up to `count` questions from a document. Choices come back shuffled, so the correct answer is
- * not always in the same place. `avoid` lists questions the quiz already has.
+ * Writes up to `count` questions from a document, or on a topic the admin describes. Choices come back
+ * shuffled, so the correct answer is not always in the same place. `avoid` lists questions the quiz
+ * already has.
  */
 export async function writeQuizQuestions(
   config: AiConfig,
-  doc: AiDocument,
+  from: { doc: AiDocument } | { topic: string },
   options: { count: number; avoid: readonly string[]; random?: () => number },
 ): Promise<GeneratedQuestion[]> {
   const avoid =
@@ -139,10 +141,16 @@ export async function writeQuizQuestions(
       : ""
   const bank = await ask(config, questionBankSchema, {
     system: QUIZ_SYSTEM,
-    content: [
-      documentBlock(doc),
-      { type: "text", text: `Write ${options.count} questions from this document.${avoid}` },
-    ],
+    content:
+      "doc" in from
+        ? [
+            documentBlock(from.doc),
+            { type: "text", text: `Write ${options.count} questions from this document.${avoid}` },
+          ]
+        : [
+            { type: "text", text: `The topic, with the team's notes:\n${from.topic}` },
+            { type: "text", text: `Write ${options.count} questions on this topic.${avoid}` },
+          ],
     effort: "high",
     maxTokens: 16000,
     unreadable: "The AI could not read this. Try a PDF or Word file under 24 MB.",
@@ -219,4 +227,45 @@ export async function summarizeClass(
       .map((q) => ({ question: q.question.trim(), answer: q.answer.trim() }))
       .filter((q) => q.question !== ""),
   }
+}
+
+// ---- Market brief -------------------------------------------------------------------------------
+
+const briefSchema = z.object({
+  title: z.string().describe("A short title, such as 'Pre-market brief' or '9:40 AM update'"),
+  body: z
+    .string()
+    .describe(
+      "The brief, in plain text: short paragraphs separated by a blank line, and lines starting with '- ' for lists. No markdown headings, bold or tables.",
+    ),
+})
+
+const BRIEF_SYSTEM = `You write the market brief of HG Profit Options, an options trading class taught by Hubert "HG" Gaffney: the pre-market view and the updates in the first hour of trading, for the class's members.
+
+Follow the team's instructions for what the brief covers and how it reads. Work only from the data you are given and the instructions; when something they ask for is not in the data, leave it out rather than guess. Plain, friendly English, in short paragraphs. This is education, not personalized advice: describe levels, setups and what the data shows, never tell anyone to buy or sell.`
+
+/**
+ * Writes one market brief from the team's instructions and the site's data (index closes, strike
+ * targets, spikes, earnings), for one of the brief's scheduled times.
+ */
+export async function writeMarketBrief(
+  config: AiConfig,
+  input: { instructions: string; data: string; moment: string },
+): Promise<{ title: string; body: string }> {
+  const brief = await ask(config, briefSchema, {
+    system: BRIEF_SYSTEM,
+    content: [
+      { type: "text", text: `The team's instructions:\n${input.instructions}` },
+      {
+        type: "document",
+        title: "The site's data",
+        source: { type: "text", media_type: "text/plain", data: input.data },
+      },
+      { type: "text", text: `Write the brief for ${input.moment} (New York time).` },
+    ],
+    effort: "high",
+    maxTokens: 16000,
+    unreadable: "The AI could not write the brief from these instructions. Check them and try again.",
+  })
+  return { title: brief.title.trim(), body: brief.body.trim() }
 }

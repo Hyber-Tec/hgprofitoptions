@@ -3,7 +3,9 @@
 import Link from "next/link"
 import { useMemo, useState, useTransition } from "react"
 import { LuCalendarPlus, LuDownload, LuSearch, LuSlidersHorizontal } from "react-icons/lu"
-import { LEVEL_LABELS, TRADER_LEVELS, type TraderLevel } from "@/core/levels"
+import { isoDateInZone } from "@/core/dates"
+import type { MembershipStatus, Role } from "@/core/domain/types"
+import { LEVEL_LABELS, TRADER_LEVELS, personBadge, type TraderLevel } from "@/core/levels"
 import { renewNextQuarter } from "@/lib/actions/admin/members"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -21,9 +23,9 @@ export interface MemberListRow {
   fullName: string
   email: string
   phone: string | null
-  role: "admin" | "member"
+  role: Role
   level: TraderLevel
-  statusKind: "admin" | "active" | "upcoming" | "expired" | "suspended" | "none"
+  statusKind: MembershipStatus["kind"]
   statusLabel: string
   tone: Tone
   periodLabel: string | null
@@ -42,11 +44,13 @@ type SortKey = "fullName" | "statusLabel" | "endDate" | "memberSince" | "qtdRetu
 const STATUS_ITEMS = [
   { value: "all", label: "Any status" },
   { value: "active", label: "Active" },
+  { value: "trial", label: "Free trial" },
   { value: "expiring", label: "Expiring soon" },
   { value: "upcoming", label: "Upcoming" },
   { value: "expired", label: "Expired" },
   { value: "suspended", label: "Suspended" },
   { value: "admin", label: "Admins" },
+  { value: "editor", label: "Data editors" },
 ]
 const LEVEL_ITEMS = [
   { value: "all", label: "Any level" },
@@ -61,6 +65,8 @@ const LINK_ITEMS = [
 
 const DATE = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })
 const fmtDate = (iso: string | null) => (iso ? DATE.format(new Date(`${iso.slice(0, 10)}T12:00:00Z`)) : "-")
+/** A moment (such as the last login) on its New York date; its UTC date can be a day ahead in the evening. */
+const fmtMoment = (iso: string) => fmtDate(isoDateInZone(new Date(iso)))
 
 function toCsv(rows: MemberListRow[]): string {
   const cell = (v: string | number | null) => {
@@ -347,7 +353,7 @@ export function MembersTable({
                     >
                       <span className="block font-medium">{r.fullName}</span>
                       <span className="block text-xs text-muted-foreground">
-                        {r.email} · {LEVEL_LABELS[r.level]}
+                        {r.email} · {personBadge(r)}
                       </span>
                     </Link>
                   </TableCell>
@@ -380,7 +386,7 @@ export function MembersTable({
                     )}
                   </TableCell>
                   <TableCell className="text-sm whitespace-nowrap text-muted-foreground">
-                    {r.lastLoginAt ? fmtDate(r.lastLoginAt) : "Never"}
+                    {r.lastLoginAt ? fmtMoment(r.lastLoginAt) : "Never"}
                   </TableCell>
                 </TableRow>
               ))}

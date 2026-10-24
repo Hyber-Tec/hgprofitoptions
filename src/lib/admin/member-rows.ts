@@ -15,11 +15,13 @@ export function toMemberListRow({ member, periods, status }: MemberRow): MemberL
   const endDate =
     status.kind === "active"
       ? status.coverageEnd
-      : status.kind === "upcoming"
-        ? status.next.end
-        : status.kind === "expired"
-          ? status.last.end
-          : (latest?.end ?? null)
+      : status.kind === "trial"
+        ? status.period.end
+        : status.kind === "upcoming"
+          ? status.next.end
+          : status.kind === "expired"
+            ? status.last.end
+            : (latest?.end ?? null)
   const ends = endDate ? quarterOf(endDate) : null
   return {
     uid: member.uid,
@@ -32,15 +34,15 @@ export function toMemberListRow({ member, periods, status }: MemberRow): MemberL
     statusLabel: summary.status,
     tone: TONES[summary.tone],
     periodLabel:
-      status.kind === "admin"
-        ? "Admin"
+      status.kind === "admin" || status.kind === "editor"
+        ? summary.label
         : status.kind === "suspended"
           ? (latest?.label ?? null)
           : status.kind === "none"
             ? null
             : summary.label,
     endDate,
-    daysLeft: status.kind === "active" ? status.daysLeft : null,
+    daysLeft: status.kind === "active" || status.kind === "trial" ? status.daysLeft : null,
     endsQuarter: ends ? quarterLabel(ends.year, ends.q) : null,
     memberSince: member.memberSince,
     linked: member.brokerage.status === "needs_reauth" ? "error" : member.brokerage.linked ? "yes" : "no",

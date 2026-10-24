@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation"
 import { cache } from "react"
 import { todayInMarketZone } from "@/core/dates"
 import type { MembershipStatus } from "@/core/domain/types"
-import { hasAccess, membershipStatus } from "@/core/membership/quarters"
+import { hasAccess, hasFullAccess, membershipStatus } from "@/core/membership/quarters"
 import { readPeriods, toMembershipPeriods } from "@/server/members"
 import { COLLECTIONS, memberSchema, memberSettingsSchema, parseDoc, type Member, type PeriodDoc } from "@/server/model"
 import { adminDb } from "@/lib/firebase/admin"
@@ -20,10 +20,12 @@ export interface Viewer {
   periods: PeriodDoc[]
   status: MembershipStatus
   hasAccess: boolean
+  /** Sees HG's posts as they are posted: false on a free trial, which sees them after a delay. */
+  fullAccess: boolean
   mfa: boolean
 }
 
-/** Admins must use two-step verification in production. The emulators do not support TOTP. */
+/** Admins and data editors must use two-step verification in production. The emulators do not support TOTP. */
 export const adminMfaRequired = process.env.REQUIRE_ADMIN_MFA !== "false" && !useEmulators
 
 /** The signed-in member for this request, or null. Cached per request. */
@@ -61,6 +63,7 @@ export const getViewer = cache(async (): Promise<Viewer | null> => {
     periods,
     status,
     hasAccess: hasAccess(status),
+    fullAccess: hasFullAccess(status),
     mfa: session.mfa,
   }
 })
@@ -89,10 +92,31 @@ export async function requireAdmin(options: { next?: string; allowWithoutMfa?: b
   return viewer
 }
 
+/**
+ * Admins and data editors: the pages that keep the market data and the tools up to date (tickers,
+ * market data, the leveraged ETF guide, strike targets, spikes and the market brief).
+ */
+export async function requireEditor(options: { next?: string; allowWithoutMfa?: boolean } = {}): Promise<Viewer> {
+  const viewer = await requireViewer(options.next ?? "/admin")
+  if (!isStaff(viewer.role)) notFound()
+  if (adminMfaRequired && !viewer.mfa && !options.allowWithoutMfa) redirect("/admin/security")
+  return viewer
+}
+
+export const isStaff = (role: Viewer["role"]): boolean => role === "admin" || role === "editor"
+
 /** For Server Actions: the same checks, but returning instead of redirecting. */
 export async function adminForAction(): Promise<Viewer | null> {
   const viewer = await getViewer()
   if (!viewer || viewer.role !== "admin") return null
+  if (adminMfaRequired && !viewer.mfa) return null
+  return viewer
+}
+
+/** For Server Actions on the data editors' pages. */
+export async function editorForAction(): Promise<Viewer | null> {
+  const viewer = await getViewer()
+  if (!viewer || !isStaff(viewer.role)) return null
   if (adminMfaRequired && !viewer.mfa) return null
   return viewer
 }

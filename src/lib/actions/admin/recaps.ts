@@ -7,11 +7,14 @@ import { z } from "zod"
 import { isIsoDate } from "@/core/dates"
 import type { ActionResult } from "@/core/domain/types"
 import { notifyRecapOnce } from "@/server/classes"
+import { sendClassMaterial } from "@/server/notifications"
 import { writeAudit } from "@/server/members"
 import { COLLECTIONS, classRecapSchema, isDocId, parseDoc, type ClassRecapDoc } from "@/server/model"
+import { audienceInput } from "@/lib/audience"
 import { adminForAction, type Viewer } from "@/lib/auth/guards"
 import { queueRecap } from "@/lib/classes"
-import { aiConfig } from "@/lib/env.server"
+import { publicEnv } from "@/lib/env.public"
+import { aiConfig, emailConfig } from "@/lib/env.server"
 import { adminBucket, adminDb, adminMessaging } from "@/lib/firebase/admin"
 
 const forbidden = {
@@ -208,6 +211,63 @@ export async function setRecapPublished(id: string, published: boolean): Promise
   if (published) after(() => notifyRecapOnce(adminDb(), adminMessaging(), recap.id))
   refresh()
   return { ok: true, data: undefined }
+}
+
+const recordingInput = z
+  .string()
+  .trim()
+  .max(2000)
+  .transform((v) => (v === "" ? null : v))
+  .pipe(z.url({ protocol: /^https$/, error: "Paste the full https:// link to the recording" }).nullable())
+
+/** The class recording's link (Zoom's share link fills it in by itself when Zoom is connected). */
+export async function saveRecording(id: string, url: string): Promise<ActionResult> {
+  const viewer = await adminForAction()
+  if (!viewer) return forbidden
+  const recap = await readRecap(id)
+  if (!recap) return missing
+  const parsed = recordingInput.safeParse(url)
+  if (!parsed.success)
+    return { ok: false, code: "validation", message: parsed.error.issues[0]?.message ?? "Check the link." }
+  await recaps().doc(recap.id).update({ recordingUrl: parsed.data, updatedAt: Timestamp.now() })
+  await audit(viewer, "recap.recording_saved", recap.id)
+  refresh()
+  return { ok: true, data: undefined }
+}
+
+/** Emails the recording's link to members (all, some levels or chosen people) and tells them in the app. */
+export async function sendRecording(
+  id: string,
+  audience: z.input<typeof audienceInput>,
+): Promise<ActionResult<{ members: number; emailed: number }>> {
+  const viewer = await adminForAction()
+  if (!viewer) return forbidden
+  const recap = await readRecap(id)
+  if (!recap) return missing
+  if (!recap.recordingUrl) return { ok: false, code: "validation", message: "Add the recording's link first." }
+  const to = audienceInput.safeParse(audience)
+  if (!to.success)
+    return { ok: false, code: "validation", message: to.error.issues[0]?.message ?? "Choose who gets it." }
+  const sent = await sendClassMaterial(
+    adminDb(),
+    adminMessaging(),
+    emailConfig(),
+    publicEnv.NEXT_PUBLIC_SITE_URL,
+    {
+      title: recap.title,
+      date: recap.date,
+      slidesPath: null,
+      recordingUrl: recap.recordingUrl,
+      openPath: recap.published && recap.summary ? `/members/classroom/recaps/${recap.id}` : "/members/classroom",
+      tag: `recording-${recap.id}`,
+    },
+    to.data,
+  )
+  if (sent.members === 0) return { ok: false, code: "validation", message: "Nobody with access matches that choice." }
+  await recaps().doc(recap.id).update({ recordingSentAt: Timestamp.now(), recordingSentTo: sent.members })
+  await audit(viewer, "recap.recording_sent", recap.id, { to: to.data.to, members: sent.members })
+  refresh()
+  return { ok: true, data: sent }
 }
 
 /** Deletes a recap and its stored transcript. */

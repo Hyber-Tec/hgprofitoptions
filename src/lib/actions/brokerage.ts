@@ -29,7 +29,7 @@ export async function startBrokerageConnection(input: {
   reconnectId?: string
 }): Promise<ActionResult<{ url: string }>> {
   const viewer = await getViewer()
-  if (!viewer?.hasAccess) return unauthorized
+  if (!viewer?.fullAccess) return unauthorized
   const config = brokerageConfig()
   if (!config) return unavailable
   if (!input.consent)

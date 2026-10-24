@@ -20,7 +20,7 @@ export default async function ChatLayout({ children }: LayoutProps<"/members/cha
         description={
           staff
             ? "Questions from the class. Answer them here; the asker gets a notification."
-            : "Ask about the class, the tools or a trade. Expert traders and HG's team answer."
+            : "Ask about the class, the tools or a trade. Advanced traders and HG's team answer."
         }
         actions={<AskQuestion />}
       />

@@ -5,13 +5,17 @@ import { isoDateInZone } from "@/core/dates"
 import { MIN_COHORT } from "@/core/calc/standing"
 import { parseInstrumentKey } from "@/core/calc/trades"
 import { formatDateTimeET, formatInstrument, formatPercent, formatPrice, formatShortDate } from "@/core/format"
+import { LEVEL_GUIDE, LEVEL_LABELS, reachesLevel } from "@/core/levels"
 import { requireActiveMember } from "@/lib/auth/guards"
+import { getMemberSettings } from "@/lib/data/settings"
 import { getStanding } from "@/lib/data/tools"
+import { ButtonLink } from "@/components/shared/button-link"
 import { EquityCurve, MonthlyBars } from "@/components/portal/charts"
 import { Signed, Stat } from "@/components/portal/display"
 import { AsOf, PageHeader } from "@/components/portal/page-header"
+import { HeldBackNotice } from "@/components/portal/trial-notice"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 export const metadata: Metadata = { title: "HG standing" }
@@ -25,7 +29,42 @@ const RETURN_LABELS = [
 ] as const
 
 export default async function StandingPage() {
-  await requireActiveMember("/members/standing")
+  const viewer = await requireActiveMember("/members/standing")
+  const { hgPortfolio } = await getMemberSettings()
+  if (!viewer.fullAccess)
+    return (
+      <>
+        <PageHeader title="HG standing" description="How HG's own portfolio and published alerts are doing." />
+        <HeldBackNotice description="How HG's own portfolio and his alerts are doing, shared with members once they join.">
+          HG standing is for members
+        </HeldBackNotice>
+      </>
+    )
+  if (!reachesLevel(viewer.member, hgPortfolio.openFrom)) {
+    const next = LEVEL_GUIDE[viewer.member.level].next
+    return (
+      <>
+        <PageHeader title="HG standing" description="How HG's own portfolio and published alerts are doing." />
+        <Empty className="border border-dashed py-16">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <LuShieldCheck />
+            </EmptyMedia>
+            <EmptyTitle>HG standing opens at the {LEVEL_LABELS[hgPortfolio.openFrom]} level</EmptyTitle>
+            <EmptyDescription>
+              HG shares his own portfolio with {LEVEL_LABELS[hgPortfolio.openFrom]} traders and up.
+              {next ? ` ${next}` : ""}
+            </EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            <ButtonLink variant="outline" size="sm" href="/members/settings#levels">
+              How levels work
+            </ButtonLink>
+          </EmptyContent>
+        </Empty>
+      </>
+    )
+  }
   const standing = await getStanding()
   const hg = standing?.hgPortfolio ?? null
   const record = standing?.alertsTrackRecord

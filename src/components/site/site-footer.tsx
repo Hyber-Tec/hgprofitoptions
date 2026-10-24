@@ -56,6 +56,7 @@ export function SiteFooter({ settings }: { settings: SiteSettings }) {
           title="Members"
           links={[
             { href: "/login", label: "Member login" },
+            ...(settings.trial.enabled ? [{ href: "/trial" as const, label: "Free trial" }] : []),
             { href: "/book", label: "Book a call" },
           ]}
         />
@@ -100,7 +101,16 @@ function FooterColumn({
 }: {
   title: string
   links: {
-    href: "/" | "/about" | "/faq" | "/login" | "/book" | "/legal/terms" | "/legal/privacy" | "/legal/risk-disclosure"
+    href:
+      | "/"
+      | "/about"
+      | "/faq"
+      | "/login"
+      | "/trial"
+      | "/book"
+      | "/legal/terms"
+      | "/legal/privacy"
+      | "/legal/risk-disclosure"
     label: string
   }[]
 }) {

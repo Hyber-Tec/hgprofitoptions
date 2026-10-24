@@ -8,7 +8,8 @@ export type Quarter = 1 | 2 | 3 | 4
 /** "YYYY-MM-DD": a calendar date in America/New_York. */
 export type IsoDate = string & { readonly __brand: "IsoDate" }
 
-export type Role = "admin" | "member"
+/** Data editors keep the market data and the tools up to date; admins do everything. */
+export type Role = "admin" | "editor" | "member"
 export type AccountStatus = "active" | "suspended"
 
 export interface MembershipPeriod {
@@ -16,7 +17,8 @@ export interface MembershipPeriod {
   start: IsoDate
   /** Inclusive. */
   end: IsoDate
-  kind: "quarterly" | "custom"
+  /** A free trial opens the member area with HG's newest posts held back (see the trial settings). */
+  kind: "quarterly" | "custom" | "trial"
   /** "Q4 2026" or "Q4 2026 to Q1 2027". */
   label: string
   note?: string | null
@@ -24,7 +26,9 @@ export interface MembershipPeriod {
 
 export type MembershipStatus =
   | { kind: "admin" }
+  | { kind: "editor" }
   | { kind: "suspended" }
+  | { kind: "trial"; period: MembershipPeriod; daysLeft: number }
   | { kind: "active"; period: MembershipPeriod; coverageEnd: IsoDate; daysLeft: number; expiringSoon: boolean }
   | { kind: "upcoming"; next: MembershipPeriod }
   | { kind: "expired"; last: MembershipPeriod }
@@ -32,6 +36,17 @@ export type MembershipStatus =
 
 export interface DailyBar {
   date: IsoDate
+  open: number | null
+  high: number
+  low: number
+  close: number
+  volume: number | null
+}
+
+/** An intraday bar (5 minutes for the weekly index highs and lows). */
+export interface IntradayBar {
+  /** Epoch milliseconds of the bar's start. */
+  at: number
   open: number | null
   high: number
   low: number

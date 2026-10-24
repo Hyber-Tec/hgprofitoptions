@@ -1,4 +1,5 @@
 import "server-only"
+import { INDEX_NAMES, INDEX_SYMBOLS } from "@/core/indices"
 import type { WeekDoc } from "@/server/model"
 import { categoriesBySymbol, getTargetGroups, getWeek, listWeeks } from "@/lib/data/tools"
 
@@ -15,18 +16,22 @@ export interface WeekRow {
   categories: string[]
 }
 
+/** HG's weekly close of an index: close, gap vs last Friday, and the week's high and low with when. */
 export interface IndexCard {
   symbol: string
   name: string
   close: number
-  change: number
-  changePct: number
+  /** This Friday's close minus last Friday's (HG's "gap"). */
+  gap: number
+  gapPct: number
+  high: number
+  highAt: Date | null
+  low: number
+  lowAt: Date | null
   range: number
   svi: number
   history: number[]
 }
-
-const INDEX_NAMES: Record<string, string> = { DJI: "Dow Jones", SPX: "S&P 500", IXIC: "Nasdaq" }
 
 export function weekRows(week: WeekDoc, previous: WeekDoc | null, categories: Map<string, string[]>): WeekRow[] {
   return Object.entries(week.rows)
@@ -45,16 +50,20 @@ export async function indexCards(week: WeekDoc): Promise<IndexCard[]> {
   const docs = (await Promise.all(weeks.map((w) => getWeek(w.weekStart))))
     .filter((w): w is WeekDoc => w !== null)
     .reverse()
-  return Object.keys(INDEX_NAMES).flatMap((symbol) => {
+  return INDEX_SYMBOLS.flatMap((symbol) => {
     const r = week.indices[symbol]
     if (!r) return []
     return [
       {
         symbol,
-        name: INDEX_NAMES[symbol] ?? symbol,
+        name: INDEX_NAMES[symbol],
         close: r.close,
-        change: r.close - r.pfcp,
-        changePct: (r.close - r.pfcp) / r.pfcp,
+        gap: r.close - r.pfcp,
+        gapPct: (r.close - r.pfcp) / r.pfcp,
+        high: r.high,
+        highAt: r.highAt ? new Date(r.highAt) : null,
+        low: r.low,
+        lowAt: r.lowAt ? new Date(r.lowAt) : null,
         range: r.range,
         svi: r.svi,
         history: docs.flatMap((d) => (d.indices[symbol] ? [d.indices[symbol].close] : [])),

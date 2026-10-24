@@ -78,7 +78,7 @@ export async function readThreadReads(uid: string): Promise<Record<string, numbe
 }
 
 /**
- * The sidebar count: for experts and admins, questions waiting for an answer; for everyone else, their
+ * The sidebar count: for advanced traders and admins, questions waiting for an answer; for everyone else, their
  * own questions with a reply they have not read yet.
  */
 export const chatBadge = cache(async (viewer: Viewer): Promise<number> => {

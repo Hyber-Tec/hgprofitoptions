@@ -14,12 +14,13 @@ export async function GET(request: Request) {
   const expiry = params.get("expiry") ?? ""
   const min = Number(params.get("min"))
   const max = Number(params.get("max"))
-  if (!STOCK_TICKER.test(symbol) || !isIsoDate(expiry) || !(min > 0) || !(max > min) || max > min * 2)
+  // A cheap stock's put and target can be far apart; the chain is fetched a few pages at most either way.
+  if (!STOCK_TICKER.test(symbol) || !isIsoDate(expiry) || !(min > 0) || !(max > min) || max > min * 5)
     return Response.json(
       { error: "Ask for a stock, an expiry and a strike range." },
       { status: 400, headers: NO_STORE },
     )
   const result = await optionChain({ symbol, expiry, minStrike: min, maxStrike: max })
   if (result === null) return Response.json({ available: false }, { headers: NO_STORE })
-  return Response.json({ available: true, chain: result.chain }, { headers: NO_STORE })
+  return Response.json({ available: true, chain: result.chain, failed: result.failed }, { headers: NO_STORE })
 }

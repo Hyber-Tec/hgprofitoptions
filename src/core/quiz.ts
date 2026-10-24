@@ -41,3 +41,10 @@ export function gradeAttempt(
 export function passes(score: number, passScore: number): boolean {
   return Math.round(score * 1000) >= Math.round(passScore * 1000)
 }
+
+/** Where a quiz's questions come from, for the admin: "From Channels.pdf", "On: the break of channel". */
+export function quizOrigin(quiz: { source: { name: string } | null; topic: string | null }): string {
+  if (quiz.source) return `From ${quiz.source.name}`
+  if (quiz.topic) return `On: ${quiz.topic.length > 80 ? `${quiz.topic.slice(0, 77)}...` : quiz.topic}`
+  return "Questions written by hand"
+}

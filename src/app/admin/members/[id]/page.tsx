@@ -92,7 +92,9 @@ export default async function AdminMemberPage({ params, searchParams }: PageProp
         meta={
           <>
             <ToneBadge tone={TONES[summary.tone] ?? "muted"}>{summary.status}</ToneBadge>
-            {member.role === "admin" && <ToneBadge tone="neutral">Admin</ToneBadge>}
+            {member.role !== "member" && (
+              <ToneBadge tone="neutral">{member.role === "admin" ? "Admin" : "Data editor"}</ToneBadge>
+            )}
             <ToneBadge tone="muted">{LEVEL_LABELS[member.level]}</ToneBadge>
             <span>
               {summary.label} · {summary.detail}

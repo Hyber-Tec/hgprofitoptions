@@ -464,6 +464,12 @@ export function diffTargets(before: readonly StrikeTarget[], after: readonly Str
 /** Live status of a target versus the last close. Labels are shown to members. */
 export type TargetStatus = "above-target" | "between" | "below-break"
 
+export const TARGET_STATUS_LABELS: Record<TargetStatus, string> = {
+  "above-target": "Above target",
+  between: "Between",
+  "below-break": "Below break",
+}
+
 export function targetStatus(lastClose: number, entry: Pick<StrikeTarget, "target" | "breakLevel">): TargetStatus {
   if (lastClose >= entry.target) return "above-target"
   if (lastClose <= entry.breakLevel) return "below-break"

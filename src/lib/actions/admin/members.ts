@@ -4,7 +4,7 @@ import { Timestamp } from "firebase-admin/firestore"
 import { refresh } from "next/cache"
 import { z } from "zod"
 import { isIsoDate, todayInMarketZone } from "@/core/dates"
-import type { ActionResult, IsoDate } from "@/core/domain/types"
+import type { ActionResult, IsoDate, Role } from "@/core/domain/types"
 import { invoiceText, unprintable } from "@/core/invoice"
 import { TRADER_LEVELS, type TraderLevel } from "@/core/levels"
 import { describePeriodRange, isQuarter, nextRenewalQuarter, periodFromQuarters } from "@/core/membership/quarters"
@@ -20,7 +20,7 @@ import {
   revokeInvite,
 } from "@/server/invites"
 import { OverlapError, addPeriod, readPeriods, recomputeAccess, writeAudit } from "@/server/members"
-import { COLLECTIONS, MEMBER_SUBCOLLECTIONS, memberSchema, parseDoc } from "@/server/model"
+import { COLLECTIONS, MEMBER_SUBCOLLECTIONS, memberSchema, parseDoc, roleSchema } from "@/server/model"
 import { adminForAction, type Viewer } from "@/lib/auth/guards"
 import { revokeAllSessions } from "@/lib/auth/session"
 import { publicEnv } from "@/lib/env.public"
@@ -59,7 +59,7 @@ const startInput = z
 const inviteInput = z.object({
   email: z.email("Enter a valid email").transform((v) => v.trim().toLowerCase()),
   fullName: z.string().trim().min(2, "Enter the full name").max(80),
-  role: z.enum(["member", "admin"]),
+  role: z.enum(["member", "editor", "admin"]),
   phone: z.string().trim().max(40).nullable(),
   whatsapp: z.string().trim().max(40).nullable(),
   location: z.string().trim().max(80).nullable(),
@@ -351,25 +351,29 @@ export async function setMemberSuspended(uid: string, suspended: boolean): Promi
   return { ok: true, data: undefined }
 }
 
-export async function setMemberRole(uid: string, role: "admin" | "member"): Promise<ActionResult> {
+/** Admin, data editor (the market data and the tools) or member. */
+export async function setMemberRole(uid: string, role: Role): Promise<ActionResult> {
   const viewer = await adminForAction()
   if (!viewer) return forbidden
+  if (!roleSchema.safeParse(role).success) return { ok: false, code: "validation", message: "Pick a role." }
   if (uid === viewer.uid && role !== "admin")
     return { ok: false, code: "forbidden", message: "You cannot remove your own admin role." }
   const target = await readMember(uid)
   if (!target) return { ok: false, code: "not-found", message: "This member no longer exists." }
-  if (target.role === "admin" && role === "member" && (await adminCount()) <= 1)
+  if (target.role === role) return { ok: true, data: undefined }
+  if (target.role === "admin" && (await adminCount()) <= 1)
     return { ok: false, code: "forbidden", message: "There must always be at least one admin." }
   await member(uid).update({ role })
-  await adminAuth().setCustomUserClaims(uid, role === "admin" ? { role: "admin" } : null)
+  await adminAuth().setCustomUserClaims(uid, role === "member" ? null : { role })
   // End sessions so the change applies everywhere at once.
   await revokeAllSessions(uid)
   await writeAudit(adminDb(), {
     actorUid: viewer.uid,
     actorEmail: viewer.email,
-    action: role === "admin" ? "member.promoted" : "member.demoted",
+    action: role === "admin" ? "member.promoted" : target.role === "admin" ? "member.demoted" : "member.role_changed",
     targetType: "member",
     targetId: uid,
+    detail: { from: target.role, to: role },
   })
   refresh()
   return { ok: true, data: undefined }

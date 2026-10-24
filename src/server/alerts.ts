@@ -12,7 +12,7 @@ import type { Messaging } from "firebase-admin/messaging"
 import { alertNotification } from "@/core/alerts"
 import { alertReturn } from "@/core/calc/standing"
 import { todayInMarketZone } from "@/core/dates"
-import { hasAccess, membershipStatus } from "@/core/membership/quarters"
+import { hasFullAccess, membershipStatus } from "@/core/membership/quarters"
 import { layout, sendEmailBatch, type EmailConfig } from "./email"
 import { readPeriods, toMembershipPeriods, writeAudit } from "./members"
 import { COLLECTIONS, REVISIONS, alertSchema, memberSchema, parseDoc, type AlertDoc } from "./model"
@@ -284,14 +284,15 @@ export async function alertRecipients(
         periods: toMembershipPeriods(await readPeriods(db, doc.id)),
         today,
       })
-      if (!hasAccess(status)) continue
+      // Free trials see alerts a few days later, so they are not notified.
+      if (!hasFullAccess(status)) continue
     }
     recipients.push({ uid: doc.id, email: member.email, fullName: member.fullName })
   }
   return recipients
 }
 
-/** Members (not admins) with access right now: the people an alert is for. */
+/** Members (not admins) with full access right now: the people an alert is for. */
 export async function audienceSize(db: Firestore): Promise<number> {
   const today = todayInMarketZone()
   const snap = await db
@@ -307,7 +308,7 @@ export async function audienceSize(db: Firestore): Promise<number> {
       periods: toMembershipPeriods(await readPeriods(db, doc.id)),
       today,
     })
-    if (hasAccess(status)) count++
+    if (hasFullAccess(status)) count++
   }
   return count
 }

@@ -1,6 +1,8 @@
 import type { Route } from "next"
 import type { IconType } from "react-icons"
+import type { Role } from "@/core/domain/types"
 import {
+  LuActivity,
   LuBell,
   LuBellRing,
   LuBriefcase,
@@ -16,6 +18,7 @@ import {
   LuLayoutDashboard,
   LuListOrdered,
   LuMessagesSquare,
+  LuNewspaper,
   LuNotebookPen,
   LuPresentation,
   LuQuote,
@@ -42,6 +45,8 @@ export interface NavItem {
   badge?: "unread" | "chat" | "tests"
   /** Visible to members without an active quarter (their own data stays readable). */
   inactive?: boolean
+  /** Admin pages that data editors use too (the market data and the tools). */
+  editor?: boolean
 }
 
 export interface NavGroup {
@@ -102,16 +107,18 @@ export const ADMIN_NAV: NavGroup[] = [
     label: "Publishing",
     items: [
       { title: "Alerts", href: "/admin/alerts", icon: LuBellRing },
-      { title: "Strike targets", href: "/admin/targets", icon: LuCrosshair },
+      { title: "Market brief", href: "/admin/briefs", icon: LuNewspaper, editor: true },
+      { title: "Spikes", href: "/admin/spikes", icon: LuActivity, editor: true },
+      { title: "Strike targets", href: "/admin/targets", icon: LuCrosshair, editor: true },
       { title: "HG portfolio", href: "/admin/hg-portfolio", icon: LuBriefcase },
     ],
   },
   {
     label: "Market data",
     items: [
-      { title: "Tickers", href: "/admin/tickers", icon: LuListOrdered },
-      { title: "Market data", href: "/admin/market-data", icon: LuDatabase },
-      { title: "Leveraged ETFs", href: "/admin/etfs", icon: LuLayers },
+      { title: "Tickers", href: "/admin/tickers", icon: LuListOrdered, editor: true },
+      { title: "Market data", href: "/admin/market-data", icon: LuDatabase, editor: true },
+      { title: "Leveraged ETFs", href: "/admin/etfs", icon: LuLayers, editor: true },
     ],
   },
   {
@@ -135,11 +142,23 @@ export const ADMIN_NAV: NavGroup[] = [
   },
 ]
 
+/** The admin console as a role sees it: everything for admins, the market data and tools for data editors. */
+export function adminNavFor(role: Role): NavGroup[] {
+  if (role === "admin") return ADMIN_NAV
+  if (role === "member") return []
+  return ADMIN_NAV.map((group) => ({ ...group, items: group.items.filter((item) => item.editor === true) })).filter(
+    (group) => group.items.length > 0,
+  )
+}
+
 /** Breadcrumb labels for static path segments. */
 export const SEGMENT_LABELS: Record<string, string> = {
   members: "Member area",
   admin: "Admin",
   alerts: "Alerts",
+  brief: "Market brief",
+  briefs: "Market brief",
+  spikes: "Spikes",
   chat: "Chat",
   portfolio: "Portfolio",
   journal: "Journal",

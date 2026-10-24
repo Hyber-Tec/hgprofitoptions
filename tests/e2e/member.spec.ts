@@ -8,7 +8,8 @@ test.beforeEach(async ({ page }) => {
 test("a strike target opens its live order book, options chain and stock page", async ({ page }) => {
   await page.goto("/members/targets")
   await page.locator('button[aria-haspopup="dialog"]:visible').first().click()
-  const panel = page.getByRole("dialog")
+  // The stock's panel (a live alert's toast can be open beside it).
+  const panel = page.getByRole("dialog").filter({ has: page.getByRole("region", { name: "Order book" }) })
   const symbol = (await panel.getByRole("heading").first().innerText()).split(/\s/)[0] ?? ""
   // Bid, ask and last for the shares.
   await expect(panel.getByRole("rowheader", { name: `${symbol} shares` })).toBeVisible()
@@ -137,9 +138,29 @@ test("the journal lists trades plainly and keeps the extra filters behind Filter
   await expectNoHorizontalScroll(page)
 })
 
+test("HG standing opens at the Intermediate level, and the guide says how to get there", async ({ page }) => {
+  await page.goto("/members/standing")
+  await expect(page.getByText("HG standing opens at the Intermediate level")).toBeVisible()
+  await page.getByRole("link", { name: "How levels work" }).click()
+  await expect(page).toHaveURL(/\/members\/settings#levels$/)
+  await expect(page.locator('#levels [aria-current="step"]')).toContainText("Beginner")
+  await expect(page.locator("#levels")).toContainText("Pass the exam with 80% or more")
+})
+
 test("members cannot open the admin console", async ({ page, allowConsole }) => {
   allowConsole(/status of 404/)
   const response = await page.goto("/admin")
   expect(response?.status()).toBe(404)
   await expect(page.getByRole("heading", { name: "This page does not exist" })).toBeVisible()
+})
+
+test("Key Market Data shows HG's weekly index close: gap, and the high and low with when", async ({ page }) => {
+  await page.goto("/members/market-data")
+  const dow = page.locator('[data-slot="card"]', { hasText: "Dow Jones" }).first()
+  await expect(dow).toContainText("52,215.16")
+  // HG's gap: this Friday's close minus last Friday's (52,002.41).
+  await expect(dow).toContainText(/Gap vs last Friday\s*\+212\.75/)
+  await expect(dow).toContainText("52,923.38")
+  await expect(dow).toContainText(/Wed, \w{3} \d{1,2}, 12:30 PM/)
+  await expect(dow).toContainText(/Mon, \w{3} \d{1,2}, 9:55 AM/)
 })

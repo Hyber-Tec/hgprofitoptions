@@ -1,21 +1,26 @@
 import type { Route } from "next"
 import Link from "next/link"
 import type { ReactNode } from "react"
-import { LuArrowRight, LuCalendarPlus, LuFileText, LuLink2, LuPresentation, LuVideo } from "react-icons/lu"
+import { LuArrowRight, LuCalendarPlus, LuCheck, LuFileText, LuLink2, LuPresentation, LuVideo } from "react-icons/lu"
 import { SiWhatsapp, SiZoom } from "react-icons/si"
-import { addDays, daysBetween, todayInMarketZone } from "@/core/dates"
+import { addDays, daysBetween, isoDateInZone, todayInMarketZone } from "@/core/dates"
 import type { IsoDate } from "@/core/domain/types"
-import { formatDate, formatLevel, formatPercent, formatShortDate } from "@/core/format"
+import { formatDate, formatLevel, formatPercent, formatShortDate, formatTimeET, plural } from "@/core/format"
+import { describeEarnings } from "@/core/earnings"
+import { INDEX_NAMES, INDEX_SYMBOLS } from "@/core/indices"
+import { LEVEL_GUIDE, LEVEL_LABELS, reachesLevel } from "@/core/levels"
 import { describePeriodRange, quarterOf } from "@/core/membership/quarters"
 import { membershipSummary } from "@/core/membership/summary"
 import { diffTargets } from "@/core/parsers/strike-targets"
-import { formatDayIn, formatTimeIn, nextOccurrence, zoneAbbreviation } from "@/core/schedule"
+import { AUDIENCE_LABELS, formatDayIn, formatTimeIn, upcomingSessions, zoneAbbreviation } from "@/core/schedule"
 import type { Viewer } from "@/lib/auth/guards"
 import { listFeedAlerts, readReceipts } from "@/lib/data/alerts"
+import { listPublishedBriefs } from "@/lib/data/briefs"
 import { listPresentations, listResources } from "@/lib/data/content"
 import { listTrades } from "@/lib/data/journal"
 import { getSiteSettings } from "@/lib/data/public"
 import { getMemberSettings } from "@/lib/data/settings"
+import { listSpikeLists } from "@/lib/data/spikes"
 import {
   getStanding,
   getTargetGroups,
@@ -24,12 +29,16 @@ import {
   listTickers,
   resolveWeek,
 } from "@/lib/data/tools"
+import { isOpen, postsCutoff } from "@/lib/data/visibility"
+import { integrations } from "@/lib/env.server"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Progress } from "@/components/ui/progress"
 import { ButtonAnchor, ButtonLink } from "@/components/shared/button-link"
 import { AlertCard, toAlertView } from "../alerts/alert-card"
+import { BriefExcerpt } from "../alerts/brief-body"
+import { MarketPulseRows, type PulseRow } from "./market-pulse"
 import { Signed, Stat, ToneBadge, type Tone } from "../display"
 import { Sparkline } from "../sparkline"
 
@@ -86,6 +95,23 @@ export function MembershipCard({ viewer, bookingHref }: { viewer: Viewer; bookin
           </span>
           {status.kind === "active" && <span className="font-medium text-foreground">{summary.detail}</span>}
         </div>
+        {viewer.role === "member" && (
+          <Link
+            href="/members/settings#levels"
+            className="-mx-2 flex flex-col gap-0.5 rounded-lg px-2 py-1.5 outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50"
+          >
+            <span className="flex items-center justify-between gap-2 text-sm">
+              <span>
+                Trader level <span className="font-medium">{LEVEL_LABELS[viewer.member.level]}</span>
+              </span>
+              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                How levels work
+                <LuArrowRight aria-hidden="true" className="size-3" />
+              </span>
+            </span>
+            <span className="text-xs text-muted-foreground">{LEVEL_GUIDE[viewer.member.level].means}</span>
+          </Link>
+        )}
         {status.kind === "active" && status.expiringSoon && (
           <Alert>
             <AlertTitle>Your membership ends {formatDate(status.coverageEnd)}</AlertTitle>
@@ -105,7 +131,10 @@ export function MembershipCard({ viewer, bookingHref }: { viewer: Viewer; bookin
 // ---- Alerts ---------------------------------------------------------------------------------
 
 export async function LatestAlertsCard({ viewer }: { viewer: Viewer }) {
-  const alerts = await listFeedAlerts({ limit: 3, window: 3 })
+  const cutoff = await postsCutoff(viewer)
+  const feed = await listFeedAlerts(cutoff ? { window: 60 } : { limit: 3, window: 3 })
+  // A free trial sees the alerts that are old enough (the Alerts page says when the rest open).
+  const alerts = feed.filter((a) => isOpen(cutoff, a.publishedAt)).slice(0, 3)
   const receipts = await readReceipts(
     viewer.uid,
     alerts.map((a) => a.id),
@@ -115,7 +144,9 @@ export async function LatestAlertsCard({ viewer }: { viewer: Viewer }) {
     <Card>
       <CardHeader>
         <CardTitle>Latest alerts</CardTitle>
-        <CardDescription>HG&apos;s buy and sell points</CardDescription>
+        <CardDescription>
+          {cutoff ? "HG's buy and sell points, from before the last few days" : "HG's buy and sell points"}
+        </CardDescription>
         <CardAction>
           <ViewAll href="/members/alerts">View all</ViewAll>
         </CardAction>
@@ -143,6 +174,87 @@ export async function LatestAlertsCard({ viewer }: { viewer: Viewer }) {
   )
 }
 
+// ---- Market brief and spikes ------------------------------------------------------------------
+
+/** The newest market brief, its opening lines, and a link to the rest. */
+export async function MarketBriefCard({ viewer }: { viewer: Viewer }) {
+  const [briefs, cutoff] = await Promise.all([listPublishedBriefs(cutoffWindow), postsCutoff(viewer)])
+  const brief = briefs.find((b) => isOpen(cutoff, b.publishedAt))
+  if (!brief?.publishedAt) {
+    if (briefs.length === 0) return null
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Market brief</CardTitle>
+          <CardDescription>
+            HG&apos;s market brief is for members. On your free trial it shows here a few days later.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+    )
+  }
+  const today = todayInMarketZone()
+  const day = isoDateInZone(brief.publishedAt)
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{brief.title}</CardTitle>
+        <CardDescription>
+          {day === today ? "Today" : formatShortDate(day)}, {formatTimeET(brief.publishedAt)}
+        </CardDescription>
+        <CardAction>
+          <ViewAll href={`/members/alerts/brief#brief-${brief.id}` as Route}>Read</ViewAll>
+        </CardAction>
+      </CardHeader>
+      <CardContent>
+        <BriefExcerpt body={brief.body} />
+      </CardContent>
+    </Card>
+  )
+}
+
+/** Briefs to look through for one a free trial may see (they are held back a few days). */
+const cutoffWindow = 40
+
+/** Today's spike list: each stock and its spike, marked once the price is reached again. */
+export async function SpikesCard({ viewer }: { viewer: Viewer }) {
+  const [lists, cutoff] = await Promise.all([listSpikeLists(3), postsCutoff(viewer)])
+  const today = todayInMarketZone()
+  const list = lists.find((l) => isOpen(cutoff, l.postedAt) && isoDateInZone(l.postedAt) === today)
+  if (!list) return null
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Today&apos;s spikes</CardTitle>
+        <CardDescription>
+          {plural(list.spikes.length, "spike")} from {formatShortDate(list.date)}, posted {formatTimeET(list.postedAt)}
+        </CardDescription>
+        <CardAction>
+          <ViewAll href={`/members/alerts/spikes#spikes-${list.id}` as Route}>Open</ViewAll>
+        </CardAction>
+      </CardHeader>
+      <CardContent className="flex flex-wrap gap-2">
+        {list.spikes.map((spike) => (
+          <Link
+            key={spike.id}
+            href={`/members/stocks/${spike.symbol}`}
+            className="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-sm transition-colors outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
+          >
+            <span className="font-mono font-medium">{spike.symbol}</span>
+            <span className="text-muted-foreground tabular-nums">{formatLevel(spike.price)}</span>
+            {spike.recoveredOn && (
+              <LuCheck
+                className="size-3.5 text-positive"
+                aria-label={`Reached again ${formatShortDate(spike.recoveredOn)}`}
+              />
+            )}
+          </Link>
+        ))}
+      </CardContent>
+    </Card>
+  )
+}
+
 // ---- My performance -------------------------------------------------------------------------
 
 export async function PerformanceCard({ viewer }: { viewer: Viewer }) {
@@ -155,14 +267,20 @@ export async function PerformanceCard({ viewer }: { viewer: Viewer }) {
       <Card>
         <CardHeader>
           <CardTitle>My performance</CardTitle>
-          <CardDescription>Link your brokerage to see your returns, trades and journal stats here.</CardDescription>
+          <CardDescription>
+            {viewer.fullAccess
+              ? "Link your brokerage to see your returns, trades and journal stats here."
+              : "Add your trades to your journal to see your stats here."}
+          </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">
-          <ButtonLink href="/members/portfolio">
-            <LuLink2 />
-            Connect your brokerage
-          </ButtonLink>
-          <ButtonLink variant="outline" href="/members/journal">
+          {viewer.fullAccess && (
+            <ButtonLink href="/members/portfolio">
+              <LuLink2 />
+              Connect your brokerage
+            </ButtonLink>
+          )}
+          <ButtonLink variant={viewer.fullAccess ? "outline" : "default"} href="/members/journal">
             Add trades manually
           </ButtonLink>
         </CardContent>
@@ -214,7 +332,38 @@ export async function PerformanceCard({ viewer }: { viewer: Viewer }) {
 
 // ---- HG standing ----------------------------------------------------------------------------
 
-export async function StandingCard() {
+export async function StandingCard({ viewer }: { viewer: Viewer }) {
+  const { hgPortfolio } = await getMemberSettings()
+  if (!viewer.fullAccess)
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>HG standing</CardTitle>
+          <CardDescription>For members</CardDescription>
+        </CardHeader>
+        <CardContent className="text-sm text-muted-foreground">
+          How HG&apos;s own portfolio and his alerts are doing, shared with members once they join.
+        </CardContent>
+      </Card>
+    )
+  if (!reachesLevel(viewer.member, hgPortfolio.openFrom))
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>HG standing</CardTitle>
+          <CardDescription>Opens at the {LEVEL_LABELS[hgPortfolio.openFrom]} level</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col items-start gap-3">
+          <p className="text-sm text-muted-foreground">
+            HG shares his own portfolio with {LEVEL_LABELS[hgPortfolio.openFrom]} traders and up.{" "}
+            {LEVEL_GUIDE[viewer.member.level].next}
+          </p>
+          <ButtonLink variant="outline" size="sm" href="/members/settings#levels">
+            How levels work
+          </ButtonLink>
+        </CardContent>
+      </Card>
+    )
   const standing = await getStanding()
   const curve = standing?.hgPortfolio?.curve.slice(-90).map((p) => p.index) ?? []
   const record = standing?.alertsTrackRecord
@@ -261,19 +410,25 @@ export async function StandingCard() {
 
 // ---- Strike Price Targets ---------------------------------------------------------------------
 
-export async function TargetsCard() {
-  const [latest, groups] = await Promise.all([latestTargetUpdate(), getTargetGroups()])
+export async function TargetsCard({ viewer }: { viewer: Viewer }) {
+  const cutoff = await postsCutoff(viewer)
+  const [latest, groups] = await Promise.all([latestTargetUpdate(cutoff), getTargetGroups()])
   if (!latest) {
+    const held = cutoff !== null && (await latestTargetUpdate()) !== null
     return (
       <Card>
         <CardHeader>
           <CardTitle>Strike Price Targets</CardTitle>
-          <CardDescription>The weekly targets appear here once HG publishes them.</CardDescription>
+          <CardDescription>
+            {held
+              ? "This week's update is for members. On your free trial it shows here a few days later."
+              : "The weekly targets appear here once HG publishes them."}
+          </CardDescription>
         </CardHeader>
       </Card>
     )
   }
-  const withPrevious = await getTargetUpdate(latest.effectiveDate)
+  const withPrevious = await getTargetUpdate(latest.effectiveDate, cutoff)
   const diff = withPrevious?.previous ? diffTargets(withPrevious.previous.entries, latest.entries) : null
   const changes = diff ? diff.added.length + diff.removed.length + diff.changed.length : null
   const counts = groups
@@ -309,10 +464,17 @@ export async function TargetsCard() {
 
 // ---- Market pulse and movers ------------------------------------------------------------------
 
-const INDEX_NAMES: Record<string, string> = { DJI: "Dow Jones", SPX: "S&P 500", IXIC: "Nasdaq" }
-
 export async function MarketPulseCard() {
   const { week } = await resolveWeek(null)
+  const rows: PulseRow[] = INDEX_SYMBOLS.map((symbol) => {
+    const row = week?.indices[symbol]
+    return {
+      symbol,
+      name: INDEX_NAMES[symbol],
+      close: row?.close ?? null,
+      gapPct: row ? (row.close - row.pfcp) / row.pfcp : null,
+    }
+  })
   return (
     <Card>
       <CardHeader>
@@ -326,23 +488,8 @@ export async function MarketPulseCard() {
           <ViewAll href="/members/market-data">Data</ViewAll>
         </CardAction>
       </CardHeader>
-      <CardContent className="flex flex-col divide-y">
-        {Object.keys(INDEX_NAMES).map((symbol) => {
-          const row = week?.indices[symbol]
-          const change = row ? (row.close - row.pfcp) / row.pfcp : null
-          return (
-            <div key={symbol} className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
-              <div className="min-w-0">
-                <p className="text-sm font-medium">{INDEX_NAMES[symbol]}</p>
-                <p className="font-mono text-xs text-muted-foreground">{symbol}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-sm font-medium tabular-nums">{row ? formatLevel(row.close) : "-"}</p>
-                <Signed value={change} className="text-xs" />
-              </div>
-            </div>
-          )
-        })}
+      <CardContent className="flex flex-col gap-3">
+        <MarketPulseRows rows={rows} live={integrations.marketData} />
       </CardContent>
     </Card>
   )
@@ -427,9 +574,8 @@ export async function EarningsCard() {
                   >
                     {t.symbol}
                   </Link>
-                  <span className="flex items-center gap-2 text-muted-foreground tabular-nums">
-                    {formatShortDate(start)}
-                    {t.earningsEnd !== t.earningsStart && ` to ${formatShortDate(t.earningsEnd as IsoDate)}`}
+                  <span className="flex items-center gap-2 text-right text-muted-foreground tabular-nums">
+                    {describeEarnings(start, t.earningsEnd, t.earningsTiming)}
                     <ToneBadge tone={days <= 7 ? "warning" : "muted"}>{days <= 0 ? "Now" : `${days} d`}</ToneBadge>
                   </span>
                 </li>
@@ -446,20 +592,20 @@ export async function EarningsCard() {
 
 export async function ClassroomCard({ timezone }: { timezone: string }) {
   const [site, settings] = await Promise.all([getSiteSettings(), getMemberSettings()])
-  const sessions = site.classSchedule.map((s) => ({ ...s, next: nextOccurrence(s) }))
+  const sessions = upcomingSessions(site.classSchedule)
   const localDiffers = timezone !== "America/New_York"
   return (
     <Card>
       <CardHeader>
         <CardTitle>Classroom</CardTitle>
-        <CardDescription>Live on Zoom every week</CardDescription>
+        <CardDescription>Open 24/7, with live classes on Zoom every week</CardDescription>
         <CardAction>
           <ViewAll href="/members/classroom">Schedule</ViewAll>
         </CardAction>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         {sessions.map((s) => (
-          <div key={`${s.day}-${s.start}`} className="flex flex-col gap-0.5 rounded-lg border px-3 py-2.5">
+          <div key={`${String(s.day)}-${s.start}`} className="flex flex-col gap-0.5 rounded-lg border px-3 py-2.5">
             <div className="flex items-center justify-between gap-2">
               <p className="text-sm font-medium">{s.title}</p>
               <span className="text-xs text-muted-foreground">{formatDayIn(s.next.start, "America/New_York")}</span>
@@ -473,9 +619,15 @@ export async function ClassroomCard({ timezone }: { timezone: string }) {
                 {zoneAbbreviation(s.next.start, timezone)} (your time)
               </p>
             )}
-            <p className="text-xs text-muted-foreground">{s.audience}</p>
+            <p className="text-xs text-muted-foreground">
+              {AUDIENCE_LABELS[s.audience]}
+              {s.note && ` · ${s.note}`}
+            </p>
           </div>
         ))}
+        {sessions.length === 0 && (
+          <p className="text-sm text-muted-foreground">The class schedule will be posted here.</p>
+        )}
       </CardContent>
       <CardFooter className="flex flex-wrap gap-2 border-t pt-4">
         {settings.zoomUrl && (

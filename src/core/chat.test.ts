@@ -40,20 +40,22 @@ describe("chat threads", () => {
 })
 
 describe("trader levels", () => {
-  it("lets experts and admins answer questions", () => {
-    expect(answersQuestions({ role: "member", level: "expert" })).toBe(true)
+  it("lets advanced traders and admins answer questions", () => {
+    expect(answersQuestions({ role: "member", level: "advanced" })).toBe(true)
     expect(answersQuestions({ role: "admin", level: "beginner" })).toBe(true)
-    expect(answersQuestions({ role: "member", level: "advanced" })).toBe(false)
+    expect(answersQuestions({ role: "member", level: "intermediate" })).toBe(false)
+    expect(answersQuestions({ role: "editor", level: "beginner" })).toBe(false)
   })
 
   it("only ever raises a level after a passed test", () => {
-    expect(levelAfterPass("beginner", "advanced")).toBe("advanced")
-    expect(levelAfterPass("expert", "advanced")).toBe("expert")
-    expect(levelAfterPass("advanced", "advanced")).toBe("advanced")
+    expect(levelAfterPass("beginner", "intermediate")).toBe("intermediate")
+    expect(levelAfterPass("advanced", "intermediate")).toBe("advanced")
+    expect(levelAfterPass("intermediate", "intermediate")).toBe("intermediate")
   })
 
   it("labels people by role, then level", () => {
     expect(personBadge({ role: "admin", level: "beginner" })).toBe("Admin")
-    expect(personBadge({ role: "member", level: "advanced" })).toBe("Advanced")
+    expect(personBadge({ role: "editor", level: "beginner" })).toBe("Data editor")
+    expect(personBadge({ role: "member", level: "intermediate" })).toBe("Intermediate")
   })
 })

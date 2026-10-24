@@ -95,12 +95,17 @@ jobs:
     timeout-minutes: 45
     environment:
       name: production
-      url: https://hgprofitoptions.web.app
+      # The site's address comes from apphosting.yaml, the one place it is set.
+      url: ${{ steps.site.outputs.url }}
     permissions:
       contents: read
       id-token: write
     steps:
       - uses: actions/checkout@v5
+      - name: Site address
+        id: site
+        run: |
+          echo "url=$(awk '/variable: NEXT_PUBLIC_SITE_URL/ { getline; print $2 }' apphosting.yaml)" >> "$GITHUB_OUTPUT"
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v5
         with:

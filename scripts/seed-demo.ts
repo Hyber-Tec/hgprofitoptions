@@ -23,12 +23,15 @@ import {
   lastCompletedWeek,
   nextFriday,
   todayInMarketZone,
+  zonedDateTime,
   zonedStartOfDay,
 } from "../src/core/dates"
 import type { DailyBar, Fill, Instrument, IsoDate, Quarter } from "../src/core/domain/types"
+import { formatWeekdayDate } from "../src/core/format"
 import { addQuarters, periodFromQuarters, quarterOf, quarterRange } from "../src/core/membership/quarters"
 import { CONSENT_VERSION } from "../src/server/brokerage/sync"
 import { recomputeAccess } from "../src/server/members"
+import { trackSpikes } from "../src/server/spikes"
 import {
   ACCOUNT_SUBCOLLECTIONS,
   COLLECTIONS,
@@ -173,8 +176,10 @@ async function ensureMarketData(db: Firestore, today: IsoDate): Promise<Ticker[]
       bocSize: ch / 2,
       fsLevels: [roundStrike(close * 0.9)],
       ssLevels: [roundStrike(close * 1.1)],
-      earningsStart: symbol === "TSM" || symbol === "TSLA" ? addDays(today, 9) : null,
-      earningsEnd: symbol === "TSM" || symbol === "TSLA" ? addDays(today, 11) : null,
+      // TSM reports within a window; TSLA on a known day, after the close.
+      earningsStart: symbol === "TSM" ? addDays(today, 9) : symbol === "TSLA" ? addDays(today, 4) : null,
+      earningsEnd: symbol === "TSM" ? addDays(today, 11) : symbol === "TSLA" ? addDays(today, 4) : null,
+      earningsTiming: symbol === "TSLA" ? "after-close" : null,
       earningsNote: null,
       notes: null,
       categories: [],
@@ -199,20 +204,37 @@ async function ensureMarketData(db: Firestore, today: IsoDate): Promise<Ticker[]
     const row = weekRow(bars)
     if (row) weekRows[symbol] = row
   }
-  const indexRow = (level: number) => {
-    const pfcp = level * (1 + normal(0, 0.01))
-    const close = level
-    const high = Math.max(pfcp, close) * 1.008
-    const low = Math.min(pfcp, close) * 0.992
+  // HG's weekly close of Oct 19 to 23, 2026, moved onto the demo week: [close, last Friday's close, high and
+  // when (day of the week, New York time), low and when].
+  const indexRow = (
+    close: number,
+    pfcp: number,
+    [high, highDay, highTime]: [number, number, string],
+    [low, lowDay, lowTime]: [number, number, string],
+  ) => {
     const range = signedRange(pfcp, high, low, close)
-    return { pfcp: round2(pfcp), high: round2(high), low: round2(low), close, range, svi: svi(range, close) }
+    return {
+      pfcp,
+      high,
+      low,
+      close,
+      range,
+      svi: svi(range, close),
+      highAt: zonedDateTime(addDays(week.start, highDay), highTime).toISOString(),
+      lowAt: zonedDateTime(addDays(week.start, lowDay), lowTime).toISOString(),
+      entered: false,
+    }
   }
   void writer.set(db.collection(COLLECTIONS.weeks).doc(week.start), {
     weekStart: week.start,
     weekEnd: week.end,
     rows: weekRows,
-    indices: { DJI: indexRow(46758.3), SPX: indexRow(6715.8), IXIC: indexRow(22780.5) },
-    source: "manual",
+    indices: {
+      DJI: indexRow(52215.16, 52002.41, [52923.38, 2, "12:30"], [51885.99, 0, "09:55"]),
+      SPX: indexRow(7623.68, 7659.44, [7769.27, 2, "14:35"], [7616.56, 4, "10:25"]),
+      IXIC: indexRow(25955.34, 26140.03, [26772.4, 2, "13:20"], [25893.4, 4, "09:40"]),
+    },
+    source: "provider",
     computedAt: Timestamp.now(),
   })
 
@@ -313,7 +335,7 @@ interface DemoMember {
   fullName: string
   role: "admin" | "member"
   /** Trader level; everyone else is a beginner. */
-  level?: "advanced" | "expert"
+  level?: "intermediate" | "advanced"
   status?: "active" | "suspended"
   /** [year, quarter, count, customStart?] */
   periods: [number, Quarter, number, IsoDate?][]
@@ -426,7 +448,7 @@ const MEMBERS: DemoMember[] = [
     email: "george.okafor@example.com",
     fullName: "George Okafor",
     role: "member",
-    level: "expert",
+    level: "advanced",
     periods: [[...q(-1), 2]],
     linked: true,
     location: "Kigali, Rwanda",
@@ -449,7 +471,7 @@ const MEMBERS: DemoMember[] = [
     email: "ivan.petrov@example.com",
     fullName: "Ivan Petrov",
     role: "member",
-    level: "advanced",
+    level: "intermediate",
     periods: [[...q(0), 2]],
     linked: true,
     location: "Sofia, Bulgaria",
@@ -480,7 +502,14 @@ async function resetDemo(db: Firestore, auth: Auth, bucket: Bucket): Promise<voi
     await db.recursiveDelete(db.collection(COLLECTIONS.members).doc(uidOf(m.key)))
     await db.collection(COLLECTIONS.invites).doc(m.email).delete()
   }
-  for (const name of [COLLECTIONS.alerts, COLLECTIONS.presentations, COLLECTIONS.resources]) {
+  for (const name of [
+    COLLECTIONS.alerts,
+    COLLECTIONS.presentations,
+    COLLECTIONS.resources,
+    COLLECTIONS.briefs,
+    COLLECTIONS.spikePosts,
+    COLLECTIONS.spikes,
+  ]) {
     const snap = await db.collection(name).get()
     for (const doc of snap.docs) if (doc.id.startsWith("demo-")) await db.recursiveDelete(doc.ref)
   }
@@ -1000,22 +1029,23 @@ function simplePdf(title: string, lines: readonly string[]): Buffer {
 }
 
 async function seedContent(db: Firestore, bucket: Bucket, today: IsoDate): Promise<void> {
-  const saturdays: IsoDate[] = []
-  for (let d = addDays(today, -1); saturdays.length < 4; d = addDays(d, -1))
-    if (new Date(`${d}T12:00:00Z`).getUTCDay() === 6) saturdays.push(d)
+  // The Sunday group class's slides, for the last four Sundays.
+  const sundays: IsoDate[] = []
+  for (let d = addDays(today, -1); sundays.length < 4; d = addDays(d, -1))
+    if (new Date(`${d}T12:00:00Z`).getUTCDay() === 0) sundays.push(d)
   const topics = [
     "Channel breaks and the BOC bounce",
     "Reading the weekly strike targets",
     "Position sizing for small accounts",
     "Earnings season playbook",
   ]
-  for (const [i, day] of saturdays.entries()) {
+  for (const [i, day] of sundays.entries()) {
     const id = `demo-p${i + 1}`
     const path = `content/demo/presentations/${id}.pdf`
-    const title = topics[i] ?? "Saturday class"
+    const title = topics[i] ?? "Group class"
     await bucket
       .file(path)
-      .save(simplePdf(title, ["Saturday class slides (demo)", "Channel lines, BOC levels and the weekly plan."]), {
+      .save(simplePdf(title, ["Group class slides (demo)", "Channel lines, BOC levels and the weekly plan."]), {
         contentType: "application/pdf",
       })
     await db
@@ -1024,7 +1054,7 @@ async function seedContent(db: Firestore, bucket: Bucket, today: IsoDate): Promi
       .set({
         title,
         sessionDate: day,
-        summary: "Slides and notes from the Saturday class.",
+        summary: "Slides and notes from the Sunday group class.",
         slidesPath: path,
         videoUrl: i === 0 ? null : "https://example.com/recording",
         published: true,
@@ -1053,6 +1083,88 @@ async function seedContent(db: Firestore, bucket: Bucket, today: IsoDate): Promi
       createdAt: Timestamp.now(),
     })
   }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Market brief and spikes
+// ---------------------------------------------------------------------------------------------
+
+/** No later than a minute ago, so nothing seeded is dated in the future when the seed runs early. */
+const notAfterNow = (date: Date) => new Date(Math.min(date.getTime(), Date.now() - 60_000))
+
+async function seedBriefsAndSpikes(db: Firestore, stocks: readonly Ticker[], today: IsoDate, adminUid: string) {
+  const lastSession = weekdayOnOrBefore(today)
+  const briefs = [
+    {
+      id: "demo-b1",
+      title: "Pre-market view",
+      body: "New strike prices will post for today. Yesterday's movers are on the spike list, and the calls' break and PUT levels were tightened.\n\nThe levels to watch at the open:\n- The Dow against last Friday's close\n- The channel lines on the stocks that spiked\n\nUpdates follow at 9:40, 10:00 and 10:30 AM.",
+      at: notAfterNow(at(lastSession, 5, 30)),
+    },
+    {
+      id: "demo-b2",
+      title: "10:30 AM update",
+      body: "The first hour held inside the projected range. The strike targets stand as posted.",
+      at: at(weekdayOnOrBefore(addDays(lastSession, -1)), 10, 30),
+    },
+  ]
+  for (const b of briefs)
+    await db
+      .collection(COLLECTIONS.briefs)
+      .doc(b.id)
+      .set({
+        title: b.title,
+        body: b.body,
+        status: "published",
+        source: "admin",
+        publishAt: null,
+        publishedAt: ts(b.at),
+        notify: true,
+        notifiedAt: ts(b.at),
+        createdAt: ts(b.at),
+        createdBy: adminUid,
+        updatedAt: ts(b.at),
+      })
+
+  // HG posts the spikes from the session before, early in the morning.
+  const session = weekdayOnOrBefore(addDays(lastSession, -1))
+  const postedAt = ts(notAfterNow(at(lastSession, 6, 0)))
+  const spiked = stocks.slice(0, 8)
+  await db
+    .collection(COLLECTIONS.spikePosts)
+    .doc("demo-sp1")
+    .set({
+      title: `Spikes from ${formatWeekdayDate(session)}`,
+      date: session,
+      count: spiked.length,
+      notify: true,
+      notifiedAt: postedAt,
+      postedAt,
+      createdBy: adminUid,
+    })
+  for (const [i, t] of spiked.entries()) {
+    const close = t.metrics?.lastClose ?? 100
+    const price = round2(close * (1 + between(0.01, 0.06)))
+    await db
+      .collection(COLLECTIONS.spikes)
+      .doc(`demo-sk${i + 1}`)
+      .set({
+        postId: "demo-sp1",
+        line: i + 2,
+        symbol: t.symbol,
+        price,
+        date: session,
+        at: i === spiked.length - 1 ? "close" : "open",
+        time: i === spiked.length - 1 ? "16:20" : null,
+        close: round2(close),
+        direction: "up",
+        group: "Profit options",
+        recoveredOn: null,
+        sessionsToRecover: null,
+        postedAt,
+      })
+  }
+  await trackSpikes(db)
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1128,8 +1240,8 @@ async function main(): Promise<void> {
     sellPoints: [],
     stop: null,
     id: "demo-i1",
-    title: "Saturday class starts at 7 PM ET this week",
-    body: "The beginner session is moved to 6:30 PM ET. Same Zoom link.",
+    title: "Sunday's group class starts at 7:30 PM ET this week",
+    body: "Thirty minutes later than usual, same Zoom link. Tuesday's beginner session is at the open as always.",
     parentId: null,
     status: "published",
     publishedAt: at(today, 8, 5),
@@ -1316,6 +1428,7 @@ async function main(): Promise<void> {
     })
 
   await seedContent(db, bucket, today)
+  await seedBriefsAndSpikes(db, stocks, today, adminUid)
   await computeStanding(db, today)
   await db.collection(COLLECTIONS.jobRuns).add({
     job: "seed-demo",

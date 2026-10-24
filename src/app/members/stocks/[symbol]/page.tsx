@@ -6,6 +6,10 @@ import { alertInstrument } from "@/core/alerts"
 import { channelLadder, nearestLevels } from "@/core/calc/channels"
 import { medians } from "@/core/calc/medians"
 import { daysBetween, isoDateInZone, todayInMarketZone } from "@/core/dates"
+import { describeEarnings } from "@/core/earnings"
+import { lastTradingDays } from "@/core/holidays"
+import { INTRADAY_SESSIONS } from "@/core/intraday"
+import { describeSpikeTime } from "@/core/spikes"
 import {
   formatDate,
   formatExpiry,
@@ -19,26 +23,31 @@ import {
 import { requireActiveMember } from "@/lib/auth/guards"
 import { listFeedAlerts } from "@/lib/data/alerts"
 import { listTrades } from "@/lib/data/journal"
+import { listSpikesFor } from "@/lib/data/spikes"
 import {
   getEtfConfig,
   getTargetGroups,
   getTicker,
   getTickerBars,
   getWeek,
-  listTargetUpdates,
+  openTargetUpdates,
   listWeeks,
 } from "@/lib/data/tools"
+import { isOpen, postsCutoff } from "@/lib/data/visibility"
 import { cn } from "@/lib/utils"
 import { AlertCard, toAlertView } from "@/components/portal/alerts/alert-card"
 import { Signed, Stat, ToneBadge } from "@/components/portal/display"
 import { AsOf, PageHeader } from "@/components/portal/page-header"
 import { LadderTable, type LadderLevel } from "@/components/portal/stock/channel-ladder"
 import { PriceChart, type ChartLevel, type ChartMarker } from "@/components/portal/stock/price-chart"
+import { StockPriceCard } from "@/components/portal/stock/stock-price-card"
 import { ChannelStrip } from "@/components/portal/tools/channel-strip"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+
+const lowerFirst = (text: string) => text.charAt(0).toLowerCase() + text.slice(1)
 
 export async function generateMetadata({ params }: PageProps<"/members/stocks/[symbol]">): Promise<Metadata> {
   const { symbol } = await params
@@ -51,15 +60,23 @@ export default async function StockPage({ params }: PageProps<"/members/stocks/[
   const ticker = await getTicker(symbol)
   if (!ticker) notFound()
 
-  const [barsDoc, weeksList, updates, groups, etfs, alerts, trades] = await Promise.all([
+  const cutoff = await postsCutoff(viewer)
+  const [barsDoc, weeksList, updates, groups, etfs, feed, trades, spikeList] = await Promise.all([
     getTickerBars(symbol),
     listWeeks(),
-    listTargetUpdates(),
+    openTargetUpdates(cutoff),
     getTargetGroups(),
     getEtfConfig(),
     listFeedAlerts({ window: 200 }),
     listTrades(viewer.uid),
+    listSpikesFor(symbol),
   ])
+  const spikes = spikeList.filter((s) => isOpen(cutoff, s.postedAt))
+  // The spikes the price has not traded back to yet stay on the chart.
+  const openSpikes = spikes.filter((s) => s.recoveredOn === null)
+  // The 5-day chart marks the spikes still open, and any from the sessions it shows.
+  const fiveSessionsAgo = lastTradingDays(todayInMarketZone(), INTRADAY_SESSIONS)[0] ?? todayInMarketZone()
+  const alerts = feed.filter((a) => isOpen(cutoff, a.publishedAt))
   const weekDocs = (await Promise.all(weeksList.slice(0, 8).map((w) => getWeek(w.weekStart)))).filter((w) => w !== null)
   const weekly = weekDocs.flatMap((w) =>
     w.rows[symbol] ? [{ weekStart: w.weekStart, weekEnd: w.weekEnd, ...w.rows[symbol] }] : [],
@@ -112,6 +129,7 @@ export default async function StockPage({ params }: PageProps<"/members/stocks/[
   if (m.m90 !== null) ladderLevels.push({ value: m.m90, kind: "median", label: "90D" })
   ticker.fsLevels.forEach((v) => ladderLevels.push({ value: v, kind: "fs", label: "FS" }))
   ticker.ssLevels.forEach((v) => ladderLevels.push({ value: v, kind: "ss", label: "SS" }))
+  for (const s of openSpikes) ladderLevels.push({ value: s.price, kind: "spike", label: "Spike" })
   if (currentTarget) {
     ladderLevels.push({ value: currentTarget.target, kind: "target", label: "Target" })
     ladderLevels.push({ value: currentTarget.breakLevel, kind: "break", label: "Break" })
@@ -127,6 +145,7 @@ export default async function StockPage({ params }: PageProps<"/members/stocks/[
     ) ?? []),
     ...(m.m30 !== null ? [{ value: m.m30, label: "30D", kind: "median" as const }] : []),
     ...(currentTarget ? [{ value: currentTarget.target, label: "Target", kind: "target" as const }] : []),
+    ...openSpikes.map((s) => ({ value: s.price, label: "Spike", kind: "spike" as const })),
   ]
   const markers: ChartMarker[] = []
   for (const a of myAlerts) {
@@ -180,6 +199,8 @@ export default async function StockPage({ params }: PageProps<"/members/stocks/[
               <ToneBadge tone={earningsIn <= 7 ? "warning" : "muted"}>
                 <LuCalendarClock aria-hidden="true" />
                 {earningsIn === 0 ? "Earnings now" : `Earnings in ${earningsIn} d`}
+                {" · "}
+                {describeEarnings(ticker.earningsStart, ticker.earningsEnd, ticker.earningsTiming)}
               </ToneBadge>
             )}
             {metrics && <AsOf>As of {formatDate(metrics.asOf)}</AsOf>}
@@ -279,6 +300,28 @@ export default async function StockPage({ params }: PageProps<"/members/stocks/[
                 </dd>
               </div>
             )}
+            {spikes.length > 0 && (
+              <div className="flex flex-col gap-0.5">
+                <dt className="text-xs text-muted-foreground">
+                  <Link
+                    href="/members/alerts/spikes"
+                    className="rounded-sm outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
+                  >
+                    Spikes
+                  </Link>
+                </dt>
+                {spikes.slice(0, 3).map((s) => (
+                  <dd key={s.id} className="tabular-nums">
+                    {formatShortDate(s.date)}, {lowerFirst(describeSpikeTime(s))}: {formatLevel(s.price)}
+                    <span className="text-muted-foreground">
+                      {s.recoveredOn
+                        ? ` · reached again ${formatShortDate(s.recoveredOn)}`
+                        : " · not reached again yet"}
+                    </span>
+                  </dd>
+                ))}
+              </div>
+            )}
             {(ticker.fsLevels.length > 0 || ticker.ssLevels.length > 0) && (
               <div className="flex flex-col gap-0.5">
                 <dt className="text-xs text-muted-foreground">FS and SS</dt>
@@ -313,16 +356,20 @@ export default async function StockPage({ params }: PageProps<"/members/stocks/[
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Price</CardTitle>
-          <CardDescription>
+      <StockPriceCard
+        symbol={symbol}
+        spikes={spikes
+          .filter((s) => s.recoveredOn === null || s.date >= fiveSessionsAgo)
+          .map((s) => ({ price: s.price, label: `Spike ${formatShortDate(s.date)}` }))}
+        dailyDescription={
+          <>
             Last 90 trading days with the channel lines, the 30-day median and HG&apos;s target. Arrows are HG&apos;s
             alerts; dots are your fills.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {bars.length > 0 ? (
+            {openSpikes.length > 0 && " The violet dashed line is a spike the price has not reached again."}
+          </>
+        }
+        daily={
+          bars.length > 0 ? (
             <PriceChart bars={bars} levels={chartLevels} markers={markers} />
           ) : (
             <Empty className="border border-dashed py-16">
@@ -331,9 +378,9 @@ export default async function StockPage({ params }: PageProps<"/members/stocks/[
                 <EmptyDescription>Daily prices appear once market data is connected.</EmptyDescription>
               </EmptyHeader>
             </Empty>
-          )}
-        </CardContent>
-      </Card>
+          )
+        }
+      />
 
       {ticker.notes && (
         <Card>

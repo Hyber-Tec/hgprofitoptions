@@ -6,6 +6,7 @@ import { refresh } from "next/cache"
 import { after } from "next/server"
 import { z } from "zod"
 import type { ActionResult } from "@/core/domain/types"
+import { parseExam } from "@/core/exam"
 import { TRADER_LEVELS } from "@/core/levels"
 import { writeAudit } from "@/server/members"
 import { sendToMembers } from "@/server/push"
@@ -66,34 +67,97 @@ const sourceInput = z
   })
   .nullable()
 
-const createInput = z.object({
+const quizBasics = {
   title: z.string().trim().min(2, "Give the quiz a title").max(120),
   kind: z.enum(["practice", "test"]),
-  source: sourceInput,
-  count: z.number().int().min(0).max(30),
+}
+
+const createInput = z.discriminatedUnion("from", [
+  /** The AI writes questions from a class document (or, without AI, the admin writes them by hand). */
+  z.object({ from: z.literal("document"), ...quizBasics, source: sourceInput, count: z.number().int().min(0).max(30) }),
+  /** The AI writes questions on a topic the admin describes. */
+  z.object({
+    from: z.literal("topic"),
+    ...quizBasics,
+    topic: z.string().trim().min(10, "Describe the topic in a sentence or two").max(4000),
+    count: z.number().int().min(1).max(30),
+  }),
+  /** An exam pasted as written (from Google Forms, a document or an email), with the answers the admin picked. */
+  z.object({
+    from: z.literal("exam"),
+    ...quizBasics,
+    text: z.string().max(200_000),
+    answers: z.array(z.number().int().nullable()).max(500),
+  }),
+])
+
+const examQuestion = z.object({
+  prompt: z.string().min(2).max(1000),
+  choices: z.array(z.string().min(1).max(300)).min(2).max(6),
+  answer: z.number().int().min(0),
+  explanation: z.string().max(1000),
 })
 
-/** A new quiz. With a document and AI set up, the AI writes the first questions right away. */
+/**
+ * A new quiz. From a document or a topic with AI set up, the AI writes the first questions right away;
+ * a pasted exam keeps its questions exactly as written.
+ */
 export async function createQuiz(input: z.input<typeof createInput>): Promise<ActionResult<{ id: string }>> {
   const viewer = await adminForAction()
   if (!viewer) return forbidden
   const parsed = createInput.safeParse(input)
   if (!parsed.success)
     return { ok: false, code: "validation", message: parsed.error.issues[0]?.message ?? "Check the fields." }
-  const { title, kind, source, count } = parsed.data
-  const generate = source !== null && count > 0 && aiConfig() !== null
+  const v = parsed.data
   const now = Timestamp.now()
+
+  let questions: QuizDoc["questions"] = []
+  if (v.from === "exam") {
+    const exam = parseExam(v.text)
+    if (exam.questions.length === 0)
+      return {
+        ok: false,
+        code: "validation",
+        message: "No questions found. Start each question on its own line and put each choice on a line below it.",
+      }
+    for (const [i, q] of exam.questions.entries()) {
+      const answer = v.answers[i] ?? q.answer
+      const checked = examQuestion.safeParse({ ...q, answer, explanation: q.explanation ?? "" })
+      if (!checked.success || answer === null || answer >= q.choices.length)
+        return {
+          ok: false,
+          code: "validation",
+          message:
+            answer === null
+              ? `Pick the correct answer to question ${String(i + 1)}.`
+              : `Question ${String(i + 1)} is too long or has more than six choices. Shorten it, or fix it after importing.`,
+        }
+      questions.push({ id: randomUUID().slice(0, 8), ...checked.data })
+    }
+    questions = questions.slice(0, 500)
+  }
+  const count = v.from === "exam" ? 0 : v.count
+  const source =
+    v.from === "document"
+      ? v.source
+      : v.from === "exam"
+        ? { name: "the pasted exam", path: null, contentType: null }
+        : null
+  const topic = v.from === "topic" ? v.topic : null
+  const generate = (source?.path != null || topic !== null) && count > 0 && aiConfig() !== null
   const ref = quizzes().doc()
   await ref.set({
-    title,
+    title: v.title,
     description: null,
-    kind,
+    kind: v.kind,
     status: "draft",
     source,
-    questions: [],
-    perAttempt: kind === "test" ? Math.max(count, 10) : 10,
+    topic,
+    questions,
+    // An imported exam asks every question; a bank the AI writes draws ten (or more for a test).
+    perAttempt: v.from === "exam" ? Math.min(questions.length, 100) : v.kind === "test" ? Math.max(count, 10) : 10,
     passScore: 0.8,
-    awardsLevel: kind === "test" ? "advanced" : null,
+    awardsLevel: v.kind === "test" ? "intermediate" : null,
     generation: generate
       ? { status: "pending", count, message: null, claimId: null, requestedAt: now, finishedAt: null }
       : null,
@@ -102,7 +166,11 @@ export async function createQuiz(input: z.input<typeof createInput>): Promise<Ac
     updatedAt: now,
     publishedAt: null,
   })
-  await audit(viewer, "quiz.created", ref.id, { kind, questions: count })
+  await audit(viewer, v.from === "exam" ? "quiz.imported" : "quiz.created", ref.id, {
+    kind: v.kind,
+    from: v.from,
+    questions: v.from === "exam" ? questions.length : count,
+  })
   if (generate) queueGeneration(ref.id)
   refresh()
   return { ok: true, data: { id: ref.id } }
@@ -115,7 +183,8 @@ export async function writeMoreQuestions(quizId: string, count: number): Promise
   const quiz = await readQuiz(quizId)
   if (!quiz) return missing
   if (!aiConfig()) return { ok: false, code: "unavailable", message: "AI is not set up on the server yet." }
-  if (!quiz.source?.path) return { ok: false, code: "validation", message: "This quiz has no document to read." }
+  if (!quiz.source?.path && !quiz.topic)
+    return { ok: false, code: "validation", message: "This quiz has no document or topic for the AI." }
   if (quiz.generation?.status === "pending" || quiz.generation?.status === "running")
     return { ok: false, code: "conflict", message: "The AI is already writing questions for this quiz." }
   if (!Number.isInteger(count) || count < 1 || count > 30)

@@ -65,8 +65,16 @@ export function OptionChainTable({
     const high = Math.max(target, price ?? target)
     return { symbol, expiry, minStrike: cents(low * 0.96), maxStrike: cents(high * 1.04) }
   }, [symbol, expiry, target, putStrike, price])
-  const { chain, loaded } = useOptionChain(request, { enabled: live })
-  if (!live) return null
+  const { chain, loaded, failed } = useOptionChain(request, { enabled: live })
+  if (!live)
+    return (
+      <section className="flex flex-col gap-1" aria-labelledby="options-chain">
+        <h3 id="options-chain" className="text-sm font-semibold">
+          Options chain
+        </h3>
+        <p className="text-sm text-muted-foreground">Live option prices are not available right now.</p>
+      </section>
+    )
   const spot = chain?.underlying ?? price
   const strikes = aroundLevels(chain?.strikes ?? [], [target, putStrike, ...(spot === null ? [] : [spot])])
   // The price line goes before the first strike above the price.
@@ -86,6 +94,10 @@ export function OptionChainTable({
       </div>
       {!loaded ? (
         <p className="text-sm text-muted-foreground">Loading</p>
+      ) : failed && strikes.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          Could not load the option prices just now. Trying again in a few seconds.
+        </p>
       ) : strikes.length === 0 ? (
         <p className="text-sm text-muted-foreground">No options are listed for this expiry yet.</p>
       ) : (

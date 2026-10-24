@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { LuArrowUpRight, LuPencil } from "react-icons/lu"
 import { formatDateTimeET, formatDateWithWeekday } from "@/core/format"
-import { requireAdmin } from "@/lib/auth/guards"
+import { requireEditor } from "@/lib/auth/guards"
 import { integrations } from "@/lib/env.server"
 import { listTargetUpdates } from "@/lib/data/tools"
 import { buildTargetRows } from "@/lib/tools/targets"
@@ -18,7 +18,7 @@ export const metadata: Metadata = { title: "Strike target update" }
 
 export default async function AdminTargetUpdatePage({ params, searchParams }: PageProps<"/admin/targets/[id]">) {
   const { id } = await params
-  await requireAdmin({ next: `/admin/targets/${id}` })
+  await requireEditor({ next: `/admin/targets/${id}` })
   const doc = await readUpdateDoc(id)
   if (!doc) notFound()
   const editing = (await searchParams).edit === "1"

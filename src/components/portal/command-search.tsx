@@ -19,9 +19,10 @@ import {
 } from "@/components/ui/command"
 import { Kbd } from "@/components/ui/kbd"
 import { Spinner } from "@/components/ui/spinner"
-import { ADMIN_NAV, MEMBER_NAV } from "./nav"
+import type { Role } from "@/core/domain/types"
+import { MEMBER_NAV, adminNavFor } from "./nav"
 
-export function CommandSearch({ isAdmin, hasAccess }: { isAdmin: boolean; hasAccess: boolean }) {
+export function CommandSearch({ role, hasAccess }: { role: Role; hasAccess: boolean }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [index, setIndex] = useState<SearchIndex | null>(null)
@@ -54,7 +55,7 @@ export function CommandSearch({ isAdmin, hasAccess }: { isAdmin: boolean; hasAcc
     ...MEMBER_NAV.flatMap((g) => g.items).filter((i) =>
       hasAccess ? i.href !== "/members/inactive" : i.inactive === true,
     ),
-    ...(isAdmin ? ADMIN_NAV.flatMap((g) => g.items.map((i) => ({ ...i, title: `Admin · ${i.title}` }))) : []),
+    ...adminNavFor(role).flatMap((g) => g.items.map((i) => ({ ...i, title: `Admin · ${i.title}` }))),
   ]
 
   return (

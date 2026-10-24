@@ -1,7 +1,7 @@
 import { formatLevel, formatPercent } from "@/core/format"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
-export type LevelKind = "line" | "anchor" | "boc" | "median" | "fs" | "ss" | "target" | "break" | "put"
+export type LevelKind = "line" | "anchor" | "boc" | "median" | "fs" | "ss" | "target" | "break" | "put" | "spike"
 
 export interface LadderLevel {
   value: number

@@ -10,11 +10,13 @@ import { COLLECTIONS, inviteSchema, parseDoc, type Invite } from "./model"
 import { newToken } from "./tokens"
 
 export const INVITE_TTL_DAYS = 14
+/** A free trial's link is opened right away by the visitor who asked for it. */
+const TRIAL_INVITE_TTL_DAYS = 1
 
 export interface InvitePeriod {
   start: IsoDate
   end: IsoDate
-  kind: "quarterly" | "custom"
+  kind: "quarterly" | "custom" | "trial"
   label: string
   note?: string | null
 }
@@ -29,6 +31,8 @@ export interface InviteInput {
   timezone?: string
   notes?: string | null
   periods: InvitePeriod[]
+  /** Started by the visitor on the site's free trial page. */
+  trial?: boolean
 }
 
 export interface Actor {
@@ -68,7 +72,8 @@ export async function createInvite(
 
   const { token, hash } = newToken()
   const now = Timestamp.now()
-  const expiresAt = new Date(now.toMillis() + INVITE_TTL_DAYS * 24 * 60 * 60 * 1000)
+  const ttlDays = input.trial ? TRIAL_INVITE_TTL_DAYS : INVITE_TTL_DAYS
+  const expiresAt = new Date(now.toMillis() + ttlDays * 24 * 60 * 60 * 1000)
   const ref = db.collection(COLLECTIONS.invites).doc(emailLower)
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(ref)
@@ -85,6 +90,7 @@ export async function createInvite(
       notes: input.notes ?? null,
       periods: sorted.map((p) => ({ start: p.start, end: p.end, kind: p.kind, label: p.label, note: p.note ?? null })),
       tokenHash: hash,
+      trial: input.trial === true,
       status: "pending",
       expiresAt: Timestamp.fromDate(expiresAt),
       createdAt: now,
@@ -96,7 +102,7 @@ export async function createInvite(
   await writeAudit(db, {
     actorUid: actor.uid,
     actorEmail: actor.email,
-    action: "invite.created",
+    action: input.trial ? "invite.trial_started" : "invite.created",
     targetType: "invite",
     targetId: emailLower,
     detail: { role: input.role, periods: sorted.map((p) => p.label) },

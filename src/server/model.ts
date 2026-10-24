@@ -5,7 +5,9 @@
  */
 import { z } from "zod"
 import { isIsoDate } from "@/core/dates"
+import { EARNINGS_TIMINGS } from "@/core/earnings"
 import { TRADER_LEVELS } from "@/core/levels"
+import { CLASS_AUDIENCES } from "@/core/schedule"
 
 export const COLLECTIONS = {
   members: "members",
@@ -30,6 +32,17 @@ export const COLLECTIONS = {
   quizAttempts: "quizAttempts",
   quizAssignments: "quizAssignments",
   classRecaps: "classRecaps",
+  /** classReminders/{date-time-session}: one per class occurrence, so its reminder goes out once. */
+  classReminders: "classReminders",
+  /** trialStarts/{hash of network and day}: free trials started, to cap them per network and day. */
+  trialStarts: "trialStarts",
+  /** briefs/{id}: HG's market briefs (the pre-market view and the updates in the first hour). */
+  briefs: "briefs",
+  /** briefSlots/{date-time}: one per scheduled time the AI writes the brief, so it is written once. */
+  briefSlots: "briefSlots",
+  /** spikePosts/{id}: a spike list HG posts (one notification each); spikes/{id}: its stocks. */
+  spikePosts: "spikePosts",
+  spikes: "spikes",
   invoices: "invoices",
   /** counters/invoices: the last invoice number used each year ({ "2026": 7 }). */
   counters: "counters",
@@ -75,7 +88,7 @@ export const isoDate = z.string().refine(isIsoDate, "Expected YYYY-MM-DD")
 
 // ---- Membership -------------------------------------------------------------------------------
 
-export const roleSchema = z.enum(["admin", "member"])
+export const roleSchema = z.enum(["admin", "editor", "member"])
 export const memberStatusSchema = z.enum(["active", "suspended"])
 
 export const notificationPrefsSchema = z.object({
@@ -86,10 +99,16 @@ export const notificationPrefsSchema = z.object({
   mutedSymbols: z.array(z.string()).default([]),
   targetsPublished: z.boolean().default(true),
   membershipReminders: z.boolean().default(true),
-  /** Chat: answers to my questions (experts and admins: new questions). */
+  /** Chat: answers to my questions (advanced traders and admins: new questions). */
   chat: z.boolean().default(true),
   /** The AI recap of a class is ready. */
   classRecaps: z.boolean().default(true),
+  /** A reminder with the Zoom link before each class meant for this member. */
+  classReminders: z.boolean().default(true),
+  /** A new market brief is posted. */
+  marketBrief: z.boolean().default(true),
+  /** HG posts a spike list. */
+  spikes: z.boolean().default(true),
 })
 export type NotificationPrefs = z.infer<typeof notificationPrefsSchema>
 export const DEFAULT_PREFS: NotificationPrefs = notificationPrefsSchema.parse({})
@@ -111,7 +130,14 @@ export const memberSchema = z.object({
   levelSetBy: z.enum(["default", "test", "admin"]).default("default"),
   levelSetAt: optionalTimestamp,
   access: z
-    .object({ from: timestamp, until: timestamp, fromDate: isoDate, untilExclusiveDate: isoDate })
+    .object({
+      from: timestamp,
+      until: timestamp,
+      fromDate: isoDate,
+      untilExclusiveDate: isoDate,
+      /** A free trial is all that covers today: HG's newest posts stay hidden (see the security rules). */
+      trial: z.boolean().default(false),
+    })
     .nullable()
     .default(null),
   memberSince: isoDate.nullable().default(null),
@@ -156,7 +182,7 @@ export type MemberStats = NonNullable<Member["stats"]>
 export const periodSchema = z.object({
   start: isoDate,
   end: isoDate,
-  kind: z.enum(["quarterly", "custom"]),
+  kind: z.enum(["quarterly", "custom", "trial"]),
   label: z.string(),
   note: z.string().nullable().default(null),
   createdAt: timestamp,
@@ -167,7 +193,7 @@ export type PeriodDoc = z.infer<typeof periodSchema> & { id: string }
 export const invitePeriodSchema = z.object({
   start: isoDate,
   end: isoDate,
-  kind: z.enum(["quarterly", "custom"]),
+  kind: z.enum(["quarterly", "custom", "trial"]),
   label: z.string(),
   note: z.string().nullable().default(null),
 })
@@ -183,6 +209,8 @@ export const inviteSchema = z.object({
   notes: z.string().nullable().default(null),
   periods: z.array(invitePeriodSchema).default([]),
   tokenHash: z.string(),
+  /** Started by the visitor from the site's free trial page, not sent by HG. */
+  trial: z.boolean().default(false),
   status: z.enum(["pending", "accepted", "revoked"]),
   expiresAt: timestamp,
   createdAt: timestamp,
@@ -214,6 +242,8 @@ export const tickerSchema = z.object({
   ssLevels: z.array(z.number()).default([]),
   earningsStart: isoDate.nullable().default(null),
   earningsEnd: isoDate.nullable().default(null),
+  /** Before the open or after the close, when the day is known. */
+  earningsTiming: z.enum(EARNINGS_TIMINGS).nullable().default(null),
   earningsNote: z.string().nullable().default(null),
   notes: z.string().nullable().default(null),
   categories: z.array(z.string()).default([]),
@@ -263,11 +293,21 @@ export const weekRowSchema = z.object({
   range: z.number(),
   svi: z.number(),
 })
+/** An index's week, as HG posts it: also when its high and low happened. */
+export const indexWeekRowSchema = weekRowSchema.extend({
+  /** ISO instants (the start of the 5-minute bar), when market data provides them. */
+  highAt: z.string().nullable().default(null),
+  lowAt: z.string().nullable().default(null),
+  /** Typed in by an admin: market data never replaces it. */
+  entered: z.boolean().default(false),
+})
+export type IndexWeekRow = z.infer<typeof indexWeekRowSchema>
+
 export const weekSchema = z.object({
   weekStart: isoDate,
   weekEnd: isoDate,
   rows: z.record(z.string(), weekRowSchema),
-  indices: z.record(z.string(), weekRowSchema).default({}),
+  indices: z.record(z.string(), indexWeekRowSchema).default({}),
   source: z.enum(["import", "provider", "manual"]),
   computedAt: timestamp,
 })
@@ -402,10 +442,10 @@ export type FcmTokenDoc = z.infer<typeof fcmTokenSchema> & { id: string }
 export const threadSchema = z.object({
   askerUid: z.string(),
   askerName: z.string(),
-  /** "class": every member with access reads it; "staff": only the asker, experts and admins. */
+  /** "class": every member with access reads it; "staff": only the asker, advanced traders and admins. */
   visibility: z.enum(["class", "staff"]),
   title: z.string(),
-  /** "answered" once an expert or admin replied after the last question from the asker. */
+  /** "answered" once an advanced trader or admin replied after the last question from the asker. */
   status: z.enum(["open", "answered"]),
   createdAt: timestamp,
   lastMessageAt: timestamp,
@@ -426,6 +466,79 @@ export const threadMessageSchema = z.object({
   removed: z.boolean().default(false),
 })
 export type ThreadMessageDoc = z.infer<typeof threadMessageSchema> & { id: string }
+
+// ---- Market brief -------------------------------------------------------------------------------
+
+/**
+ * briefs/{id}: a market brief: the pre-market view or an update in the first hour, posted by an admin
+ * (pasted in, often) or written by AI at a scheduled time. Only the server reads them.
+ */
+export const briefSchema = z.object({
+  title: z.string(),
+  body: z.string(),
+  status: z.enum(["draft", "scheduled", "published"]),
+  source: z.enum(["admin", "ai"]).default("admin"),
+  publishAt: optionalTimestamp,
+  publishedAt: optionalTimestamp,
+  /** Members get a notification when it is published (once). */
+  notify: z.boolean().default(true),
+  notifiedAt: optionalTimestamp,
+  createdAt: timestamp,
+  createdBy: z.string().nullable().default(null),
+  updatedAt: timestamp,
+})
+export type BriefDoc = z.infer<typeof briefSchema> & { id: string }
+
+/** settings/brief: the brief's times on market days, and how the AI writes it when it does. */
+export const briefSettingsSchema = z.object({
+  /** "05:30", "09:40"... New York time, on market days. */
+  times: z.array(z.string()).default(["05:30", "09:40", "10:00", "10:30"]),
+  /**
+   * When on, the AI writes and posts the brief at each time, following these instructions (the process
+   * the team uses today), with the site's own data: index closes, strike targets, spikes, earnings.
+   */
+  ai: z.object({ enabled: z.boolean(), instructions: z.string() }).default({ enabled: false, instructions: "" }),
+})
+export type BriefSettings = z.infer<typeof briefSettingsSchema>
+
+// ---- Spikes -------------------------------------------------------------------------------------
+
+/** spikePosts/{id}: one spike list as HG posts it, which members are told about once. */
+export const spikePostSchema = z.object({
+  title: z.string(),
+  /** The session most of its spikes happened in. */
+  date: isoDate,
+  count: z.number().int(),
+  notify: z.boolean().default(true),
+  notifiedAt: optionalTimestamp,
+  postedAt: timestamp,
+  createdBy: z.string().nullable().default(null),
+})
+export type SpikePostDoc = z.infer<typeof spikePostSchema> & { id: string }
+
+/** spikes/{id}: one stock's spike, from a spike list. HG notes spikes rather than changing the targets. */
+export const spikeSchema = z.object({
+  postId: z.string(),
+  /** Its place in the list as HG wrote it. */
+  line: z.number().int().default(0),
+  symbol: z.string(),
+  price: z.number(),
+  date: isoDate,
+  /** On the open, on the close, or at another time of day. */
+  at: z.enum(["open", "close", "time"]),
+  /** "16:20", New York, when known. */
+  time: z.string().nullable().default(null),
+  /** That session's close: how much trade is left to the spike. */
+  close: z.number().nullable().default(null),
+  /** Above the close (a buy spike) or below it. */
+  direction: z.enum(["up", "down"]),
+  group: z.string().nullable().default(null),
+  /** The first session after the spike that traded back to its price, and how many sessions it took. */
+  recoveredOn: isoDate.nullable().default(null),
+  sessionsToRecover: z.number().int().nullable().default(null),
+  postedAt: timestamp,
+})
+export type SpikeDoc = z.infer<typeof spikeSchema> & { id: string }
 
 // ---- Quizzes and tests --------------------------------------------------------------------------
 
@@ -452,6 +565,8 @@ export const quizSchema = z.object({
     .object({ name: z.string(), path: z.string().nullable(), contentType: z.string().nullable() })
     .nullable()
     .default(null),
+  /** Without a document, what the AI writes questions on (with the team's notes). */
+  topic: z.string().nullable().default(null),
   questions: z.array(quizQuestionSchema).default([]),
   /** How many questions one attempt draws from the bank. */
   perAttempt: z.number().int().min(1).max(100).default(10),
@@ -552,6 +667,11 @@ export const classRecapSchema = z.object({
   published: z.boolean().default(false),
   /** Members were told about it: once, the first time it is published. */
   notifiedAt: optionalTimestamp,
+  /** The class recording to watch (Zoom's share link, with its passcode), from Zoom or pasted by an admin. */
+  recordingUrl: z.string().nullable().default(null),
+  /** When an admin last sent the recording to members, and to how many. */
+  recordingSentAt: optionalTimestamp,
+  recordingSentTo: z.number().int().nullable().default(null),
   createdAt: timestamp,
   updatedAt: timestamp,
 })
@@ -731,6 +851,9 @@ export const presentationSchema = z.object({
   slidesPath: z.string().nullable().default(null),
   videoUrl: z.string().nullable().default(null),
   published: z.boolean(),
+  /** When an admin last sent it to members, and to how many. */
+  sentAt: optionalTimestamp,
+  sentTo: z.number().int().nullable().default(null),
   createdAt: timestamp,
 })
 export type PresentationDoc = z.infer<typeof presentationSchema> & { id: string }
@@ -780,22 +903,46 @@ export const faqSchema = z.object({
 })
 export type FaqDoc = z.infer<typeof faqSchema> & { id: string }
 
+/**
+ * One weekly class. Rows saved before audiences had names kept free text there ("Mandatory for
+ * beginners"); that text becomes the note and the audience is read from it.
+ */
+const classSessionSchema = z.preprocess(
+  (raw) => {
+    if (typeof raw !== "object" || raw === null || !("audience" in raw)) return raw
+    const { audience } = raw
+    if (typeof audience !== "string" || (CLASS_AUDIENCES as readonly string[]).includes(audience)) return raw
+    return { note: audience, ...raw, audience: /beginner/i.test(audience) ? "beginners" : "everyone" }
+  },
+  z.object({
+    day: z.number().int().min(0).max(6),
+    start: z.string(),
+    end: z.string(),
+    title: z.string(),
+    audience: z.enum(CLASS_AUDIENCES),
+    note: z.string().default(""),
+  }),
+)
+
 export const siteSettingsSchema = z.object({
   bookingUrl: z.url(),
   instagramUrl: z.url().nullable().default(null),
   youtubeUrl: z.url().nullable().default(null),
   xUrl: z.url().nullable().default(null),
-  classSchedule: z
-    .array(
-      z.object({
-        day: z.number().int().min(0).max(6),
-        start: z.string(),
-        end: z.string(),
-        title: z.string(),
-        audience: z.string(),
-      }),
-    )
-    .default([]),
+  classSchedule: z.array(classSessionSchema).default([]),
+  /** Members get a reminder with the Zoom link this many minutes before each class; null turns them off. */
+  classReminderMinutes: z.number().int().min(5).max(1440).nullable().default(60),
+  /**
+   * Visitors can start a free trial from the site. Trial members see HG's alerts, strike targets, market
+   * briefs and spikes once they are `delayDays` old; the tools, classes and Chat are open to them.
+   */
+  trial: z
+    .object({
+      enabled: z.boolean(),
+      days: z.number().int().min(1).max(60),
+      delayDays: z.number().int().min(0).max(60),
+    })
+    .default({ enabled: true, days: 7, delayDays: 7 }),
 })
 export type SiteSettings = z.infer<typeof siteSettingsSchema>
 
@@ -820,8 +967,16 @@ export const memberSettingsSchema = z.object({
       showPositions: z.boolean(),
       showClosedTrades: z.boolean(),
       positionDelayHours: z.number().int().min(0).max(168),
+      /** HG standing is open to members from this level up (staff always see it). */
+      openFrom: z.enum(TRADER_LEVELS).default("intermediate"),
     })
-    .default({ showDollars: false, showPositions: false, showClosedTrades: true, positionDelayHours: 0 }),
+    .default({
+      showDollars: false,
+      showPositions: false,
+      showClosedTrades: true,
+      positionDelayHours: 0,
+      openFrom: "intermediate",
+    }),
 })
 export type MemberSettings = z.infer<typeof memberSettingsSchema>
 
@@ -911,9 +1066,33 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   youtubeUrl: "https://www.youtube.com/@hgprofitoptions",
   xUrl: "https://x.com/hgprofitoptions",
   classSchedule: [
-    { day: 6, start: "18:00", end: "19:00", title: "Beginner session", audience: "Mandatory for beginners" },
-    { day: 6, start: "19:00", end: "20:30", title: "All traders", audience: "Everyone" },
+    {
+      day: 0,
+      start: "19:00",
+      end: "20:30",
+      title: "Group class",
+      audience: "everyone",
+      note: "Sets the tone for the trading week ahead",
+    },
+    {
+      day: 2,
+      start: "09:30",
+      end: "10:30",
+      title: "Beginner session",
+      audience: "beginners",
+      note: "Live at the market open, reading the data and setups with HG",
+    },
+    {
+      day: 4,
+      start: "09:30",
+      end: "10:30",
+      title: "Beginner session",
+      audience: "beginners",
+      note: "Live at the market open, reading the data and setups with HG",
+    },
   ],
+  classReminderMinutes: 60,
+  trial: { enabled: true, days: 7, delayDays: 7 },
 }
 
 export const adminNotesSchema = z.object({

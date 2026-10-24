@@ -82,7 +82,8 @@ ticker's last close. Set `MARKET_DATA_API_KEY=fake` and `MARKET_DATA_BASE_URL=ht
 | `pnpm build:functions`    | Bundles the Cloud Functions into `functions/lib`                             |
 
 The test emulators use separate ports (`firebase.test.json`), so tests run while `pnpm emulators` and
-`pnpm dev` are running.
+`pnpm dev` are running. The end-to-end app runs on port 3100; when something else uses that port, pick
+another with `E2E_PORT=3200 pnpm test:e2e`.
 
 ## Layout
 

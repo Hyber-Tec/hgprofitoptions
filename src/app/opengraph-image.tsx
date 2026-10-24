@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og"
 import { LOGO_PATH, LOGO_VIEWBOX } from "@/components/site/logo-mark-path"
 
-export const alt = "HG Profit Options: trade options with a plan, not a guess"
+export const alt = "HG Profit Options: taking options trading to the next level"
 export const size = { width: 1200, height: 630 }
 export const contentType = "image/png"
 
@@ -45,13 +45,16 @@ export default function OpenGraphImage() {
           }}
         >
           <div style={{ width: 12, height: 12, borderRadius: 999, backgroundColor: "#34d399" }} />
-          Live classes every Saturday
+          Live classes every week · 24/7 classroom
         </div>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-        <div style={{ display: "flex", flexDirection: "column", fontSize: 76, lineHeight: 1.04, letterSpacing: -2 }}>
-          <span>Trade options with a plan,</span>
-          <span style={{ color: "#6e9bff" }}>not a guess.</span>
+        <div style={{ display: "flex", flexDirection: "column", fontSize: 64, lineHeight: 1.06, letterSpacing: -2 }}>
+          <span>Taking options trading to the next level,</span>
+          <span>
+            <span style={{ color: "#6e9bff", marginRight: 16 }}>unlocking unlimited profits</span>
+            for the investor.
+          </span>
         </div>
         <div style={{ fontSize: 30, color: "#8e9ab9" }}>
           Live classes · One-on-one with HG · Real-time alerts · Member tools

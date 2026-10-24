@@ -3,7 +3,7 @@
  */
 import { Timestamp, type Firestore } from "firebase-admin/firestore"
 import { auditCategory } from "@/core/audit"
-import { todayInMarketZone, zonedStartOfDay } from "@/core/dates"
+import { addDays, todayInMarketZone, zonedStartOfDay } from "@/core/dates"
 import type { IsoDate, MembershipPeriod } from "@/core/domain/types"
 import { accessWindow, findOverlap } from "@/core/membership/quarters"
 import { COLLECTIONS, MEMBER_SUBCOLLECTIONS, parseDoc, periodSchema, type PeriodDoc } from "./model"
@@ -22,15 +22,21 @@ export function toMembershipPeriods(periods: readonly PeriodDoc[]): MembershipPe
   return periods.map((p) => ({ id: p.id, start: p.start, end: p.end, kind: p.kind, label: p.label, note: p.note }))
 }
 
-/** The access window document field, or null when there is no current or upcoming period. */
-export function accessField(periods: readonly Pick<MembershipPeriod, "start" | "end">[], today: IsoDate) {
+/**
+ * The access window document field, or null when there is no current or upcoming period. `trial` is set
+ * while a free trial is all that covers today, so the security rules hold back HG's newest posts.
+ */
+export function accessField(periods: readonly Pick<MembershipPeriod, "start" | "end" | "kind">[], today: IsoDate) {
   const window = accessWindow(periods, today)
   if (!window) return null
+  const covers = (p: Pick<MembershipPeriod, "start" | "end">) => p.start <= today && today <= p.end
   return {
     from: Timestamp.fromDate(zonedStartOfDay(window.from)),
     until: Timestamp.fromDate(zonedStartOfDay(window.untilExclusive)),
     fromDate: window.from,
     untilExclusiveDate: window.untilExclusive,
+    trial:
+      !periods.some((p) => p.kind !== "trial" && covers(p)) && periods.some((p) => p.kind === "trial" && covers(p)),
   }
 }
 
@@ -40,7 +46,8 @@ export function accessField(periods: readonly Pick<MembershipPeriod, "start" | "
  */
 export async function recomputeAccess(db: Firestore, uid: string, today: IsoDate = todayInMarketZone()): Promise<void> {
   const periods = await readPeriods(db, uid)
-  const first = periods[0]
+  // A free trial is not membership yet: "member since" starts with the first paid period.
+  const first = periods.find((p) => p.kind !== "trial")
   await db
     .collection(COLLECTIONS.members)
     .doc(uid)
@@ -60,7 +67,11 @@ export class OverlapError extends Error {
   }
 }
 
-/** Adds a period inside a transaction so two admins cannot create overlapping periods at once. */
+/**
+ * Adds a period inside a transaction so two admins cannot create overlapping periods at once. A free trial
+ * that runs into the new period ends the day before it (or goes, if it had not started yet): joining
+ * replaces the trial.
+ */
 export async function addPeriod(
   db: Firestore,
   uid: string,
@@ -73,8 +84,15 @@ export async function addPeriod(
     const existing = snap.docs
       .map((d) => parseDoc(periodSchema, d.id, d.data()))
       .filter((p): p is PeriodDoc => p !== null)
-    const overlap = findOverlap(period, existing)
+    const overlap = findOverlap(
+      period,
+      existing.filter((p) => p.kind !== "trial"),
+    )
     if (overlap) throw new OverlapError(overlap)
+    for (const trial of existing.filter((p) => p.kind === "trial" && p.end >= period.start && p.start <= period.end)) {
+      if (trial.start >= period.start) tx.delete(periodsRef.doc(trial.id))
+      else tx.update(periodsRef.doc(trial.id), { end: addDays(period.start, -1) })
+    }
     const ref = periodsRef.doc()
     tx.set(ref, { ...period, note: period.note ?? null, createdAt: Timestamp.now(), createdBy: actorUid })
     return ref.id

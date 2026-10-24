@@ -11,13 +11,12 @@ import {
   type MultiFactorResolver,
   type User,
 } from "firebase/auth"
+import type { Role } from "@/core/domain/types"
 import { clientAuth } from "@/lib/firebase/client"
 import { blockingFunctionMessage } from "./blocking-error"
 
 export type SignInResult =
-  | { kind: "ok"; role: "admin" | "member" }
-  | { kind: "mfa"; resolver: MultiFactorResolver }
-  | { kind: "error"; message: string }
+  { kind: "ok"; role: Role } | { kind: "mfa"; resolver: MultiFactorResolver } | { kind: "error"; message: string }
 
 const MESSAGES: Record<string, string> = {
   "auth/invalid-credential": "That email and password do not match.",
@@ -58,7 +57,7 @@ export async function establishSession(
   })
   const body = (await response.json().catch(() => ({}))) as {
     ok?: boolean
-    role?: "admin" | "member"
+    role?: Role
     message?: string
   }
   if (!response.ok || !body.ok || !body.role) {

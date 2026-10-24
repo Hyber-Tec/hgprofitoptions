@@ -6,10 +6,14 @@ import { z } from "zod"
 import { isIsoDate } from "@/core/dates"
 import type { ActionResult } from "@/core/domain/types"
 import { writeAudit } from "@/server/members"
-import { COLLECTIONS } from "@/server/model"
+import { COLLECTIONS, isDocId, parseDoc, presentationSchema } from "@/server/model"
+import { sendClassMaterial } from "@/server/notifications"
+import { audienceInput } from "@/lib/audience"
 import { adminForAction } from "@/lib/auth/guards"
+import { publicEnv } from "@/lib/env.public"
+import { emailConfig } from "@/lib/env.server"
 import { invalidatePublicCache } from "@/lib/data/public"
-import { adminBucket, adminDb } from "@/lib/firebase/admin"
+import { adminBucket, adminDb, adminMessaging } from "@/lib/firebase/admin"
 
 const forbidden = {
   ok: false,
@@ -84,6 +88,60 @@ export async function deletePresentation(id: string): Promise<ActionResult> {
   })
   refresh()
   return { ok: true, data: undefined }
+}
+
+const sendInput = z
+  .object({ slides: z.boolean(), recording: z.boolean(), audience: audienceInput })
+  .refine((v) => v.slides || v.recording, "Choose the slides, the recording or both")
+
+/** Emails a class's slides and recording to members (all, some levels or chosen people) and tells them in the app. */
+export async function sendPresentation(
+  id: string,
+  input: z.input<typeof sendInput>,
+): Promise<ActionResult<{ members: number; emailed: number }>> {
+  const viewer = await adminForAction()
+  if (!viewer) return forbidden
+  const parsed = sendInput.safeParse(input)
+  if (!parsed.success)
+    return { ok: false, code: "validation", message: parsed.error.issues[0]?.message ?? "Check the fields." }
+  if (!isDocId(id)) return { ok: false, code: "validation", message: "Invalid presentation." }
+  const ref = adminDb().collection(COLLECTIONS.presentations).doc(id)
+  const snap = await ref.get()
+  const presentation = snap.exists ? parseDoc(presentationSchema, snap.id, snap.data()) : null
+  if (!presentation) return { ok: false, code: "not-found", message: "This presentation no longer exists." }
+  if (!presentation.published)
+    return { ok: false, code: "validation", message: "Publish it first, so members can open it." }
+  const { slides, recording, audience } = parsed.data
+  if (slides && !presentation.slidesPath) return { ok: false, code: "validation", message: "It has no slides yet." }
+  if (recording && !presentation.videoUrl)
+    return { ok: false, code: "validation", message: "It has no recording link yet." }
+  const sent = await sendClassMaterial(
+    adminDb(),
+    adminMessaging(),
+    emailConfig(),
+    publicEnv.NEXT_PUBLIC_SITE_URL,
+    {
+      title: presentation.title,
+      date: presentation.sessionDate,
+      slidesPath: slides ? "/members/presentations" : null,
+      recordingUrl: recording ? presentation.videoUrl : null,
+      openPath: "/members/presentations",
+      tag: `presentation-${presentation.id}`,
+    },
+    audience,
+  )
+  if (sent.members === 0) return { ok: false, code: "validation", message: "Nobody with access matches that choice." }
+  await ref.update({ sentAt: Timestamp.now(), sentTo: sent.members })
+  await writeAudit(adminDb(), {
+    actorUid: viewer.uid,
+    actorEmail: viewer.email,
+    action: "presentation.sent",
+    targetType: "presentation",
+    targetId: id,
+    detail: { to: audience.to, members: sent.members, slides, recording },
+  })
+  refresh()
+  return { ok: true, data: sent }
 }
 
 // ---- Files ------------------------------------------------------------------------------------

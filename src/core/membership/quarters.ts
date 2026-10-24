@@ -43,6 +43,14 @@ export interface PeriodDraft {
   label: string
 }
 
+/** A free trial of `days` days starting `today` (both inclusive). */
+export function trialPeriod(
+  today: IsoDate,
+  days: number,
+): { start: IsoDate; end: IsoDate; kind: "trial"; label: string } {
+  return { start: today, end: addDays(today, Math.max(1, days) - 1), kind: "trial", label: "Free trial" }
+}
+
 /**
  * A subscription period of `count` whole quarters starting at (year, q).
  * `customStart` is a mid-quarter join date; it must fall inside the first quarter.
@@ -113,22 +121,34 @@ export function membershipStatus(args: {
   const { role, status, today, expiringSoonDays = 14 } = args
   if (role === "admin") return { kind: "admin" }
   if (status === "suspended") return { kind: "suspended" }
+  if (role === "editor") return { kind: "editor" }
 
   const sorted = sortByStart(args.periods)
-  const current = sorted.find((p) => p.start <= today && today <= p.end)
+  // A paid period wins over a free trial on the same day.
+  const paid = sorted.filter((p) => p.kind !== "trial")
+  const covers = (p: MembershipPeriod) => p.start <= today && today <= p.end
+  const current = paid.find(covers)
   if (current) {
-    const coverageEnd = contiguousEnd(sorted, current)
+    const coverageEnd = contiguousEnd(paid, current)
     const daysLeft = daysBetween(today, coverageEnd)
     return { kind: "active", period: current, coverageEnd, daysLeft, expiringSoon: daysLeft <= expiringSoonDays }
   }
-  const next = sorted.find((p) => p.start > today)
+  const trial = sorted.find((p) => p.kind === "trial" && covers(p))
+  if (trial) return { kind: "trial", period: trial, daysLeft: daysBetween(today, trial.end) }
+  const next = paid.find((p) => p.start > today)
   if (next) return { kind: "upcoming", next }
   const last = sorted.at(-1)
   return last ? { kind: "expired", last } : { kind: "none" }
 }
 
+/** Into the member area: staff, members with a current quarter, and free trials (with HG's newest posts held back). */
 export function hasAccess(status: MembershipStatus): boolean {
-  return status.kind === "admin" || status.kind === "active"
+  return status.kind === "admin" || status.kind === "editor" || status.kind === "active" || status.kind === "trial"
+}
+
+/** Everything HG posts, as it is posted: everyone with access except free trials. */
+export function hasFullAccess(status: MembershipStatus): boolean {
+  return hasAccess(status) && status.kind !== "trial"
 }
 
 /**

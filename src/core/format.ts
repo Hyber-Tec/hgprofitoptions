@@ -111,6 +111,13 @@ export function formatDateWithWeekday(date: IsoDate): string {
   }).format(isoToUtcDate(date))
 }
 
+/** "Thu, Oct 22": a recent day, without the year. */
+export function formatWeekdayDate(date: IsoDate): string {
+  return new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" }).format(
+    isoToUtcDate(date),
+  )
+}
+
 /** "Oct 23". */
 export function formatShortDate(date: IsoDate): string {
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" }).format(
@@ -126,6 +133,20 @@ export function formatExpiry(date: IsoDate): string {
 /** "9:42 AM ET" for an instant, in New York time. */
 export function formatTimeET(instant: Date): string {
   return `${new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", timeZone: MARKET_TZ }).format(instant)} ET`
+}
+
+/** "Wed, Oct 21, 12:30 PM": when something happened during a week, in New York time. */
+export function formatMomentET(instant: Date): string {
+  const day = new Intl.DateTimeFormat("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    timeZone: MARKET_TZ,
+  }).format(instant)
+  const time = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", timeZone: MARKET_TZ }).format(
+    instant,
+  )
+  return `${day}, ${time}`
 }
 
 /** "Oct 7, 2026, 9:42 AM ET". */

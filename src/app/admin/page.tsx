@@ -5,7 +5,8 @@ import { median } from "@/core/calc/standing"
 import { addDays, todayInMarketZone } from "@/core/dates"
 import { formatDate, formatDateTimeET, formatPercent, plural } from "@/core/format"
 import { quarterOf, quarterRange } from "@/core/membership/quarters"
-import { requireAdmin } from "@/lib/auth/guards"
+import { redirect } from "next/navigation"
+import { requireEditor } from "@/lib/auth/guards"
 import { latestJobRuns, listInvites, listMemberRows } from "@/lib/data/admin"
 import { alertEngagement, listAllAlerts } from "@/lib/data/alerts"
 import { RenewButton } from "@/components/admin/renew-button"
@@ -18,7 +19,9 @@ import { ButtonLink } from "@/components/shared/button-link"
 export const metadata: Metadata = { title: "Admin overview" }
 
 export default async function AdminOverviewPage() {
-  const viewer = await requireAdmin({ next: "/admin" })
+  const viewer = await requireEditor({ next: "/admin" })
+  // Data editors start on the page they use most; the overview is about members.
+  if (viewer.role !== "admin") redirect("/admin/market-data")
   const [rows, invites, alerts, jobs] = await Promise.all([
     listMemberRows(),
     listInvites("pending"),

@@ -6,10 +6,11 @@ function required(name: string, value: string | undefined): string {
   return value
 }
 
+/** The site's public address, without a trailing "/", so every link built from it reads the same. */
 function siteUrl(value: string | undefined): string {
   const url = value || "http://localhost:3000"
   if (!/^https?:\/\/[^/\s]+/.test(url)) throw new Error(`NEXT_PUBLIC_SITE_URL is not a web address: ${url}`)
-  return url
+  return url.replace(/\/+$/, "")
 }
 
 function flag(name: string, value: string | undefined): "true" | "false" {

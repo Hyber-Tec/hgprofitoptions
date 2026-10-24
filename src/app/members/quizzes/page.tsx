@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { LuClipboardCheck, LuGraduationCap } from "react-icons/lu"
 import { formatDate, formatPercent, plural } from "@/core/format"
+import { LEVEL_LABELS } from "@/core/levels"
 import { requireActiveMember } from "@/lib/auth/guards"
 import { getQuiz, listMyAttempts, listOpenAssignments, listPracticeQuizzes } from "@/lib/data/quizzes"
 import { ToneBadge } from "@/components/portal/display"
@@ -53,7 +54,7 @@ export default async function QuizzesPage() {
                   <CardDescription>
                     {plural(Math.min(quiz.perAttempt, quiz.questions.length), "question")} · pass with{" "}
                     {percent(quiz.passScore)}
-                    {quiz.awardsLevel ? " to become an Advanced trader" : ""} · assigned{" "}
+                    {quiz.awardsLevel ? ` to become an ${LEVEL_LABELS[quiz.awardsLevel]} trader` : ""} · assigned{" "}
                     {formatDate(isoDateInZone(a.assignedAt))}
                   </CardDescription>
                   <CardAction>

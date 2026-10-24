@@ -54,7 +54,7 @@ describe("quiz questions", () => {
     const { config, requests } = fakeAi({ questions: [question(1), question(2), question(3)] })
     let r = 0
     const random = () => [0.1, 0.9, 0.5, 0.3, 0.7][r++ % 5] ?? 0
-    const questions = await writeQuizQuestions(config, lesson, { count: 3, avoid: ["Old question?"], random })
+    const questions = await writeQuizQuestions(config, { doc: lesson }, { count: 3, avoid: ["Old question?"], random })
     expect(questions).toHaveLength(3)
     for (const [i, q] of questions.entries()) {
       expect(q.choices).toHaveLength(4)
@@ -71,17 +71,17 @@ describe("quiz questions", () => {
   it("drops questions without three distinct wrong answers", async () => {
     const broken = { ...question(2), wrong: ["Right 2", "Same", "Same"] }
     const { config } = fakeAi({ questions: [question(1), broken] })
-    const questions = await writeQuizQuestions(config, lesson, { count: 5, avoid: [] })
+    const questions = await writeQuizQuestions(config, { doc: lesson }, { count: 5, avoid: [] })
     expect(questions.map((q) => q.prompt)).toEqual(["Question 1?"])
   })
 
   it("explains failures without naming the AI provider", async () => {
     const declined = fakeAi({ questions: [] }, { stopReason: "refusal" })
-    await expect(writeQuizQuestions(declined.config, lesson, { count: 2, avoid: [] })).rejects.toThrow(
+    await expect(writeQuizQuestions(declined.config, { doc: lesson }, { count: 2, avoid: [] })).rejects.toThrow(
       "The AI declined this document.",
     )
     const unauthorized = fakeAi({}, { status: 401 })
-    const error = await writeQuizQuestions(unauthorized.config, lesson, { count: 2, avoid: [] }).catch(
+    const error = await writeQuizQuestions(unauthorized.config, { doc: lesson }, { count: 2, avoid: [] }).catch(
       (e: unknown) => e,
     )
     expect(error).toBeInstanceOf(AiError)
@@ -89,15 +89,29 @@ describe("quiz questions", () => {
     expect((error as AiError).message).not.toMatch(/anthropic|claude/i)
   })
 
+  it("writes questions on a topic without a document, from the team's notes", async () => {
+    const { config, requests } = fakeAi({ questions: [question(1)] })
+    const questions = await writeQuizQuestions(
+      config,
+      { topic: "The break of channel: wait for the close below the line." },
+      { count: 1, avoid: [] },
+    )
+    expect(questions).toHaveLength(1)
+    const sent = JSON.stringify(requests[0]?.body.messages)
+    expect(sent).toContain("wait for the close below the line")
+    expect(sent).toContain("Write 1 questions on this topic")
+    expect(sent).not.toContain('"type":"document"')
+  })
+
   it("refuses documents too short or too large before calling out", async () => {
     const { config, requests } = fakeAi({ questions: [] })
     await expect(
-      writeQuizQuestions(config, { kind: "text", name: "x.txt", text: "Too short." }, { count: 2, avoid: [] }),
+      writeQuizQuestions(config, { doc: { kind: "text", name: "x.txt", text: "Too short." } }, { count: 2, avoid: [] }),
     ).rejects.toThrow("too little text")
     await expect(
       writeQuizQuestions(
         config,
-        { kind: "pdf", name: "big.pdf", data: new Uint8Array(25 * 1024 * 1024) },
+        { doc: { kind: "pdf", name: "big.pdf", data: new Uint8Array(25 * 1024 * 1024) } },
         { count: 2, avoid: [] },
       ),
     ).rejects.toThrow("larger than 24 MB")

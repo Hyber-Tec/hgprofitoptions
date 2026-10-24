@@ -7,9 +7,11 @@ export interface OptionChainState {
   chain: OptionChain | null
   /** True once the first answer arrived. */
   loaded: boolean
+  /** The last try did not get prices (it keeps trying). */
+  failed: boolean
 }
 
-const EMPTY: OptionChainState = { chain: null, loaded: false }
+const EMPTY: OptionChainState = { chain: null, loaded: false, failed: false }
 
 /** Polls the options chain for one expiry and strike range while it is open and the page is visible. */
 export function useOptionChain(
@@ -36,15 +38,20 @@ export function useOptionChain(
       controller = new AbortController()
       try {
         const res = await fetch(`/members/quotes/chain?${key}`, { signal: controller.signal })
-        if (!res.ok) return
-        const body = (await res.json()) as { available: boolean; chain?: OptionChain | null }
+        if (!res.ok) {
+          setState((s) => ({ ...s, loaded: true, failed: true, key }))
+          return
+        }
+        const body = (await res.json()) as { available: boolean; chain?: OptionChain | null; failed?: boolean }
         if (!body.available) {
           stopped = true
           return
         }
-        setState({ chain: body.chain ?? null, loaded: true, key })
+        setState({ chain: body.chain ?? null, loaded: true, failed: body.failed === true, key })
       } catch (error) {
-        if (!(error instanceof DOMException && error.name === "AbortError")) console.warn("Options chain:", error)
+        if (error instanceof DOMException && error.name === "AbortError") return
+        console.warn("Options chain:", error)
+        setState((s) => ({ ...s, loaded: true, failed: true, key }))
       }
     }
     void load()

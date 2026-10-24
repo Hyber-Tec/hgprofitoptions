@@ -1,9 +1,16 @@
 import { expect, expectNoHorizontalScroll, test } from "./fixtures"
 
-test("the home page introduces the class and links to booking", async ({ page }) => {
+test("the home page keeps the free call for the end, after everything else", async ({ page }) => {
   await page.goto("/")
-  await expect(page.getByRole("heading", { level: 1, name: "Trade options with a plan, not a guess." })).toBeVisible()
-  await expect(page.locator('a[href="/book"]:visible').first()).toBeVisible()
+  await expect(
+    page.getByRole("heading", {
+      level: 1,
+      name: "Taking options trading to the next level, unlocking unlimited profits for the investor.",
+    }),
+  ).toBeVisible()
+  // The class day comes from the schedule: the Sunday group class by default.
+  await expect(page.locator("main p").filter({ hasText: /^Live class every Sunday/ })).toBeVisible()
+  await expect(page.getByText(/starts every Sunday evening with a group class/)).toBeVisible()
   for (const name of [
     "Everything HG shares, in one place",
     "Everything you need to trade options with confidence",
@@ -18,6 +25,16 @@ test("the home page introduces the class and links to booking", async ({ page })
     await heading.scrollIntoViewIfNeeded()
     await expect(heading).toBeVisible()
   }
+  // HG wants visitors to see the whole page first: the only booking button is in the closing section.
+  const closing = page.locator("section", {
+    has: page.getByRole("heading", { level: 2, name: "Your journey toward trading excellence begins now" }),
+  })
+  await expect(closing.getByRole("link", { name: "Book a free 15-min call" })).toBeVisible()
+  await expect(page.locator('main a[href="/book"]')).toHaveCount(1)
+  await expect(page.locator('header a[href="/book"]')).toHaveCount(0)
+  // Members still sign in from the header (the menu on a phone).
+  if (test.info().project.name === "phone") await page.getByRole("button", { name: "Open menu" }).click()
+  await expect(page.getByRole("link", { name: "Member login" }).first()).toBeVisible()
   await expectNoHorizontalScroll(page)
 })
 
@@ -82,4 +99,35 @@ test("the member area asks visitors to sign in", async ({ page }) => {
   await page.goto("/members/targets")
   await expect(page).toHaveURL(/\/login\?next=%2Fmembers%2Ftargets/)
   await expect(page.getByRole("heading", { name: "Member login" })).toBeVisible()
+})
+
+test("a visitor starts a free trial: classes, tools and Chat open, HG's newest posts wait", async ({ page }) => {
+  await page.goto("/")
+  const closing = page.locator("section", {
+    has: page.getByRole("heading", { level: 2, name: "Your journey toward trading excellence begins now" }),
+  })
+  await closing.getByRole("link", { name: "Try the member area free" }).click()
+  await expect(page).toHaveURL(/\/trial$/)
+  await page.getByLabel("Full name").fill("Tara Trial")
+  await page.getByLabel("Email").fill(`tara.${String(Date.now())}@example.com`)
+  await page.getByRole("button", { name: "Start my free trial" }).click()
+
+  // The usual welcome page creates the login.
+  await expect(page).toHaveURL(/\/welcome\?invite=/)
+  await expect(page.getByRole("heading", { level: 1, name: "Almost there, Tara" })).toBeVisible()
+  await page.getByRole("checkbox").first().click()
+  await page.getByLabel("Password", { exact: true }).fill("Trial-Tara-2026")
+  await page.getByLabel("Confirm password").fill("Trial-Tara-2026")
+  await page.getByRole("button", { name: "Create account" }).click()
+  await expect(page).toHaveURL(/\/members\?welcome=1$/)
+  await expect(page.getByText("Your free trial", { exact: true })).toBeVisible()
+
+  // HG's newest alerts and HG standing wait; the tools are open.
+  await page.goto("/members/alerts")
+  await expect(page.getByText(/newer alerts? for members/)).toBeVisible()
+  await page.goto("/members/standing")
+  await expect(page.getByText("HG standing is for members")).toBeVisible()
+  await page.goto("/members/channels")
+  await expect(page.getByRole("heading", { level: 1, name: "Median & Channel Chart" })).toBeVisible()
+  await expectNoHorizontalScroll(page)
 })

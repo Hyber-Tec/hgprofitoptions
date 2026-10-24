@@ -1,6 +1,6 @@
 import { LuArrowRight, LuMessageCircleQuestion } from "react-icons/lu"
 import type { FaqDoc } from "@/server/model"
-import { ButtonAnchor, ButtonLink } from "@/components/shared/button-link"
+import { ButtonLink } from "@/components/shared/button-link"
 import { FaqAccordion } from "../faq-accordion"
 import { Reveal } from "../motion"
 import { Section, SectionHeading } from "../section"
@@ -25,17 +25,14 @@ export function FaqPreview({ faqs }: { faqs: FaqDoc[] }) {
               <div className="flex flex-col gap-1">
                 <p className="font-medium text-foreground">Still unsure?</p>
                 <p className="text-sm text-muted-foreground">
-                  Ask HG directly on a free 15-minute call. No credit card needed.
+                  Ask HG directly on a free 15-minute call, at the end of this page. No credit card needed.
                 </p>
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
-              <ButtonAnchor href="/book" target="_blank" rel="noopener" className="rounded-full px-3.5">
-                Book a free call
-                <LuArrowRight data-icon="inline-end" />
-              </ButtonAnchor>
               <ButtonLink variant="outline" href="/faq" className="rounded-full px-3.5">
                 See all FAQs
+                <LuArrowRight data-icon="inline-end" />
               </ButtonLink>
             </div>
           </Reveal>

@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { LuCalendarCheck, LuChevronsUpDown, LuLayoutDashboard, LuShield } from "react-icons/lu"
+import type { Role } from "@/core/domain/types"
 import type { MembershipSummary } from "@/core/membership/summary"
 import { cn } from "@/lib/utils"
 import { LinkPendingIcon } from "@/components/shared/link-pending"
@@ -30,7 +31,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { useLiveAlerts } from "./live-alerts"
-import { ADMIN_NAV, MEMBER_NAV, isActivePath, type NavGroup } from "./nav"
+import { MEMBER_NAV, adminNavFor, isActivePath, type NavGroup } from "./nav"
 
 export type PortalArea = "members" | "admin"
 
@@ -41,15 +42,15 @@ const TONE_DOT: Record<MembershipSummary["tone"], string> = {
   negative: "bg-negative",
 }
 
-function navFor(area: PortalArea, hasAccess: boolean): NavGroup[] {
-  if (area === "admin") return ADMIN_NAV
+function navFor(area: PortalArea, hasAccess: boolean, role: Role): NavGroup[] {
+  if (area === "admin") return adminNavFor(role)
   return MEMBER_NAV.map((group) => ({
     ...group,
     items: group.items.filter((item) => (hasAccess ? item.href !== "/members/inactive" : item.inactive === true)),
   })).filter((group) => group.items.length > 0)
 }
 
-function AreaSwitcher({ area, isAdmin }: { area: PortalArea; isAdmin: boolean }) {
+function AreaSwitcher({ area, staff }: { area: PortalArea; staff: boolean }) {
   const title = area === "admin" ? "Admin console" : "Member area"
   const brand = (
     <>
@@ -60,7 +61,7 @@ function AreaSwitcher({ area, isAdmin }: { area: PortalArea; isAdmin: boolean })
       </span>
     </>
   )
-  if (!isAdmin) {
+  if (!staff) {
     return (
       <SidebarMenuButton size="lg" render={<Link href="/members" />}>
         {brand}
@@ -99,17 +100,17 @@ function AreaSwitcher({ area, isAdmin }: { area: PortalArea; isAdmin: boolean })
 
 export function AppSidebar({
   area,
-  isAdmin,
+  role,
   hasAccess,
   membership,
   chat,
   tests,
 }: {
   area: PortalArea
-  isAdmin: boolean
+  role: Role
   hasAccess: boolean
   membership: MembershipSummary
-  /** Questions waiting for an answer (experts and admins) or new answers to mine (everyone else). */
+  /** Questions waiting for an answer (advanced traders and admins) or new answers to mine (everyone else). */
   chat: { count: number; staff: boolean }
   /** Tests an admin assigned that this member has not taken yet. */
   tests: number
@@ -117,18 +118,18 @@ export function AppSidebar({
   const pathname = usePathname()
   const { unread } = useLiveAlerts()
   const { isMobile, setOpenMobile } = useSidebar()
-  const groups = navFor(area, hasAccess)
+  const groups = navFor(area, hasAccess, role)
 
   return (
     <Sidebar collapsible="icon" variant="inset">
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <AreaSwitcher area={area} isAdmin={isAdmin} />
+            <AreaSwitcher area={area} staff={role !== "member"} />
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
-      <SidebarContent>
+      <SidebarContent role="navigation" aria-label={area === "admin" ? "Admin console" : "Member area"}>
         {groups.map((group) => (
           <SidebarGroup key={group.label}>
             <SidebarGroupLabel>{group.label}</SidebarGroupLabel>

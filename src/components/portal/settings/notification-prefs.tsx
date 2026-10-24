@@ -21,6 +21,9 @@ export interface PrefsValues {
   membershipReminders: boolean
   chat: boolean
   classRecaps: boolean
+  classReminders: boolean
+  marketBrief: boolean
+  spikes: boolean
 }
 
 export function NotificationPrefs({ initial, emailAvailable }: { initial: PrefsValues; emailAvailable: boolean }) {
@@ -142,6 +145,22 @@ export function NotificationPrefs({ initial, emailAvailable }: { initial: PrefsV
       <section className="flex flex-col gap-4">
         <label className="flex items-start justify-between gap-4">
           <span>
+            <span className="block text-sm font-medium">Market brief</span>
+            <span className="block text-sm text-muted-foreground">
+              The pre-market view and the updates in the first hour of trading.
+            </span>
+          </span>
+          <Switch checked={prefs.marketBrief} onCheckedChange={(v) => setPrefs((p) => ({ ...p, marketBrief: v }))} />
+        </label>
+        <label className="flex items-start justify-between gap-4">
+          <span>
+            <span className="block text-sm font-medium">Spikes</span>
+            <span className="block text-sm text-muted-foreground">When HG posts a list of spikes.</span>
+          </span>
+          <Switch checked={prefs.spikes} onCheckedChange={(v) => setPrefs((p) => ({ ...p, spikes: v }))} />
+        </label>
+        <label className="flex items-start justify-between gap-4">
+          <span>
             <span className="block text-sm font-medium">New strike targets published</span>
             <span className="block text-sm text-muted-foreground">
               A notification when HG publishes the weekly update.
@@ -166,7 +185,7 @@ export function NotificationPrefs({ initial, emailAvailable }: { initial: PrefsV
           <span>
             <span className="block text-sm font-medium">Chat</span>
             <span className="block text-sm text-muted-foreground">
-              Answers to your questions. Experts and admins also hear about new questions.
+              Answers to your questions. Advanced traders and admins also hear about new questions.
             </span>
           </span>
           <Switch checked={prefs.chat} onCheckedChange={(v) => setPrefs((p) => ({ ...p, chat: v }))} />
@@ -179,6 +198,18 @@ export function NotificationPrefs({ initial, emailAvailable }: { initial: PrefsV
             </span>
           </span>
           <Switch checked={prefs.classRecaps} onCheckedChange={(v) => setPrefs((p) => ({ ...p, classRecaps: v }))} />
+        </label>
+        <label className="flex items-start justify-between gap-4">
+          <span>
+            <span className="block text-sm font-medium">Class reminders</span>
+            <span className="block text-sm text-muted-foreground">
+              Before each class meant for you, with the Zoom link{emailAvailable ? ", by notification and email" : ""}.
+            </span>
+          </span>
+          <Switch
+            checked={prefs.classReminders}
+            onCheckedChange={(v) => setPrefs((p) => ({ ...p, classReminders: v }))}
+          />
         </label>
       </section>
 

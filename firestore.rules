@@ -15,6 +15,11 @@ service cloud.firestore {
       return signedIn() && request.auth.token.get('role', '') == 'admin';
     }
 
+    // Admins and data editors (who keep the market data and the tools up to date) see the member area.
+    function isStaff() {
+      return signedIn() && request.auth.token.get('role', '') in ['admin', 'editor'];
+    }
+
     function isSelf(uid) {
       return signedIn() && request.auth.uid == uid;
     }
@@ -26,7 +31,7 @@ service cloud.firestore {
     // Active membership: status active and request.time inside the access window that the
     // server keeps on the member document (start of the current block until the day after it ends).
     function hasAccess() {
-      return isAdmin() || (
+      return isStaff() || (
         signedIn()
         && exists(/databases/$(database)/documents/members/$(request.auth.uid))
         && memberData().get('status', '') == 'active'
@@ -36,9 +41,15 @@ service cloud.firestore {
       );
     }
 
-    // Experts and admins answer questions in Chat and read every thread.
+    // Everything HG posts, as it is posted. A free trial sees HG's alerts, strike targets and standing
+    // through the server only, which holds the newest ones back.
+    function hasFullAccess() {
+      return isStaff() || (hasAccess() && memberData().access.get('trial', false) != true);
+    }
+
+    // Advanced traders and admins answer questions in Chat and read every thread.
     function answersQuestions() {
-      return isAdmin() || (hasAccess() && memberData().get('level', 'beginner') == 'expert');
+      return isAdmin() || (hasAccess() && memberData().get('level', 'beginner') == 'advanced');
     }
 
     function canReadThread(thread) {
@@ -73,7 +84,7 @@ service cloud.firestore {
       allow write: if false;
     }
     match /targetUpdates/{id} {
-      allow read: if hasAccess() && resource.data.status == 'published';
+      allow read: if hasFullAccess() && resource.data.status == 'published';
       allow write: if false;
     }
     match /config/{doc} {
@@ -81,15 +92,15 @@ service cloud.firestore {
       allow write: if false;
     }
     match /alerts/{id} {
-      allow read: if hasAccess() && resource.data.status in ['published', 'closed'];
+      allow read: if hasFullAccess() && resource.data.status in ['published', 'closed'];
       allow write: if false;
       match /revisions/{revision} {
-        allow read: if hasAccess();
+        allow read: if hasFullAccess();
         allow write: if false;
       }
     }
     match /standing/{period} {
-      allow read: if hasAccess();
+      allow read: if hasFullAccess();
       allow write: if false;
     }
     match /presentations/{id} {
@@ -102,7 +113,7 @@ service cloud.firestore {
     }
 
     // ---- Chat (written by the server only) ------------------------------------------------
-    // Class threads are open to every member with access; staff-only ones to the asker, experts and admins.
+    // Class threads are open to every member with access; staff-only ones to the asker, advanced traders and admins.
     match /threads/{threadId} {
       allow read: if hasAccess() && canReadThread(resource.data);
       allow write: if false;

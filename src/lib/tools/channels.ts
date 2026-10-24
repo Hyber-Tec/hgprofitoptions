@@ -3,6 +3,7 @@ import { channelLadder } from "@/core/calc/channels"
 import { medians } from "@/core/calc/medians"
 import { daysBetween, todayInMarketZone } from "@/core/dates"
 import type { IsoDate } from "@/core/domain/types"
+import type { EarningsTiming } from "@/core/earnings"
 import { categoriesBySymbol, listActiveTickers } from "@/lib/data/tools"
 
 export interface ChannelRow {
@@ -23,6 +24,7 @@ export interface ChannelRow {
   bocAbove: (number | null)[]
   earningsStart: IsoDate | null
   earningsEnd: IsoDate | null
+  earningsTiming: EarningsTiming | null
   /** Days until the earnings window starts (0 while it is open), or null. */
   earningsIn: number | null
   fs: number[]
@@ -56,6 +58,7 @@ export async function buildChannelRows(): Promise<ChannelRow[]> {
       bocAbove: ladder.bocAbove,
       earningsStart: t.earningsStart ?? null,
       earningsEnd: t.earningsEnd ?? null,
+      earningsTiming: t.earningsTiming,
       earningsIn,
       fs: t.fsLevels,
       ss: t.ssLevels,

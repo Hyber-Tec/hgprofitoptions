@@ -1,7 +1,8 @@
 /**
- * A stand-in for the AI API, for local development and the end-to-end tests only. It answers the two
- * requests the app makes (quiz questions from a document, a class summary from a transcript) with
- * simple answers built from the text it was sent, so the flows can be tried without a paid key.
+ * A stand-in for the AI API, for local development and the end-to-end tests only. It answers the three
+ * requests the app makes (quiz questions from a document or on a topic, a class summary from a
+ * transcript, a market brief) with simple answers built from the text it was sent, so the flows can be
+ * tried without a paid key.
  *
  *   pnpm ai:fake          # http://127.0.0.1:7657; then set in .env.local:
  *                         #   AI_API_KEY=fake  AI_BASE_URL=http://127.0.0.1:7657
@@ -65,11 +66,13 @@ function alter(sentence: string, n: number): string {
 function quiz(request: Request): unknown {
   const content = request.messages?.at(-1)?.content
   const blocks = Array.isArray(content) ? content : []
-  const ask = blocks.find((b) => b.type === "text")?.text ?? ""
+  const ask = blocks.find((b) => b.type === "text" && /Write \d+ questions/.test(b.text ?? ""))?.text ?? ""
   const count = Number(/Write (\d+) questions/.exec(ask)?.[1] ?? 5)
   const doc = blocks.find((b) => b.type === "document")
-  const text = doc?.source?.type === "text" ? (doc.source.data ?? "") : ""
-  const title = doc?.title ?? "the document"
+  // Without a document, the questions are on a topic the admin described.
+  const topic = blocks.find((b) => b.type === "text" && b.text?.startsWith("The topic"))?.text?.replace(/^[^\n]*\n/, "")
+  const text = doc?.source?.type === "text" ? (doc.source.data ?? "") : (topic ?? "")
+  const title = doc?.title ?? (topic ? "the topic" : "the document")
   const facts = sentences(text)
   const questions = Array.from({ length: count }, (_, i) => {
     const fact = facts[i % Math.max(facts.length, 1)]
@@ -156,6 +159,28 @@ function summary(request: Request): unknown {
   }
 }
 
+/** A market brief that repeats what it was given, so a test can see the data and instructions reached it. */
+function brief(request: Request): unknown {
+  const content = request.messages?.at(-1)?.content
+  const blocks = Array.isArray(content) ? content : []
+  const instructions = (
+    blocks.find((b) => b.type === "text" && b.text?.startsWith("The team's instructions"))?.text ?? ""
+  )
+    .replace(/^[^\n]*\n/, "")
+    .trim()
+  const data = blocks.find((b) => b.type === "document")?.source?.data ?? ""
+  const moment = (blocks.find((b) => b.type === "text" && b.text?.startsWith("Write the brief for"))?.text ?? "")
+    .replace(/^Write the brief for /, "")
+    .replace(/ \(New York time\)\.$/, "")
+  const firstIndex = data.split("\n").find((line) => /^- (Dow Jones|S&P 500|Nasdaq):/.test(line)) ?? ""
+  return {
+    title: "Market brief",
+    body: [`Written for ${moment}, following: ${instructions.slice(0, 120)}`, firstIndex.replace(/^- /, "")]
+      .filter(Boolean)
+      .join("\n\n"),
+  }
+}
+
 const server = createServer((req, res) => {
   const url = new URL(req.url ?? "/", `http://127.0.0.1:${port}`)
   if (url.pathname === "/health") return send(res, 200, { ok: true })
@@ -163,7 +188,12 @@ const server = createServer((req, res) => {
     return send(res, 404, { type: "error", error: { type: "not_found_error", message: "Not found" } })
   void read(req).then((raw) => {
     const request = JSON.parse(raw) as Request
-    const answer = /quiz questions/i.test(request.system ?? "") ? quiz(request) : summary(request)
+    const system = request.system ?? ""
+    const answer = /quiz questions/i.test(system)
+      ? quiz(request)
+      : /market brief/i.test(system)
+        ? brief(request)
+        : summary(request)
     send(res, 200, {
       id: `msg_fake_${Date.now()}`,
       type: "message",

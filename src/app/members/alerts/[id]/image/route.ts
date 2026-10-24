@@ -1,6 +1,7 @@
 import { getViewer } from "@/lib/auth/guards"
 import { getAlert } from "@/lib/data/alerts"
 import { readStoredFile } from "@/lib/data/content"
+import { isOpen, postsCutoff } from "@/lib/data/visibility"
 
 /** The chart image attached to an alert, for members with access only. */
 export async function GET(_request: Request, { params }: RouteContext<"/members/alerts/[id]/image">) {
@@ -8,7 +9,10 @@ export async function GET(_request: Request, { params }: RouteContext<"/members/
   const viewer = await getViewer()
   if (!viewer?.hasAccess) return new Response("Not found", { status: 404 })
   const alert = await getAlert(id)
-  const visible = alert && (alert.status === "published" || alert.status === "closed" || viewer.role === "admin")
+  const visible =
+    alert &&
+    (alert.status === "published" || alert.status === "closed" || viewer.role === "admin") &&
+    isOpen(await postsCutoff(viewer), alert.publishedAt)
   if (!alert?.imagePath || !visible) return new Response("Not found", { status: 404 })
   const { data, contentType } = await readStoredFile(alert.imagePath)
   return new Response(new Uint8Array(data), {

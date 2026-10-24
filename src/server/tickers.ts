@@ -49,6 +49,7 @@ export async function addTicker(
       ssLevels: [],
       earningsStart: null,
       earningsEnd: null,
+      earningsTiming: null,
       earningsNote: null,
       notes: null,
       categories: [],

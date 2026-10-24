@@ -67,10 +67,15 @@ beforeEach(async () => {
     await setDoc(doc(db, "members/active/privateNotes/t1"), { body: "mine", updatedAt: Timestamp.now() })
     await setDoc(doc(db, "snaptradeUsers/active"), { userSecret: "sealed" })
     await setDoc(doc(db, "members/other"), { status: "active", role: "member", access: window(10, 30) })
-    await setDoc(doc(db, "members/expert"), {
+    await setDoc(doc(db, "members/trial"), {
       status: "active",
       role: "member",
-      level: "expert",
+      access: { ...window(1, 6), trial: true },
+    })
+    await setDoc(doc(db, "members/advanced"), {
+      status: "active",
+      role: "member",
+      level: "advanced",
       access: window(10, 30),
     })
     const thread = (askerUid: string, visibility: string) => ({
@@ -88,7 +93,8 @@ beforeEach(async () => {
   })
 })
 
-const as = (uid: string, admin = false) => env.authenticatedContext(uid, admin ? { role: "admin" } : {}).firestore()
+const as = (uid: string, role: boolean | "admin" | "editor" = false) =>
+  env.authenticatedContext(uid, role ? { role: role === true ? "admin" : role } : {}).firestore()
 const anonymous = () => env.unauthenticatedContext().firestore()
 
 describe("public content", () => {
@@ -120,8 +126,15 @@ describe("member content follows the access window", () => {
     await assertFails(getDoc(doc(anonymous(), "tickers/TSM")))
   })
 
-  it("lets admins read without a membership period", async () => {
+  it("lets admins and data editors read without a membership period", async () => {
     await assertSucceeds(getDoc(doc(as("hg", true), "tickers/TSM")))
+    await assertSucceeds(getDoc(doc(as("maydelis", "editor"), "tickers/TSM")))
+    await assertSucceeds(getDoc(doc(as("maydelis", "editor"), "alerts/live")))
+  })
+
+  it("keeps data editors out of members' records", async () => {
+    await assertFails(getDoc(doc(as("maydelis", "editor"), "members/active")))
+    await assertFails(getDoc(doc(as("maydelis", "editor"), "members/active/trades/t1")))
   })
 
   it("only exposes published alerts and strike targets", async () => {
@@ -130,6 +143,13 @@ describe("member content follows the access window", () => {
     await assertFails(getDoc(doc(as("hg", true), "alerts/draft")))
     await assertSucceeds(getDoc(doc(as("active"), "targetUpdates/2026-10-07")))
     await assertFails(getDoc(doc(as("active"), "targetUpdates/2026-10-14")))
+  })
+
+  it("lets a free trial use the tools but not read HG's posts directly", async () => {
+    await assertSucceeds(getDoc(doc(as("trial"), "tickers/TSM")))
+    await assertSucceeds(getDoc(doc(as("trial"), "threads/class")))
+    await assertFails(getDoc(doc(as("trial"), "alerts/live")))
+    await assertFails(getDoc(doc(as("trial"), "targetUpdates/2026-10-07")))
   })
 
   it("does not expose other config documents", async () => {
@@ -205,6 +225,11 @@ describe("server-only collections", () => {
       "invoices/i1",
       "counters/invoices",
       "settings/billing",
+      // The market brief and spike lists: the server holds the newest back from free trials.
+      "briefs/b1",
+      "settings/brief",
+      "spikePosts/p1",
+      "spikes/s1",
     ])
       await assertFails(getDoc(doc(as("hg", true), path)))
   })
@@ -218,12 +243,13 @@ describe("chat", () => {
     await assertFails(setDoc(doc(as("active"), "threads/class/messages/m2"), { body: "Hi" }))
   })
 
-  it("keeps staff-only threads between the asker, experts and admins", async () => {
+  it("keeps staff-only threads between the asker, advanced traders and admins", async () => {
     await assertFails(getDoc(doc(as("active"), "threads/private")))
     await assertFails(getDoc(doc(as("active"), "threads/private/messages/m1")))
     await assertSucceeds(getDoc(doc(as("other"), "threads/private")))
     await assertSucceeds(getDoc(doc(as("other"), "threads/private/messages/m1")))
-    await assertSucceeds(getDoc(doc(as("expert"), "threads/private/messages/m1")))
+    await assertSucceeds(getDoc(doc(as("advanced"), "threads/private/messages/m1")))
+    await assertFails(getDoc(doc(as("maydelis", "editor"), "threads/private")))
     await assertSucceeds(getDoc(doc(as("hg", true), "threads/private")))
   })
 
@@ -233,7 +259,7 @@ describe("chat", () => {
     await assertSucceeds(getDocs(query(threads, where("visibility", "==", "class"), orderBy("lastMessageAt", "desc"))))
     await assertSucceeds(getDocs(query(threads, where("askerUid", "==", "active"), orderBy("lastMessageAt", "desc"))))
     await assertFails(getDocs(query(threads, orderBy("lastMessageAt", "desc"))))
-    await assertSucceeds(getDocs(query(collection(as("expert"), "threads"), orderBy("lastMessageAt", "desc"))))
+    await assertSucceeds(getDocs(query(collection(as("advanced"), "threads"), orderBy("lastMessageAt", "desc"))))
   })
 
   it("locks chat for members without access", async () => {

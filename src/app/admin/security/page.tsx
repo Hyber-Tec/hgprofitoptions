@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
 import { LuShieldCheck } from "react-icons/lu"
-import { adminMfaRequired, requireAdmin } from "@/lib/auth/guards"
+import { adminMfaRequired, requireEditor } from "@/lib/auth/guards"
 import { useEmulators } from "@/lib/env.public"
 import { ReauthButton } from "@/components/admin/reauth-button"
 import { ToneBadge } from "@/components/portal/display"
@@ -12,7 +12,7 @@ import { Card, CardContent } from "@/components/ui/card"
 export const metadata: Metadata = { title: "Admin security" }
 
 export default async function AdminSecurityPage() {
-  const viewer = await requireAdmin({ next: "/admin/security", allowWithoutMfa: true })
+  const viewer = await requireEditor({ next: "/admin/security", allowWithoutMfa: true })
   const locked = adminMfaRequired && !viewer.mfa
   return (
     <>

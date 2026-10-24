@@ -64,7 +64,7 @@ async function readThread(threadId: string): Promise<ThreadDoc | null> {
   return snap.exists ? parseDoc(threadSchema, snap.id, snap.data()) : null
 }
 
-/** A member's question starts a thread. "staffOnly" keeps it between them, the experts and the admins. */
+/** A member's question starts a thread. "staffOnly" keeps it between them, the advanced traders and the admins. */
 export async function askQuestion(input: { body: string; staffOnly: boolean }): Promise<ActionResult<{ id: string }>> {
   const viewer = await activeMemberForAction()
   if (!viewer) return unauthorized
@@ -100,7 +100,7 @@ export async function askQuestion(input: { body: string; staffOnly: boolean }): 
   return { ok: true, data: { id: ref.id } }
 }
 
-/** The asker follows up, or an expert or admin answers. Everyone else reads along. */
+/** The asker follows up, or an advanced trader or admin answers. Everyone else reads along. */
 export async function replyToThread(threadId: string, body: string): Promise<ActionResult> {
   const viewer = await activeMemberForAction()
   if (!viewer) return unauthorized
@@ -111,7 +111,11 @@ export async function replyToThread(threadId: string, body: string): Promise<Act
   const isAsker = thread.askerUid === viewer.uid
   const helper = answersQuestions(viewer.member)
   if (!isAsker && !helper)
-    return { ok: false, code: "forbidden", message: "Only the person who asked, experts and admins reply here." }
+    return {
+      ok: false,
+      code: "forbidden",
+      message: "Only the person who asked, advanced traders and admins reply here.",
+    }
   const text = parsed.data
   const now = Timestamp.now()
   const ref = threads().doc(thread.id)
@@ -122,7 +126,7 @@ export async function replyToThread(threadId: string, body: string): Promise<Act
     lastMessageBy: viewer.uid,
     lastMessagePreview: messagePreview(text),
     messageCount: FieldValue.increment(1),
-    // An answer from an expert or admin settles the question; a follow-up from the asker reopens it.
+    // An answer from an advanced trader or admin settles the question; a follow-up from the asker reopens it.
     status: isAsker ? "open" : "answered",
   })
   batch.set(readRef(viewer.uid, thread.id), { lastReadAt: now })

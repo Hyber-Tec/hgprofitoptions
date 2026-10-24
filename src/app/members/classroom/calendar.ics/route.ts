@@ -1,12 +1,24 @@
 import { getViewer } from "@/lib/auth/guards"
 import { getSiteSettings } from "@/lib/data/public"
 import { getMemberSettings } from "@/lib/data/settings"
-import { nextOccurrence } from "@/core/schedule"
+import { dayOfWeek } from "@/core/dates"
+import { marketHolidays } from "@/core/holidays"
+import { AUDIENCE_LABELS, nextOccurrence, type ClassSession } from "@/core/schedule"
+import type { IsoDate } from "@/core/domain/types"
 
 const DAYS = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"] as const
 const escape = (text: string) =>
-  text.replace(/\\/g, "\\\\").replace(/;/g, "\;").replace(/,/g, "\\,").replace(/\n/g, "\\n")
+  text.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n")
 const local = (date: string, hhmm: string) => `${date.replaceAll("-", "")}T${hhmm.replace(":", "")}00`
+
+/** Market holidays over the next year on which a session in market hours is not held. */
+function skippedDays(session: ClassSession, from: IsoDate): IsoDate[] {
+  if (session.start >= "16:00") return []
+  const year = Number(from.slice(0, 4))
+  return [...marketHolidays(year), ...marketHolidays(year + 1)]
+    .filter((d) => d > from && dayOfWeek(d) === session.day)
+    .sort()
+}
 
 /** The weekly classes as a calendar subscription file (New York time, repeating weekly). */
 export async function GET() {
@@ -25,9 +37,14 @@ export async function GET() {
       `DTSTAMP:${stamp}`,
       `DTSTART;TZID=America/New_York:${local(next.date, s.start)}`,
       `DTEND;TZID=America/New_York:${local(next.date, s.end)}`,
-      `RRULE:FREQ=WEEKLY;BYDAY=${DAYS[s.day] ?? "SA"}`,
+      `RRULE:FREQ=WEEKLY;BYDAY=${DAYS[s.day] ?? "SU"}`,
+      ...skippedDays(s, next.date).map((d) => `EXDATE;TZID=America/New_York:${local(d, s.start)}`),
       `SUMMARY:${escape(`HG Profit Options: ${s.title}`)}`,
-      `DESCRIPTION:${escape(`${s.audience}${settings.zoomUrl ? `\nZoom: ${settings.zoomUrl}` : ""}`)}`,
+      `DESCRIPTION:${escape(
+        [s.note, `For: ${AUDIENCE_LABELS[s.audience]}`, settings.zoomUrl ? `Zoom: ${settings.zoomUrl}` : ""]
+          .filter(Boolean)
+          .join("\n"),
+      )}`,
       ...(settings.zoomUrl ? [`LOCATION:${escape(settings.zoomUrl)}`] : []),
       "END:VEVENT",
     ].join("\r\n")

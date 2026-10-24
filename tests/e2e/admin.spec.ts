@@ -31,7 +31,7 @@ test("an alert HG publishes reaches members' feeds", async ({ page, browser }) =
   await page.getByRole("button", { name: "Info", exact: true }).click()
   const title = `Class moves to 7:30 PM (${Date.now()})`
   await page.getByLabel("Title").fill(title)
-  await page.getByLabel("Why, and what to watch").fill("Saturday's class starts 30 minutes later this week.")
+  await page.getByLabel("Why, and what to watch").fill("Sunday's group class starts 30 minutes later this week.")
   await page.getByRole("button", { name: "Publish now" }).click()
   await expect(page).toHaveURL(/\/admin\/alerts\/(?!new)[^/]+$/)
 
@@ -189,4 +189,78 @@ test("HG narrows the member list and renews from the selection bar", async ({ pa
   await expect(page.getByRole("link", { name: /Ava Martin/ })).toHaveCount(0)
   await page.getByRole("button", { name: "Clear filters" }).click()
   await expect(page.getByRole("link", { name: /Ava Martin/ })).toBeVisible()
+})
+
+test("HG makes a data editor, who keeps the market data up to date but never sees members", async ({
+  page,
+  browser,
+}) => {
+  await signIn(page, ACCOUNTS.admin)
+  await expect(page).toHaveURL(/\/admin$/)
+  await page.goto("/admin/members")
+  await page.getByRole("link", { name: /Julia Brooks/ }).click()
+  await page.getByRole("button", { name: "Actions" }).click()
+  await page.getByRole("menuitem", { name: "Make data editor" }).click()
+  await expect(page.getByText("Now a data editor")).toBeVisible()
+
+  const context = await browser.newContext()
+  const julia = await context.newPage()
+  await signIn(julia, "julia.brooks@example.com")
+  // Data editors start on Market data, with only the data pages in the console.
+  await expect(julia).toHaveURL(/\/admin\/market-data$/)
+  const consoleNav = julia.getByRole("navigation", { name: "Admin console" })
+  for (const name of ["Market brief", "Spikes", "Strike targets", "Tickers", "Market data", "Leveraged ETFs"])
+    await expect(consoleNav.getByRole("link", { name, exact: true })).toBeVisible()
+  await expect(consoleNav.getByRole("link", { name: "Members", exact: true })).toHaveCount(0)
+  // The page streams in, so the status is sent before the guard says no: check what the editor sees.
+  await julia.goto("/admin/members")
+  await expect(julia.getByRole("heading", { name: "This page does not exist" })).toBeVisible()
+  // The member area stays open to them, to check the tools.
+  await julia.goto("/members/channels")
+  await expect(julia.getByRole("heading", { level: 1, name: "Median & Channel Chart" })).toBeVisible()
+  await context.close()
+
+  await page.reload()
+  await page.getByRole("button", { name: "Actions" }).click()
+  await page.getByRole("menuitem", { name: "Remove data editor role" }).click()
+  await expect(page.getByText("Data editor role removed")).toBeVisible()
+})
+
+test("Update now brings market data up to date, and typed-in index values stay", async ({ page }) => {
+  await signIn(page, ACCOUNTS.admin)
+  await expect(page).toHaveURL(/\/admin$/)
+  await page.goto("/admin/market-data")
+  await page.getByRole("button", { name: "Update now" }).click()
+  await expect(page.getByRole("status").filter({ hasText: "Updated" })).toContainText(
+    /Up to date through the \w{3} \d{1,2}, \d{4} close/,
+    {
+      timeout: 60_000,
+    },
+  )
+
+  // HG types in the Dow's close for the week as he posted it; it is kept, marked as typed in.
+  const monday = await page.getByLabel("Week", { exact: true }).inputValue()
+  const day = (offset: number) => {
+    const date = new Date(`${monday}T12:00:00Z`)
+    date.setUTCDate(date.getUTCDate() + offset)
+    return date.toISOString().slice(0, 10)
+  }
+  const dow = page.getByRole("group", { name: "Dow Jones" })
+  await dow.getByLabel("Close", { exact: true }).fill("52215.16")
+  await dow.getByLabel("Last Friday's close").fill("52002.41")
+  await dow.getByLabel("Week high").fill("52923.38")
+  await dow
+    .getByLabel("When")
+    .first()
+    .fill(`${day(2)}T12:30`)
+  await dow.getByLabel("Week low").fill("51885.99")
+  await dow
+    .getByLabel("When")
+    .last()
+    .fill(`${day(0)}T09:55`)
+  await expect(dow).toContainText("Gap vs last Friday: +212.75")
+  await page.getByRole("button", { name: "Save index values" }).click()
+  await expect(page.getByText("Index values saved")).toBeVisible()
+  await page.reload()
+  await expect(page.getByRole("group", { name: "Dow Jones" })).toContainText("Typed in")
 })

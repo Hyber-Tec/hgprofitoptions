@@ -184,6 +184,22 @@ Turning on an integration: set its secret (and `EMAIL_FROM` or `SNAPTRADE_CLIENT
 console, Settings, then Connected services shows what is on, and Market data lists every scheduled
 job run.
 
+## Market data
+
+Prices, medians, channel lines, Key Market Data and HG's weekly index close come from Massive (formerly
+Polygon.io) with the `MARKET_DATA_API_KEY` secret. What each part needs from the Massive plan:
+
+| Part of the site                                                    | Massive plan                                                     |
+| ------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Daily prices, medians, channel lines, Key Market Data               | Stocks, any plan                                                 |
+| Live prices and the order book                                      | Stocks Starter or up (bid and ask need a plan with quotes)       |
+| The options chain on Strike Price Targets                           | Options Starter or up                                            |
+| The weekly index close (Dow, S&P 500, Nasdaq) and live index levels | Indices Starter or up (Basic leaves out the Dow and the S&P 500) |
+
+The daily job runs at 6:30 PM ET on market days and fills in any session or week a missed run left out,
+so after adding (or replacing) the key, Admin > Market data > Update now brings everything up to date at
+once. When the plan has no index data, the weekly index close is typed in on the same page.
+
 ## Zoom classes and recaps
 
 Members join the weekly class inside the site, and after each recorded class the AI writes its recap
@@ -196,15 +212,18 @@ that hosts the class (an app joining another account's meetings needs Zoom's rev
    see Join class in the Classroom; the Zoom app stays available as a second button.
 2. **Recaps**: in Zoom's settings for the host, turn on cloud recording with audio transcripts
    (a paid plan), and record the class to the cloud. In the app, add an event subscription for
-   "Recording transcript files have completed" sent to
-   `https://hgprofitoptions.web.app/api/zoom/webhook`; its secret token goes in the
+   "Recording transcript files have completed" sent to `https://<the site's address>/api/zoom/webhook`
+   (now `https://hgprofitoptions.web.app/api/zoom/webhook`); its secret token goes in the
    `ZOOM_WEBHOOK_SECRET` secret. Deploy the app first, because Zoom checks the address when the
    subscription is saved. Only the class meeting gets recaps, never one-on-ones.
 3. **When events come without a download token**, the Cloud Function downloads transcripts with a
    Server-to-Server OAuth app (scope to read cloud recordings) instead: `ZOOM_ACCOUNT_ID` and
    `ZOOM_CLIENT_ID` in `functions/.env.hgprofitoptions-hybertec`, and the `ZOOM_CLIENT_SECRET` secret.
 
-Without Zoom, admins can still add a recap with a transcript file under Admin > Class recaps.
+The same event carries the recording's share link (with its passcode), which fills in the recap's
+recording link; Send the recording on the recap emails it to members and tells them in the app.
+Without Zoom, admins can still add a recap with a transcript file under Admin > Class recaps, paste the
+recording's link there, or send the slides and recording from Admin > Presentations.
 
 ## Serving the app at hgprofitoptions.web.app
 
@@ -235,6 +254,24 @@ If an organization admin later allows `allUsers` for this project
 `roles/run.invoker` to `allUsers` on the `hgprofitoptions` service, point the rewrite at
 `hgprofitoptions`, delete `hgprofitoptions-web`, and `firebase deploy` will also set up the sign-up
 function without `pnpm auth:guard`.
+
+## Moving to a new domain
+
+The site's address lives in configuration only, so a domain change (hgprofitoptions.com, or a new name)
+needs no code change. Every link the site builds (emails, invitations, calendar invites, the sitemap,
+search and sharing tags) comes from these settings:
+
+1. Connect the domain to the Hosting site `hgprofitoptions` (Firebase console > Hosting > Add custom
+   domain) and add the DNS records it shows at the registrar. Wait until Hosting shows it connected.
+2. Set the address in `apphosting.yaml` (`NEXT_PUBLIC_SITE_URL`) and in
+   `functions/.env.hgprofitoptions-hybertec` (`SITE_URL`), for example `https://hgprofitoptions.com`,
+   and merge the change. CI deploys it, and the deploy link in GitHub follows `apphosting.yaml`.
+3. Add the domain to Firebase Authentication > Settings > Authorized domains, so sign-in works there.
+4. Point Zoom's event subscription at `https://<new domain>/api/zoom/webhook` (see above).
+5. For email, verify the domain in Resend and set `EMAIL_FROM` in both settings files to a sender on it,
+   for example `HG Profit Options <alerts@hgprofitoptions.com>`, with the `RESEND_API_KEY` secret.
+
+The old address keeps working, so links already sent still open.
 
 ## Checks after a deploy
 
