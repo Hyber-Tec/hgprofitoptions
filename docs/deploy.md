@@ -212,8 +212,8 @@ that hosts the class (an app joining another account's meetings needs Zoom's rev
    see Join class in the Classroom; the Zoom app stays available as a second button.
 2. **Recaps**: in Zoom's settings for the host, turn on cloud recording with audio transcripts
    (a paid plan), and record the class to the cloud. In the app, add an event subscription for
-   "Recording transcript files have completed" sent to
-   `https://hgprofitoptions.web.app/api/zoom/webhook`; its secret token goes in the
+   "Recording transcript files have completed" sent to `https://<the site's address>/api/zoom/webhook`
+   (now `https://hgprofitoptions.web.app/api/zoom/webhook`); its secret token goes in the
    `ZOOM_WEBHOOK_SECRET` secret. Deploy the app first, because Zoom checks the address when the
    subscription is saved. Only the class meeting gets recaps, never one-on-ones.
 3. **When events come without a download token**, the Cloud Function downloads transcripts with a
@@ -254,6 +254,24 @@ If an organization admin later allows `allUsers` for this project
 `roles/run.invoker` to `allUsers` on the `hgprofitoptions` service, point the rewrite at
 `hgprofitoptions`, delete `hgprofitoptions-web`, and `firebase deploy` will also set up the sign-up
 function without `pnpm auth:guard`.
+
+## Moving to a new domain
+
+The site's address lives in configuration only, so a domain change (hgprofitoptions.com, or a new name)
+needs no code change. Every link the site builds (emails, invitations, calendar invites, the sitemap,
+search and sharing tags) comes from these settings:
+
+1. Connect the domain to the Hosting site `hgprofitoptions` (Firebase console > Hosting > Add custom
+   domain) and add the DNS records it shows at the registrar. Wait until Hosting shows it connected.
+2. Set the address in `apphosting.yaml` (`NEXT_PUBLIC_SITE_URL`) and in
+   `functions/.env.hgprofitoptions-hybertec` (`SITE_URL`), for example `https://hgprofitoptions.com`,
+   and merge the change. CI deploys it, and the deploy link in GitHub follows `apphosting.yaml`.
+3. Add the domain to Firebase Authentication > Settings > Authorized domains, so sign-in works there.
+4. Point Zoom's event subscription at `https://<new domain>/api/zoom/webhook` (see above).
+5. For email, verify the domain in Resend and set `EMAIL_FROM` in both settings files to a sender on it,
+   for example `HG Profit Options <alerts@hgprofitoptions.com>`, with the `RESEND_API_KEY` secret.
+
+The old address keeps working, so links already sent still open.
 
 ## Checks after a deploy
 

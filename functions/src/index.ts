@@ -45,9 +45,9 @@ setGlobalOptions({ region: "us-central1", maxInstances: 10 })
 
 const NEW_YORK = "America/New_York"
 
+// The site's address lives in configuration only (functions/.env.<project>), so a new domain needs no code change.
 const SITE_URL = defineString("SITE_URL", {
-  default: "https://hgprofitoptions.web.app",
-  description: "Public address of the site, used in email links",
+  description: "Public address of the site, used in email links, for example https://hgprofitoptions.web.app",
 })
 const EMAIL_FROM = defineString("EMAIL_FROM", {
   default: "none",
@@ -102,7 +102,7 @@ function zoomConfig(): ZoomApiConfig | null {
 }
 
 const db = () => getFirestore()
-const siteUrl = () => SITE_URL.value()
+const siteUrl = () => SITE_URL.value().replace(/\/+$/, "")
 
 // ---- Notifications --------------------------------------------------------------------------------
 
