@@ -93,6 +93,33 @@ export async function updateClassSchedule(input: z.input<typeof scheduleInput>):
   return { ok: true, data: undefined }
 }
 
+const trialInput = z.object({
+  enabled: z.boolean(),
+  days: z.number().int().min(1, "A trial lasts at least a day").max(60, "60 days at most"),
+  delayDays: z.number().int().min(0).max(60, "60 days at most"),
+})
+
+/** The free trial visitors can start from the site: on or off, how long, and how far behind HG's posts. */
+export async function updateTrialSettings(input: z.input<typeof trialInput>): Promise<ActionResult> {
+  const viewer = await adminForAction()
+  if (!viewer) return forbidden
+  const parsed = trialInput.safeParse(input)
+  if (!parsed.success)
+    return { ok: false, code: "validation", message: parsed.error.issues[0]?.message ?? "Check the fields." }
+  await adminDb().collection(COLLECTIONS.settings).doc("site").set({ trial: parsed.data }, { merge: true })
+  await writeAudit(adminDb(), {
+    actorUid: viewer.uid,
+    actorEmail: viewer.email,
+    action: "settings.trial_updated",
+    targetType: "settings",
+    targetId: "site",
+    detail: parsed.data,
+  })
+  invalidatePublicCache()
+  refresh()
+  return { ok: true, data: undefined }
+}
+
 const meetingId = z
   .string()
   .trim()

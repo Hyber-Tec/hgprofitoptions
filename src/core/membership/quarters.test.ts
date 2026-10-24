@@ -5,11 +5,14 @@ import {
   addQuarters,
   describePeriodRange,
   findOverlap,
+  hasAccess,
+  hasFullAccess,
   membershipStatus,
   nextRenewalQuarter,
   periodFromQuarters,
   quarterOf,
   quarterRange,
+  trialPeriod,
 } from "./quarters"
 
 const d = (s: string) => s as IsoDate
@@ -122,6 +125,49 @@ describe("membership status", () => {
       "suspended",
     )
     expect(membershipStatus({ ...base, periods: [], today: d("2026-10-07") }).kind).toBe("none")
+  })
+
+  it("knows data editors, who are suspended like anyone else", () => {
+    expect(membershipStatus({ role: "editor", status: "active", periods: [], today: d("2026-10-07") }).kind).toBe(
+      "editor",
+    )
+    expect(membershipStatus({ role: "editor", status: "suspended", periods: [], today: d("2026-10-07") }).kind).toBe(
+      "suspended",
+    )
+  })
+})
+
+describe("free trials", () => {
+  const base = { role: "member" as const, status: "active" as const }
+  const trial: MembershipPeriod = { ...trialPeriod(d("2026-10-23"), 7), id: "trial" }
+  const q4 = period("q4", "2026-10-01", "2026-12-31")
+
+  it("lasts the number of days set, today included", () => {
+    expect(trialPeriod(d("2026-10-23"), 7)).toEqual({
+      start: "2026-10-23",
+      end: "2026-10-29",
+      kind: "trial",
+      label: "Free trial",
+    })
+  })
+
+  it("opens the member area, held back from HG's newest posts", () => {
+    const status = membershipStatus({ ...base, periods: [trial], today: d("2026-10-25") })
+    expect(status).toMatchObject({ kind: "trial", daysLeft: 4 })
+    expect(hasAccess(status)).toBe(true)
+    expect(hasFullAccess(status)).toBe(false)
+  })
+
+  it("gives way to a paid quarter on the same day", () => {
+    const status = membershipStatus({ ...base, periods: [trial, q4], today: d("2026-10-25") })
+    expect(status.kind).toBe("active")
+    expect(hasFullAccess(status)).toBe(true)
+  })
+
+  it("ends like a membership, remembered as a trial", () => {
+    const status = membershipStatus({ ...base, periods: [trial], today: d("2026-10-30") })
+    expect(status).toMatchObject({ kind: "expired", last: { kind: "trial" } })
+    expect(hasAccess(status)).toBe(false)
   })
 })
 

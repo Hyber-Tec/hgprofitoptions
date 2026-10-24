@@ -40,7 +40,9 @@ const BROKERS = ["Webull", "Schwab", "Fidelity", "Robinhood", "Interactive Broke
 
 export default async function PortfolioPage() {
   const viewer = await requireViewer("/members/portfolio")
-  const available = brokerageConfig() !== null && viewer.hasAccess
+  // Free trials add trades by hand or CSV; linking (a paid connection) opens when they join.
+  const available = brokerageConfig() !== null && viewer.fullAccess
+  const unavailable = viewer.fullAccess ? undefined : "Linking a brokerage opens when you join."
   const db = adminDb()
   const [connections, accounts, { series }, trades] = await Promise.all([
     readConnections(db, viewer.uid),
@@ -115,7 +117,12 @@ export default async function PortfolioPage() {
           <AlertTitle>{c.brokerageName} needs you to sign in again</AlertTitle>
           <AlertDescription className="flex flex-col gap-3">
             Brokers expire connections from time to time. Reconnect to keep your journal and performance up to date.
-            <ConnectBrokerage available={available} reconnectId={c.id} label={`Reconnect ${c.brokerageName}`} />
+            <ConnectBrokerage
+              available={available}
+              unavailable={unavailable}
+              reconnectId={c.id}
+              label={`Reconnect ${c.brokerageName}`}
+            />
           </AlertDescription>
         </Alert>
       ))}
@@ -127,7 +134,7 @@ export default async function PortfolioPage() {
             <CardDescription>Read-only, through SnapTrade. Supports {BROKERS.join(", ")}.</CardDescription>
           </CardHeader>
           <CardContent>
-            <ConnectBrokerage available={available} />
+            <ConnectBrokerage available={available} unavailable={unavailable} />
           </CardContent>
         </Card>
       )}

@@ -25,9 +25,10 @@ import {
   getTicker,
   getTickerBars,
   getWeek,
-  listTargetUpdates,
+  openTargetUpdates,
   listWeeks,
 } from "@/lib/data/tools"
+import { isOpen, postsCutoff } from "@/lib/data/visibility"
 import { cn } from "@/lib/utils"
 import { AlertCard, toAlertView } from "@/components/portal/alerts/alert-card"
 import { Signed, Stat, ToneBadge } from "@/components/portal/display"
@@ -51,15 +52,17 @@ export default async function StockPage({ params }: PageProps<"/members/stocks/[
   const ticker = await getTicker(symbol)
   if (!ticker) notFound()
 
-  const [barsDoc, weeksList, updates, groups, etfs, alerts, trades] = await Promise.all([
+  const cutoff = await postsCutoff(viewer)
+  const [barsDoc, weeksList, updates, groups, etfs, feed, trades] = await Promise.all([
     getTickerBars(symbol),
     listWeeks(),
-    listTargetUpdates(),
+    openTargetUpdates(cutoff),
     getTargetGroups(),
     getEtfConfig(),
     listFeedAlerts({ window: 200 }),
     listTrades(viewer.uid),
   ])
+  const alerts = feed.filter((a) => isOpen(cutoff, a.publishedAt))
   const weekDocs = (await Promise.all(weeksList.slice(0, 8).map((w) => getWeek(w.weekStart)))).filter((w) => w !== null)
   const weekly = weekDocs.flatMap((w) =>
     w.rows[symbol] ? [{ weekStart: w.weekStart, weekEnd: w.weekEnd, ...w.rows[symbol] }] : [],

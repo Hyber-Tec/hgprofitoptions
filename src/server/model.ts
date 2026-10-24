@@ -33,6 +33,8 @@ export const COLLECTIONS = {
   classRecaps: "classRecaps",
   /** classReminders/{date-time-session}: one per class occurrence, so its reminder goes out once. */
   classReminders: "classReminders",
+  /** trialStarts/{hash of network and day}: free trials started, to cap them per network and day. */
+  trialStarts: "trialStarts",
   invoices: "invoices",
   /** counters/invoices: the last invoice number used each year ({ "2026": 7 }). */
   counters: "counters",
@@ -116,7 +118,14 @@ export const memberSchema = z.object({
   levelSetBy: z.enum(["default", "test", "admin"]).default("default"),
   levelSetAt: optionalTimestamp,
   access: z
-    .object({ from: timestamp, until: timestamp, fromDate: isoDate, untilExclusiveDate: isoDate })
+    .object({
+      from: timestamp,
+      until: timestamp,
+      fromDate: isoDate,
+      untilExclusiveDate: isoDate,
+      /** A free trial is all that covers today: HG's newest posts stay hidden (see the security rules). */
+      trial: z.boolean().default(false),
+    })
     .nullable()
     .default(null),
   memberSince: isoDate.nullable().default(null),
@@ -161,7 +170,7 @@ export type MemberStats = NonNullable<Member["stats"]>
 export const periodSchema = z.object({
   start: isoDate,
   end: isoDate,
-  kind: z.enum(["quarterly", "custom"]),
+  kind: z.enum(["quarterly", "custom", "trial"]),
   label: z.string(),
   note: z.string().nullable().default(null),
   createdAt: timestamp,
@@ -172,7 +181,7 @@ export type PeriodDoc = z.infer<typeof periodSchema> & { id: string }
 export const invitePeriodSchema = z.object({
   start: isoDate,
   end: isoDate,
-  kind: z.enum(["quarterly", "custom"]),
+  kind: z.enum(["quarterly", "custom", "trial"]),
   label: z.string(),
   note: z.string().nullable().default(null),
 })
@@ -188,6 +197,8 @@ export const inviteSchema = z.object({
   notes: z.string().nullable().default(null),
   periods: z.array(invitePeriodSchema).default([]),
   tokenHash: z.string(),
+  /** Started by the visitor from the site's free trial page, not sent by HG. */
+  trial: z.boolean().default(false),
   status: z.enum(["pending", "accepted", "revoked"]),
   expiresAt: timestamp,
   createdAt: timestamp,
@@ -814,6 +825,17 @@ export const siteSettingsSchema = z.object({
   classSchedule: z.array(classSessionSchema).default([]),
   /** Members get a reminder with the Zoom link this many minutes before each class; null turns them off. */
   classReminderMinutes: z.number().int().min(5).max(1440).nullable().default(60),
+  /**
+   * Visitors can start a free trial from the site. Trial members see HG's alerts, strike targets, market
+   * briefs and spikes once they are `delayDays` old; the tools, classes and Chat are open to them.
+   */
+  trial: z
+    .object({
+      enabled: z.boolean(),
+      days: z.number().int().min(1).max(60),
+      delayDays: z.number().int().min(0).max(60),
+    })
+    .default({ enabled: true, days: 7, delayDays: 7 }),
 })
 export type SiteSettings = z.infer<typeof siteSettingsSchema>
 
@@ -963,6 +985,7 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
     },
   ],
   classReminderMinutes: 60,
+  trial: { enabled: true, days: 7, delayDays: 7 },
 }
 
 export const adminNotesSchema = z.object({

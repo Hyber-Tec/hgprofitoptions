@@ -1,15 +1,17 @@
 import type { Metadata } from "next"
 import { isoDateInZone, todayInMarketZone, addDays } from "@/core/dates"
 import type { AlertKind, IsoDate } from "@/core/domain/types"
-import { formatDateWithWeekday } from "@/core/format"
+import { formatDateWithWeekday, plural } from "@/core/format"
 import { ALERT_KINDS } from "@/core/alerts"
 import { requireActiveMember } from "@/lib/auth/guards"
 import { listFeedAlerts, readReceipts } from "@/lib/data/alerts"
 import { getStanding, tickerMap } from "@/lib/data/tools"
+import { isOpen, postsCutoff } from "@/lib/data/visibility"
 import { AlertCard, toAlertView } from "@/components/portal/alerts/alert-card"
 import { AlertFilters } from "@/components/portal/alerts/alert-filters"
 import { AlertsSidePanel } from "@/components/portal/alerts/alerts-side-panel"
 import { PageHeader } from "@/components/portal/page-header"
+import { HeldBackNotice } from "@/components/portal/trial-notice"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 
 export const metadata: Metadata = { title: "Alerts" }
@@ -30,7 +32,15 @@ export default async function AlertsPage({ searchParams }: PageProps<"/members/a
   const symbol = one(params.symbol)?.toUpperCase() ?? null
   const unreadOnly = one(params.unread) === "1"
 
-  const [all, tickers, standing] = await Promise.all([listFeedAlerts({ window: 200 }), tickerMap(), getStanding()])
+  const [feed, tickers, standing, cutoff] = await Promise.all([
+    listFeedAlerts({ window: 200 }),
+    tickerMap(),
+    getStanding(),
+    postsCutoff(viewer),
+  ])
+  // A free trial sees the alerts that are old enough; the newer ones wait (see the notice).
+  const all = feed.filter((a) => isOpen(cutoff, a.publishedAt))
+  const held = feed.filter((a) => a.parentId === null && !isOpen(cutoff, a.publishedAt)).length
   const receipts = await readReceipts(
     viewer.uid,
     all.map((a) => a.id),
@@ -59,10 +69,15 @@ export default async function AlertsPage({ searchParams }: PageProps<"/members/a
     <>
       <PageHeader
         title="Alerts"
-        description="HG's buy and sell points, with every follow-up. New alerts appear here instantly."
+        description={
+          cutoff
+            ? "HG's buy and sell points, with every follow-up."
+            : "HG's buy and sell points, with every follow-up. New alerts appear here instantly."
+        }
         meta={unreadCount > 0 ? `${unreadCount} unread` : "All caught up"}
       />
       <AlertFilters unreadCount={unreadCount} />
+      {held > 0 && <HeldBackNotice>{plural(held, "newer alert")} for members</HeldBackNotice>}
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start">
         <div className="flex min-w-0 flex-col gap-8">
           {filtered.length === 0 ? (

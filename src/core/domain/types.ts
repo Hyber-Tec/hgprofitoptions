@@ -17,7 +17,8 @@ export interface MembershipPeriod {
   start: IsoDate
   /** Inclusive. */
   end: IsoDate
-  kind: "quarterly" | "custom"
+  /** A free trial opens the member area with HG's newest posts held back (see the trial settings). */
+  kind: "quarterly" | "custom" | "trial"
   /** "Q4 2026" or "Q4 2026 to Q1 2027". */
   label: string
   note?: string | null
@@ -27,6 +28,7 @@ export type MembershipStatus =
   | { kind: "admin" }
   | { kind: "editor" }
   | { kind: "suspended" }
+  | { kind: "trial"; period: MembershipPeriod; daysLeft: number }
   | { kind: "active"; period: MembershipPeriod; coverageEnd: IsoDate; daysLeft: number; expiringSoon: boolean }
   | { kind: "upcoming"; next: MembershipPeriod }
   | { kind: "expired"; last: MembershipPeriod }

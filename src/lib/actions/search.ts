@@ -22,7 +22,7 @@ export async function getSearchIndex(): Promise<SearchIndex | null> {
   if (!viewer) return null
   const [tickers, alerts, trades, members] = await Promise.all([
     viewer.hasAccess ? listActiveTickers() : Promise.resolve([]),
-    viewer.hasAccess ? listFeedAlerts({ limit: 25 }) : Promise.resolve([]),
+    viewer.fullAccess ? listFeedAlerts({ limit: 25 }) : Promise.resolve([]),
     listTrades(viewer.uid, { limit: 40 }),
     viewer.role === "admin" ? listMembersForSearch() : Promise.resolve([]),
   ])

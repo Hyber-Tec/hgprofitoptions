@@ -7,7 +7,7 @@ import type { Messaging } from "firebase-admin/messaging"
 import { addDays, daysBetween, todayInMarketZone } from "@/core/dates"
 import type { IsoDate } from "@/core/domain/types"
 import { formatDate } from "@/core/format"
-import { hasAccess, membershipStatus } from "@/core/membership/quarters"
+import { hasAccess, hasFullAccess, membershipStatus } from "@/core/membership/quarters"
 import { formatDayIn, formatTimeIn, nextOccurrence, zoneAbbreviation, type ClassSession } from "@/core/schedule"
 import { layout, sendEmail, sendEmailBatch, type EmailConfig } from "./email"
 import { readPeriods, toMembershipPeriods } from "./members"
@@ -52,7 +52,7 @@ export async function notifyTargetsPublished(
 ): Promise<number> {
   const today = todayInMarketZone()
   const recipients = (await activeMembers(db, today))
-    .filter(({ member, status }) => hasAccess(status) && member.prefs.targetsPublished)
+    .filter(({ member, status }) => hasFullAccess(status) && member.prefs.targetsPublished)
     .map(({ member }) => member.uid)
   const result = await sendToMembers(db, messaging, recipients, {
     title: revision > 1 ? "Strike targets corrected" : "New strike targets are live",
@@ -109,8 +109,8 @@ export async function notifyClassRecap(
 }
 
 /**
- * Membership reminders 14 and 3 days before the end of a member's current stretch, by browser
- * notification and email. Run once a day.
+ * Membership reminders 14 and 3 days before the end of a member's current stretch, and the day before a
+ * free trial ends, by browser notification and email. Run once a day.
  */
 export async function sendMembershipReminders(
   db: Firestore,
@@ -121,19 +121,28 @@ export async function sendMembershipReminders(
   const today = todayInMarketZone()
   let sent = 0
   for (const { member, status } of await activeMembers(db, today)) {
-    if (member.role !== "member" || status.kind !== "active" || !member.prefs.membershipReminders) continue
-    const days = daysBetween(today, status.coverageEnd)
-    if (days !== 14 && days !== 3) continue
-    const title = `Your membership ends ${formatDate(status.coverageEnd)}`
-    const body =
-      days === 3
-        ? "Three days left. Book a quick call with HG to renew for next quarter."
-        : "Two weeks left in your quarter. Book a quick call with HG to renew."
+    if (member.role !== "member" || !member.prefs.membershipReminders) continue
+    let title: string
+    let body: string
+    if (status.kind === "trial") {
+      if (status.daysLeft !== 1) continue
+      title = "Your free trial ends tomorrow"
+      body =
+        "Book a quick call with HG to join: you keep everything, and HG's alerts and strike targets reach you the moment they are posted."
+    } else if (status.kind === "active") {
+      const days = daysBetween(today, status.coverageEnd)
+      if (days !== 14 && days !== 3) continue
+      title = `Your membership ends ${formatDate(status.coverageEnd)}`
+      body =
+        days === 3
+          ? "Three days left. Book a quick call with HG to renew for next quarter."
+          : "Two weeks left in your quarter. Book a quick call with HG to renew."
+    } else continue
     await sendToMembers(db, messaging, [member.uid], {
       title,
       body,
       url: "/members",
-      tag: `renewal-${status.coverageEnd}`,
+      tag: status.kind === "trial" ? `trial-${status.period.end}` : `renewal-${status.coverageEnd}`,
     })
     if (email) {
       const { html, text } = layout({

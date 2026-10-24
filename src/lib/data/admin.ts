@@ -102,6 +102,7 @@ export async function getMemberRow(uid: string): Promise<MemberRow | null> {
   }
 }
 
+/** HG's invitations. A free trial a visitor started but never finished is not one, so it is left out. */
 export async function listInvites(status: "pending" | "all" = "pending"): Promise<Invite[]> {
   const query =
     status === "pending"
@@ -110,7 +111,7 @@ export async function listInvites(status: "pending" | "all" = "pending"): Promis
   const snap = await query.get()
   return snap.docs
     .map((d) => parseDoc(inviteSchema, d.id, d.data()))
-    .filter((i): i is Invite => i !== null)
+    .filter((i): i is Invite => i !== null && !(i.trial && i.status === "pending"))
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
 }
 

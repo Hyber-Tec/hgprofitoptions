@@ -1,4 +1,5 @@
 import type { Metadata } from "next"
+import { formatDate } from "@/core/format"
 import { describePeriodRange } from "@/core/membership/quarters"
 import { COLLECTIONS, inviteSchema, parseDoc } from "@/server/model"
 import { WelcomeForm } from "@/components/auth/welcome-form"
@@ -71,6 +72,20 @@ export default async function WelcomePage({ searchParams }: PageProps<"/welcome"
 
   const first = invite.periods[0]
   const last = invite.periods.at(-1)
+  if (invite.trial && last)
+    return (
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-2">
+          <p className="text-xs font-medium tracking-widest text-muted-foreground uppercase">Free trial</p>
+          <h1 className="text-2xl font-semibold tracking-tight">Almost there, {invite.fullName.split(" ")[0]}</h1>
+          <p className="text-sm text-muted-foreground">
+            Create your login for <span className="font-medium text-foreground">{invite.email}</span>. Your free trial
+            runs until <span className="font-medium text-foreground">{formatDate(last.end)}</span>.
+          </p>
+        </div>
+        <WelcomeForm token={token} email={invite.email} />
+      </div>
+    )
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-2">

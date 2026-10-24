@@ -100,3 +100,34 @@ test("the member area asks visitors to sign in", async ({ page }) => {
   await expect(page).toHaveURL(/\/login\?next=%2Fmembers%2Ftargets/)
   await expect(page.getByRole("heading", { name: "Member login" })).toBeVisible()
 })
+
+test("a visitor starts a free trial: classes, tools and Chat open, HG's newest posts wait", async ({ page }) => {
+  await page.goto("/")
+  const closing = page.locator("section", {
+    has: page.getByRole("heading", { level: 2, name: "Your journey toward trading excellence begins now" }),
+  })
+  await closing.getByRole("link", { name: "Try the member area free" }).click()
+  await expect(page).toHaveURL(/\/trial$/)
+  await page.getByLabel("Full name").fill("Tara Trial")
+  await page.getByLabel("Email").fill(`tara.${String(Date.now())}@example.com`)
+  await page.getByRole("button", { name: "Start my free trial" }).click()
+
+  // The usual welcome page creates the login.
+  await expect(page).toHaveURL(/\/welcome\?invite=/)
+  await expect(page.getByRole("heading", { level: 1, name: "Almost there, Tara" })).toBeVisible()
+  await page.getByRole("checkbox").first().click()
+  await page.getByLabel("Password", { exact: true }).fill("Trial-Tara-2026")
+  await page.getByLabel("Confirm password").fill("Trial-Tara-2026")
+  await page.getByRole("button", { name: "Create account" }).click()
+  await expect(page).toHaveURL(/\/members\?welcome=1$/)
+  await expect(page.getByText("Your free trial", { exact: true })).toBeVisible()
+
+  // HG's newest alerts and HG standing wait; the tools are open.
+  await page.goto("/members/alerts")
+  await expect(page.getByText(/newer alerts? for members/)).toBeVisible()
+  await page.goto("/members/standing")
+  await expect(page.getByText("HG standing is for members")).toBeVisible()
+  await page.goto("/members/channels")
+  await expect(page.getByRole("heading", { level: 1, name: "Median & Channel Chart" })).toBeVisible()
+  await expectNoHorizontalScroll(page)
+})

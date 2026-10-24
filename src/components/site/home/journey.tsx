@@ -10,7 +10,7 @@ import { Section, SectionHeading } from "../section"
 
 type Step = { title: string; body: string; note: string; Icon: IconType }
 
-function steps(classDay: string | null): Step[] {
+function steps(classDay: string | null, trialDays: number | null): Step[] {
   return [
     {
       title: "Book a free call",
@@ -21,7 +21,7 @@ function steps(classDay: string | null): Step[] {
     {
       title: "Join for a quarter",
       body: "Memberships run by calendar quarter. HG sets yours up and you receive a personal invitation to create your login.",
-      note: "Invite-only member area",
+      note: trialDays ? `Or try the member area free for ${String(trialDays)} days` : "Invite-only member area",
       Icon: LuMailCheck,
     },
     {
@@ -39,9 +39,12 @@ function steps(classDay: string | null): Step[] {
   ]
 }
 
-/** `classDay` is the weekday of the group class for everyone ("Sunday"), from the class schedule. */
-export function Journey({ classDay }: { classDay: string | null }) {
-  const items = steps(classDay)
+/**
+ * `classDay` is the weekday of the group class for everyone ("Sunday"), from the class schedule;
+ * `trialDays` mentions the free trial when it is on.
+ */
+export function Journey({ classDay, trialDays }: { classDay: string | null; trialDays: number | null }) {
+  const items = steps(classDay, trialDays)
   const ref = useRef<HTMLDivElement>(null)
   const reduced = useReducedMotion()
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start 65%", "end 55%"] })

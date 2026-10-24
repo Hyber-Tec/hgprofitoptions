@@ -24,7 +24,7 @@ export async function PortalShell({
   const since = viewer.member.createdAt
   // Alerts published after the count are news to this page, so they get a toast.
   const [unread, chatCount, tests] = await Promise.all([
-    viewer.hasAccess ? countUnread(viewer.uid, since) : { count: 0, countedAt: 0 },
+    viewer.fullAccess ? countUnread(viewer.uid, since) : { count: 0, countedAt: 0 },
     chatBadge(viewer),
     viewer.hasAccess ? countOpenAssignments(viewer.uid) : 0,
   ])
@@ -35,7 +35,7 @@ export async function PortalShell({
     <>
       <LiveAlertsProvider
         uid={viewer.uid}
-        enabled={viewer.hasAccess}
+        enabled={viewer.fullAccess}
         baselineMs={since.getTime()}
         countedAtMs={unread.countedAt}
         initialUnread={unread.count}

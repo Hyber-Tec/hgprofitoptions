@@ -3,6 +3,7 @@ import { todayInMarketZone } from "@/core/dates"
 import { formatDate, formatExpiry, formatLevel } from "@/core/format"
 import { getViewer } from "@/lib/auth/guards"
 import { getTargetGroups, getTargetUpdate } from "@/lib/data/tools"
+import { postsCutoff } from "@/lib/data/visibility"
 import { watermarkPdf } from "@/lib/pdf/watermark"
 
 const PAGE = { width: 792, height: 612 } // US Letter, landscape
@@ -35,7 +36,7 @@ export async function GET(_request: Request, { params }: RouteContext<"/members/
   const { date } = await params
   const viewer = await getViewer()
   if (!viewer?.hasAccess) return new Response("Not found", { status: 404 })
-  const [found, groups] = await Promise.all([getTargetUpdate(date), getTargetGroups()])
+  const [found, groups] = await Promise.all([getTargetUpdate(date, await postsCutoff(viewer)), getTargetGroups()])
   if (!found) return new Response("Not found", { status: 404 })
   const { update } = found
 

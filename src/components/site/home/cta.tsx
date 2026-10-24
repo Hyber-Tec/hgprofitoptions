@@ -1,11 +1,15 @@
 import { LuArrowRight, LuCalendarCheck } from "react-icons/lu"
+import { getSiteSettings } from "@/lib/data/public"
 import { ButtonAnchor, ButtonLink } from "@/components/shared/button-link"
 import { LogoMark } from "../logo"
 import { Reveal } from "../motion"
 import { ShaderBackground } from "../shader-background"
 
-/** The closing call to action, shared by the home, about and FAQ pages. */
-export function CtaBand({
+/**
+ * The closing call to action, shared by the home, about and FAQ pages: the one place the free call is
+ * offered, with the free trial (when it is on) or the FAQ beside it.
+ */
+export async function CtaBand({
   title = "Your journey toward trading excellence begins now",
   lead = "Book a free 15-minute call with HG. Talk through your experience and goals, and see whether the class is right for you.",
   faqLink = true,
@@ -15,6 +19,7 @@ export function CtaBand({
   /** Off on the FAQ page itself. */
   faqLink?: boolean
 }) {
+  const { trial } = await getSiteSettings()
   return (
     <section className="px-4 pt-8 pb-24 sm:px-6 lg:px-8">
       <Reveal className="relative isolate mx-auto max-w-6xl overflow-hidden rounded-[2rem] border border-foreground/10 px-6 py-20 text-center shadow-2xl shadow-black/10 sm:px-12 sm:py-24 dark:shadow-black/40">
@@ -44,19 +49,34 @@ export function CtaBand({
               <LuCalendarCheck data-icon="inline-start" />
               Book a free 15-min call
             </ButtonAnchor>
-            {faqLink && (
+            {trial.enabled ? (
               <ButtonLink
                 size="lg"
                 variant="outline"
-                href="/faq"
+                href="/trial"
                 className="h-12 rounded-full bg-background/40 px-6 text-base backdrop-blur-md"
               >
-                Read the FAQ
+                Try the member area free
                 <LuArrowRight data-icon="inline-end" />
               </ButtonLink>
+            ) : (
+              faqLink && (
+                <ButtonLink
+                  size="lg"
+                  variant="outline"
+                  href="/faq"
+                  className="h-12 rounded-full bg-background/40 px-6 text-base backdrop-blur-md"
+                >
+                  Read the FAQ
+                  <LuArrowRight data-icon="inline-end" />
+                </ButtonLink>
+              )
             )}
           </div>
-          <p className="text-xs text-muted-foreground">No credit card needed · Memberships run by calendar quarter</p>
+          <p className="text-xs text-muted-foreground">
+            No credit card needed{trial.enabled ? ` · Free for ${trial.days} days` : ""} · Memberships run by calendar
+            quarter
+          </p>
         </div>
       </Reveal>
     </section>

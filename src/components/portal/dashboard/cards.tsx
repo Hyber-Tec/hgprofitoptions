@@ -25,6 +25,7 @@ import {
   listTickers,
   resolveWeek,
 } from "@/lib/data/tools"
+import { isOpen, postsCutoff } from "@/lib/data/visibility"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
@@ -123,7 +124,10 @@ export function MembershipCard({ viewer, bookingHref }: { viewer: Viewer; bookin
 // ---- Alerts ---------------------------------------------------------------------------------
 
 export async function LatestAlertsCard({ viewer }: { viewer: Viewer }) {
-  const alerts = await listFeedAlerts({ limit: 3, window: 3 })
+  const cutoff = await postsCutoff(viewer)
+  const feed = await listFeedAlerts(cutoff ? { window: 60 } : { limit: 3, window: 3 })
+  // A free trial sees the alerts that are old enough (the Alerts page says when the rest open).
+  const alerts = feed.filter((a) => isOpen(cutoff, a.publishedAt)).slice(0, 3)
   const receipts = await readReceipts(
     viewer.uid,
     alerts.map((a) => a.id),
@@ -133,7 +137,9 @@ export async function LatestAlertsCard({ viewer }: { viewer: Viewer }) {
     <Card>
       <CardHeader>
         <CardTitle>Latest alerts</CardTitle>
-        <CardDescription>HG&apos;s buy and sell points</CardDescription>
+        <CardDescription>
+          {cutoff ? "HG's buy and sell points, from before the last few days" : "HG's buy and sell points"}
+        </CardDescription>
         <CardAction>
           <ViewAll href="/members/alerts">View all</ViewAll>
         </CardAction>
@@ -173,14 +179,20 @@ export async function PerformanceCard({ viewer }: { viewer: Viewer }) {
       <Card>
         <CardHeader>
           <CardTitle>My performance</CardTitle>
-          <CardDescription>Link your brokerage to see your returns, trades and journal stats here.</CardDescription>
+          <CardDescription>
+            {viewer.fullAccess
+              ? "Link your brokerage to see your returns, trades and journal stats here."
+              : "Add your trades to your journal to see your stats here."}
+          </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">
-          <ButtonLink href="/members/portfolio">
-            <LuLink2 />
-            Connect your brokerage
-          </ButtonLink>
-          <ButtonLink variant="outline" href="/members/journal">
+          {viewer.fullAccess && (
+            <ButtonLink href="/members/portfolio">
+              <LuLink2 />
+              Connect your brokerage
+            </ButtonLink>
+          )}
+          <ButtonLink variant={viewer.fullAccess ? "outline" : "default"} href="/members/journal">
             Add trades manually
           </ButtonLink>
         </CardContent>
@@ -234,6 +246,18 @@ export async function PerformanceCard({ viewer }: { viewer: Viewer }) {
 
 export async function StandingCard({ viewer }: { viewer: Viewer }) {
   const { hgPortfolio } = await getMemberSettings()
+  if (!viewer.fullAccess)
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>HG standing</CardTitle>
+          <CardDescription>For members</CardDescription>
+        </CardHeader>
+        <CardContent className="text-sm text-muted-foreground">
+          How HG&apos;s own portfolio and his alerts are doing, shared with members once they join.
+        </CardContent>
+      </Card>
+    )
   if (!reachesLevel(viewer.member, hgPortfolio.openFrom))
     return (
       <Card>
@@ -298,19 +322,25 @@ export async function StandingCard({ viewer }: { viewer: Viewer }) {
 
 // ---- Strike Price Targets ---------------------------------------------------------------------
 
-export async function TargetsCard() {
-  const [latest, groups] = await Promise.all([latestTargetUpdate(), getTargetGroups()])
+export async function TargetsCard({ viewer }: { viewer: Viewer }) {
+  const cutoff = await postsCutoff(viewer)
+  const [latest, groups] = await Promise.all([latestTargetUpdate(cutoff), getTargetGroups()])
   if (!latest) {
+    const held = cutoff !== null && (await latestTargetUpdate()) !== null
     return (
       <Card>
         <CardHeader>
           <CardTitle>Strike Price Targets</CardTitle>
-          <CardDescription>The weekly targets appear here once HG publishes them.</CardDescription>
+          <CardDescription>
+            {held
+              ? "This week's update is for members. On your free trial it shows here a few days later."
+              : "The weekly targets appear here once HG publishes them."}
+          </CardDescription>
         </CardHeader>
       </Card>
     )
   }
-  const withPrevious = await getTargetUpdate(latest.effectiveDate)
+  const withPrevious = await getTargetUpdate(latest.effectiveDate, cutoff)
   const diff = withPrevious?.previous ? diffTargets(withPrevious.previous.entries, latest.entries) : null
   const changes = diff ? diff.added.length + diff.removed.length + diff.changed.length : null
   const counts = groups

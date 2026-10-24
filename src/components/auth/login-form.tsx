@@ -21,7 +21,8 @@ function safeNext(next: string | null, role: Role): string {
   return role === "member" ? "/members" : "/admin"
 }
 
-export function LoginForm({ next }: { next: string | null }) {
+/** `trialDays` offers the free trial (null when trials are off). */
+export function LoginForm({ next, trialDays }: { next: string | null; trialDays: number | null }) {
   const router = useRouter()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -108,13 +109,21 @@ export function LoginForm({ next }: { next: string | null }) {
       </form>
       <p className="text-center text-sm text-muted-foreground">
         Not a member yet?{" "}
+        {trialDays !== null && (
+          <>
+            <Link href="/trial" className="font-medium text-foreground underline-offset-4 hover:underline">
+              Try it free for {trialDays} days
+            </Link>{" "}
+            or{" "}
+          </>
+        )}
         <a
           href="/book"
           target="_blank"
           rel="noopener"
           className="font-medium text-foreground underline-offset-4 hover:underline"
         >
-          Book a free intro call
+          {trialDays !== null ? "book a free intro call" : "Book a free intro call"}
         </a>
       </p>
     </div>

@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation"
 import { cache } from "react"
 import { todayInMarketZone } from "@/core/dates"
 import type { MembershipStatus } from "@/core/domain/types"
-import { hasAccess, membershipStatus } from "@/core/membership/quarters"
+import { hasAccess, hasFullAccess, membershipStatus } from "@/core/membership/quarters"
 import { readPeriods, toMembershipPeriods } from "@/server/members"
 import { COLLECTIONS, memberSchema, memberSettingsSchema, parseDoc, type Member, type PeriodDoc } from "@/server/model"
 import { adminDb } from "@/lib/firebase/admin"
@@ -20,6 +20,8 @@ export interface Viewer {
   periods: PeriodDoc[]
   status: MembershipStatus
   hasAccess: boolean
+  /** Sees HG's posts as they are posted: false on a free trial, which sees them after a delay. */
+  fullAccess: boolean
   mfa: boolean
 }
 
@@ -61,6 +63,7 @@ export const getViewer = cache(async (): Promise<Viewer | null> => {
     periods,
     status,
     hasAccess: hasAccess(status),
+    fullAccess: hasFullAccess(status),
     mfa: session.mfa,
   }
 })

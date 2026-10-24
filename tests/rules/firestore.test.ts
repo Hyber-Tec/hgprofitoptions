@@ -67,6 +67,11 @@ beforeEach(async () => {
     await setDoc(doc(db, "members/active/privateNotes/t1"), { body: "mine", updatedAt: Timestamp.now() })
     await setDoc(doc(db, "snaptradeUsers/active"), { userSecret: "sealed" })
     await setDoc(doc(db, "members/other"), { status: "active", role: "member", access: window(10, 30) })
+    await setDoc(doc(db, "members/trial"), {
+      status: "active",
+      role: "member",
+      access: { ...window(1, 6), trial: true },
+    })
     await setDoc(doc(db, "members/advanced"), {
       status: "active",
       role: "member",
@@ -138,6 +143,13 @@ describe("member content follows the access window", () => {
     await assertFails(getDoc(doc(as("hg", true), "alerts/draft")))
     await assertSucceeds(getDoc(doc(as("active"), "targetUpdates/2026-10-07")))
     await assertFails(getDoc(doc(as("active"), "targetUpdates/2026-10-14")))
+  })
+
+  it("lets a free trial use the tools but not read HG's posts directly", async () => {
+    await assertSucceeds(getDoc(doc(as("trial"), "tickers/TSM")))
+    await assertSucceeds(getDoc(doc(as("trial"), "threads/class")))
+    await assertFails(getDoc(doc(as("trial"), "alerts/live")))
+    await assertFails(getDoc(doc(as("trial"), "targetUpdates/2026-10-07")))
   })
 
   it("does not expose other config documents", async () => {

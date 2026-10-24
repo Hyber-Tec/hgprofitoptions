@@ -41,6 +41,12 @@ service cloud.firestore {
       );
     }
 
+    // Everything HG posts, as it is posted. A free trial sees HG's alerts, strike targets and standing
+    // through the server only, which holds the newest ones back.
+    function hasFullAccess() {
+      return isStaff() || (hasAccess() && memberData().access.get('trial', false) != true);
+    }
+
     // Advanced traders and admins answer questions in Chat and read every thread.
     function answersQuestions() {
       return isAdmin() || (hasAccess() && memberData().get('level', 'beginner') == 'advanced');
@@ -78,7 +84,7 @@ service cloud.firestore {
       allow write: if false;
     }
     match /targetUpdates/{id} {
-      allow read: if hasAccess() && resource.data.status == 'published';
+      allow read: if hasFullAccess() && resource.data.status == 'published';
       allow write: if false;
     }
     match /config/{doc} {
@@ -86,15 +92,15 @@ service cloud.firestore {
       allow write: if false;
     }
     match /alerts/{id} {
-      allow read: if hasAccess() && resource.data.status in ['published', 'closed'];
+      allow read: if hasFullAccess() && resource.data.status in ['published', 'closed'];
       allow write: if false;
       match /revisions/{revision} {
-        allow read: if hasAccess();
+        allow read: if hasFullAccess();
         allow write: if false;
       }
     }
     match /standing/{period} {
-      allow read: if hasAccess();
+      allow read: if hasFullAccess();
       allow write: if false;
     }
     match /presentations/{id} {

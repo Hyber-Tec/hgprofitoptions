@@ -12,6 +12,7 @@ import {
   updateClassSchedule,
   updateMemberSettings,
   updateSiteSettings,
+  updateTrialSettings,
 } from "@/lib/actions/admin/settings"
 import { Button } from "@/components/ui/button"
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
@@ -273,6 +274,64 @@ export function ClassScheduleForm({
         >
           {pending ? <Spinner /> : <LuSave />}
           Save class schedule
+        </Button>
+      </div>
+    </FieldGroup>
+  )
+}
+
+/** The free trial: on or off, its length, and how many days HG's posts take to reach trial members. */
+export function TrialSettingsForm({ initial }: { initial: { enabled: boolean; days: number; delayDays: number } }) {
+  const [enabled, setEnabled] = useState(initial.enabled)
+  const [days, setDays] = useState(String(initial.days))
+  const [delayDays, setDelayDays] = useState(String(initial.delayDays))
+  const [pending, startTransition] = useTransition()
+  return (
+    <FieldGroup>
+      <label className="flex items-start justify-between gap-4 rounded-lg border p-3">
+        <span>
+          <span className="block text-sm font-medium">Visitors can start a free trial</span>
+          <span className="block text-sm text-muted-foreground">
+            From the bottom of the home page, the footer and the login page. Off: those links go away.
+          </span>
+        </span>
+        <Switch checked={enabled} onCheckedChange={setEnabled} aria-label="Visitors can start a free trial" />
+      </label>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field>
+          <FieldLabel htmlFor="t-days">Trial length (days)</FieldLabel>
+          <Input id="t-days" type="number" min={1} max={60} value={days} onChange={(e) => setDays(e.target.value)} />
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="t-delay">HG&apos;s posts reach trial members after (days)</FieldLabel>
+          <Input
+            id="t-delay"
+            type="number"
+            min={0}
+            max={60}
+            value={delayDays}
+            onChange={(e) => setDelayDays(e.target.value)}
+          />
+          <FieldDescription>
+            Alerts, strike targets, market briefs and spikes. 0 shows them right away.
+          </FieldDescription>
+        </Field>
+      </div>
+      <div>
+        <Button
+          disabled={pending}
+          onClick={() =>
+            startTransition(
+              async () =>
+                void done(
+                  await updateTrialSettings({ enabled, days: Number(days), delayDays: Number(delayDays) }),
+                  "Free trial saved",
+                ),
+            )
+          }
+        >
+          {pending ? <Spinner /> : <LuSave />}
+          Save free trial
         </Button>
       </div>
     </FieldGroup>

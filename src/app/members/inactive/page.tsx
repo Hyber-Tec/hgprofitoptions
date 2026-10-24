@@ -17,12 +17,15 @@ export default async function InactivePage() {
   const site = await getSiteSettings()
   const summary = membershipSummary(viewer.status)
   const status = viewer.status
+  const trialEnded = status.kind === "expired" && status.last.kind === "trial"
   const headline =
     status.kind === "upcoming"
       ? `Your membership starts ${summary.detail.replace("Starts ", "")}`
-      : status.kind === "expired"
-        ? "Your membership has ended"
-        : "You do not have an active membership"
+      : trialEnded
+        ? "Your free trial has ended"
+        : status.kind === "expired"
+          ? "Your membership has ended"
+          : "You do not have an active membership"
   const range =
     status.kind === "upcoming"
       ? describePeriodRange(status.next.start, status.next.end)
@@ -51,7 +54,9 @@ export default async function InactivePage() {
             <p className="text-sm text-muted-foreground">
               {status.kind === "upcoming"
                 ? "Your access opens automatically on the first day of your quarter, at midnight New York time."
-                : "Book a short call with HG to renew for the next quarter. Your journal and portfolio are kept, and you can export them at any time."}
+                : trialEnded
+                  ? "Thanks for trying the member area. Book a short call with HG to join: everything opens again, with HG's alerts and strike targets the moment they are posted. Your journal is kept."
+                  : "Book a short call with HG to renew for the next quarter. Your journal and portfolio are kept, and you can export them at any time."}
             </p>
           </CardContent>
           <CardFooter className="flex flex-wrap gap-2 border-t pt-4">

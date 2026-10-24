@@ -33,7 +33,7 @@ export default async function HomePage() {
       <Program schedule={settings.classSchedule} />
       <Method />
       <Mentor />
-      <Journey classDay={classDay} />
+      <Journey classDay={classDay} trialDays={settings.trial.enabled ? settings.trial.days : null} />
       <Testimonials items={testimonials} />
       <FaqPreview faqs={preview.length > 0 ? preview : faqs.slice(0, 5)} />
       <CtaBand />

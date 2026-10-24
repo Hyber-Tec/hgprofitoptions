@@ -89,14 +89,24 @@ export function listTargetUpdates(): Promise<TargetUpdate[]> {
   })
 }
 
-export async function latestTargetUpdate(): Promise<TargetUpdate | null> {
-  return (await listTargetUpdates())[0] ?? null
+/**
+ * Published updates open to a viewer: all of them, or on a free trial (`cutoff` set) those published
+ * before the cutoff. Newest first.
+ */
+export async function openTargetUpdates(cutoff: Date | null = null): Promise<TargetUpdate[]> {
+  const updates = await listTargetUpdates()
+  return cutoff === null ? updates : updates.filter((u) => u.publishedAt !== null && u.publishedAt <= cutoff)
+}
+
+export async function latestTargetUpdate(cutoff: Date | null = null): Promise<TargetUpdate | null> {
+  return (await openTargetUpdates(cutoff))[0] ?? null
 }
 
 export async function getTargetUpdate(
   effectiveDate: string,
+  cutoff: Date | null = null,
 ): Promise<{ update: TargetUpdate; previous: TargetUpdate | null } | null> {
-  const updates = await listTargetUpdates()
+  const updates = await openTargetUpdates(cutoff)
   const index = updates.findIndex((u) => u.effectiveDate === effectiveDate)
   const update = updates[index]
   if (!update) return null

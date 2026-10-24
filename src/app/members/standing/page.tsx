@@ -13,6 +13,7 @@ import { ButtonLink } from "@/components/shared/button-link"
 import { EquityCurve, MonthlyBars } from "@/components/portal/charts"
 import { Signed, Stat } from "@/components/portal/display"
 import { AsOf, PageHeader } from "@/components/portal/page-header"
+import { HeldBackNotice } from "@/components/portal/trial-notice"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -30,6 +31,15 @@ const RETURN_LABELS = [
 export default async function StandingPage() {
   const viewer = await requireActiveMember("/members/standing")
   const { hgPortfolio } = await getMemberSettings()
+  if (!viewer.fullAccess)
+    return (
+      <>
+        <PageHeader title="HG standing" description="How HG's own portfolio and published alerts are doing." />
+        <HeldBackNotice description="How HG's own portfolio and his alerts are doing, shared with members once they join.">
+          HG standing is for members
+        </HeldBackNotice>
+      </>
+    )
   if (!reachesLevel(viewer.member, hgPortfolio.openFrom)) {
     const next = LEVEL_GUIDE[viewer.member.level].next
     return (

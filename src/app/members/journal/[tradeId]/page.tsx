@@ -11,6 +11,7 @@ import { getAlert, listFeedAlerts } from "@/lib/data/alerts"
 import { getTrade } from "@/lib/data/journal"
 import { getMemberSettings } from "@/lib/data/settings"
 import { getTicker, getTickerBars } from "@/lib/data/tools"
+import { isOpen, postsCutoff } from "@/lib/data/visibility"
 import { Signed, Stat, ToneBadge } from "@/components/portal/display"
 import { JournalForm } from "@/components/portal/journal/journal-form"
 import { PrivateNote } from "@/components/portal/journal/private-note"
@@ -48,10 +49,11 @@ export default async function TradePage({ params }: PageProps<"/members/journal/
     trade.alertId && viewer.hasAccess ? getAlert(trade.alertId) : Promise.resolve(null),
     viewer.hasAccess ? listFeedAlerts({ window: 200 }) : Promise.resolve([]),
   ])
+  const cutoff = await postsCutoff(viewer)
   const alerts = symbolAlerts
-    .filter((a) => a.symbol === trade.symbol && a.parentId === null)
+    .filter((a) => a.symbol === trade.symbol && a.parentId === null && isOpen(cutoff, a.publishedAt))
     .map((a) => ({ id: a.id, title: `${a.title} (${a.publishedAt ? isoDateInZone(a.publishedAt) : ""})` }))
-  if (linkedAlert && !alerts.some((a) => a.id === linkedAlert.id))
+  if (linkedAlert && isOpen(cutoff, linkedAlert.publishedAt) && !alerts.some((a) => a.id === linkedAlert.id))
     alerts.unshift({ id: linkedAlert.id, title: linkedAlert.title })
 
   // From a month before the trade to three weeks after it closed.

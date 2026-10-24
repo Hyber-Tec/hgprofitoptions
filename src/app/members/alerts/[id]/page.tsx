@@ -7,11 +7,13 @@ import { formatDate, formatDateTimeET, formatExpiry, formatLevel, formatPercent,
 import { requireActiveMember } from "@/lib/auth/guards"
 import { getAlert, listAlertRevisions, listFollowUps, readReceipts } from "@/lib/data/alerts"
 import { getTicker, latestTargetUpdate } from "@/lib/data/tools"
+import { isOpen, opensOn, postsCutoff } from "@/lib/data/visibility"
 import { MarkRead, MuteTickerButton, TookTradeButton } from "@/components/portal/alerts/alert-actions"
 import { AlertPlan, AlertStatusBadge, toAlertView } from "@/components/portal/alerts/alert-card"
 import { AlertKindBadge } from "@/components/portal/alerts/alert-kind-badge"
 import { Signed } from "@/components/portal/display"
 import { PageHeader } from "@/components/portal/page-header"
+import { HeldBackNotice } from "@/components/portal/trial-notice"
 import { RelativeTime } from "@/components/shared/relative-time"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
@@ -27,13 +29,26 @@ export default async function AlertDetailPage({ params, searchParams }: PageProp
   if (!alert || !visible) notFound()
   if (alert.parentId) redirect(`/members/alerts/${alert.parentId}?f=${alert.id}`)
   const highlight = (await searchParams).f
+  const cutoff = await postsCutoff(viewer)
+  if (!isOpen(cutoff, alert.publishedAt)) {
+    const opens = await opensOn(alert.publishedAt)
+    return (
+      <>
+        <PageHeader title="New alert" description="One of HG's newest alerts." />
+        <HeldBackNotice>
+          This alert opens on your trial {opens ? `on ${formatDateTimeET(opens)}` : "soon"}
+        </HeldBackNotice>
+      </>
+    )
+  }
 
-  const [followUps, revisions, ticker, targets] = await Promise.all([
+  const [allFollowUps, revisions, ticker, targets] = await Promise.all([
     listFollowUps(alert.id),
     listAlertRevisions(alert.id),
     alert.symbol ? getTicker(alert.symbol) : Promise.resolve(null),
-    latestTargetUpdate(),
+    latestTargetUpdate(cutoff),
   ])
+  const followUps = allFollowUps.filter((f) => isOpen(cutoff, f.publishedAt))
   const receipts = await readReceipts(viewer.uid, [alert.id])
   const view = toAlertView(alert)
   const instrument = alertInstrument(alert)
