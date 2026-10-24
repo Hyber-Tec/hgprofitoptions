@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { LuInfo, LuPencil } from "react-icons/lu"
+import { LuDownload, LuInfo, LuPencil, LuPrinter } from "react-icons/lu"
 import type { IsoDate } from "@/core/domain/types"
 import { formatDate } from "@/core/format"
 import { requireActiveMember } from "@/lib/auth/guards"
@@ -8,7 +8,7 @@ import { integrations } from "@/lib/env.server"
 import { buildChannelRows } from "@/lib/tools/channels"
 import { AsOf, PageHeader } from "@/components/portal/page-header"
 import { ChannelsTable } from "@/components/portal/tools/channels-table"
-import { ButtonLink } from "@/components/shared/button-link"
+import { ButtonAnchor, ButtonLink } from "@/components/shared/button-link"
 import { Button } from "@/components/ui/button"
 import {
   Popover,
@@ -84,6 +84,20 @@ export default async function ChannelsPage() {
                 </dl>
               </PopoverContent>
             </Popover>
+            <ButtonAnchor
+              variant="outline"
+              size="sm"
+              href="/members/channels/pdf?print=1"
+              target="_blank"
+              rel="noopener"
+            >
+              <LuPrinter />
+              Print
+            </ButtonAnchor>
+            <ButtonAnchor variant="outline" size="sm" href="/members/channels/pdf">
+              <LuDownload />
+              PDF
+            </ButtonAnchor>
             {viewer.role === "admin" && (
               <ButtonLink size="sm" href="/admin/tickers">
                 <LuPencil />
