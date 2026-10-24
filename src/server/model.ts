@@ -565,6 +565,8 @@ export const quizSchema = z.object({
     .object({ name: z.string(), path: z.string().nullable(), contentType: z.string().nullable() })
     .nullable()
     .default(null),
+  /** Without a document, what the AI writes questions on (with the team's notes). */
+  topic: z.string().nullable().default(null),
   questions: z.array(quizQuestionSchema).default([]),
   /** How many questions one attempt draws from the bank. */
   perAttempt: z.number().int().min(1).max(100).default(10),

@@ -47,24 +47,26 @@ export async function runQuizGeneration(
     await fail("AI is not set up on the server yet.")
     return 0
   }
-  if (!claimed.source?.path) {
-    await fail("This quiz has no document to write questions from.")
+  const source = claimed.source
+  if (!source?.path && !claimed.topic) {
+    await fail("This quiz has no document or topic to write questions from.")
     return 0
   }
   try {
-    const file = files.file(claimed.source.path)
-    const [[data], [metadata]] = await Promise.all([file.download(), file.getMetadata()])
-    const doc = aiDocument(
-      claimed.source.name,
-      new Uint8Array(data),
-      claimed.source.contentType ?? metadata.contentType ?? null,
-    )
-    const written = await writeQuizQuestions(ai, doc, {
+    let from: Parameters<typeof writeQuizQuestions>[1]
+    if (source?.path) {
+      const file = files.file(source.path)
+      const [[data], [metadata]] = await Promise.all([file.download(), file.getMetadata()])
+      from = { doc: aiDocument(source.name, new Uint8Array(data), source.contentType ?? metadata.contentType ?? null) }
+    } else from = { topic: claimed.topic ?? "" }
+    const written = await writeQuizQuestions(ai, from, {
       count: claimed.generation.count,
       avoid: claimed.questions.map((q) => q.prompt),
     })
     if (written.length === 0) {
-      await fail("The AI found nothing to ask in this document.")
+      await fail(
+        source?.path ? "The AI found nothing to ask in this document." : "The AI found nothing to ask on this topic.",
+      )
       return 0
     }
     const questions = written.map((q) => ({ ...q, id: randomUUID().slice(0, 8) }))

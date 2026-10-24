@@ -1,14 +1,17 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { useEffect, useState, useTransition } from "react"
+import { useEffect, useMemo, useState, useTransition } from "react"
 import { LuArchive, LuEyeOff, LuSend, LuSparkles, LuTriangleAlert } from "react-icons/lu"
+import { parseExam, type ExamIssue, type ExamQuestion } from "@/core/exam"
+import { plural } from "@/core/format"
 import { LEVEL_LABELS, type TraderLevel } from "@/core/levels"
 import { createQuiz, setQuizStatus, updateQuizSettings, writeMoreQuestions } from "@/lib/actions/admin/quizzes"
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Spinner } from "@/components/ui/spinner"
 import { Textarea } from "@/components/ui/textarea"
@@ -30,14 +33,34 @@ export interface QuizDocumentOption {
 
 const COUNTS = [5, 10, 15, 20, 25, 30].map((n) => ({ value: String(n), label: `${n} questions` }))
 
-/** New quiz: a title, practice or test, and the class document the AI writes questions from. */
+type From = "document" | "topic" | "exam"
+
+const EXAM_EXAMPLE = `1. What does BOC stand for?
+Break of channel *
+Bottom of candle
+Base of chart
+
+2. When does HG act on a break of the channel line?
+a) On the first touch
+b) After the close below it
+c) At the open
+Answer: b`
+
+/**
+ * New quiz: a title, practice or test, and where the questions come from: a class document or a topic
+ * for the AI, or an exam pasted as written (Google Forms, a document or an email).
+ */
 export function NewQuizForm({ documents, aiReady }: { documents: QuizDocumentOption[]; aiReady: boolean }) {
   const router = useRouter()
   const [title, setTitle] = useState("")
   const [kind, setKind] = useState<"practice" | "test">("practice")
+  const [from, setFrom] = useState<From>("document")
   const [upload, setUpload] = useState<UploadedFile | null>(null)
   const [existing, setExisting] = useState("upload")
   const [count, setCount] = useState("20")
+  const [topic, setTopic] = useState("")
+  const [examText, setExamText] = useState("")
+  const [answers, setAnswers] = useState<Record<number, number>>({})
   const [pending, startTransition] = useTransition()
   const items = [
     { value: "upload", label: "Upload a new file" },
@@ -46,16 +69,32 @@ export function NewQuizForm({ documents, aiReady }: { documents: QuizDocumentOpt
   const picked = documents.find((d) => d.path === existing) ?? null
   const source =
     existing === "upload" ? upload && { path: upload.path, name: upload.name, contentType: upload.type } : picked
+  const exam = useMemo(() => parseExam(examText), [examText])
+  const examAnswers = exam.questions.map((q, i) => answers[i] ?? q.answer)
+  const unanswered = examAnswers.filter((a) => a === null).length
+  const writes = from !== "exam" && aiReady && (from === "topic" || source !== null)
+  // An exam's own title (the line above its first question) is used when none is typed.
+  const quizTitle = title.trim() || (from === "exam" ? (exam.title ?? "") : "")
 
   const submit = () =>
     startTransition(async () => {
-      const result = await createQuiz({ title, kind, source, count: aiReady && source ? Number(count) : 0 })
+      const result =
+        from === "exam"
+          ? await createQuiz({ from, title: quizTitle, kind, text: examText, answers: examAnswers })
+          : from === "topic"
+            ? await createQuiz({ from, title: quizTitle, kind, topic, count: Number(count) })
+            : await createQuiz({ from, title: quizTitle, kind, source, count: writes ? Number(count) : 0 })
       if (!result.ok) {
         toast.add({ title: "Not created", description: result.message, type: "error" })
         return
       }
       router.push(`/admin/quizzes/${result.data.id}`)
     })
+  const ready =
+    quizTitle.length >= 2 &&
+    (from === "document" ||
+      (from === "topic" && aiReady && topic.trim().length >= 10) ||
+      (from === "exam" && exam.questions.length > 0 && unanswered === 0))
 
   return (
     <form
@@ -65,22 +104,43 @@ export function NewQuizForm({ documents, aiReady }: { documents: QuizDocumentOpt
         submit()
       }}
     >
-      {!aiReady && (
+      {!aiReady && from !== "exam" && (
         <Alert>
           <LuTriangleAlert />
           <AlertTitle>AI is not connected yet</AlertTitle>
-          <AlertDescription>You can still create the quiz and write the questions yourself.</AlertDescription>
+          <AlertDescription>
+            You can still create the quiz and write the questions yourself, or paste an exam.
+          </AlertDescription>
         </Alert>
       )}
       <FieldGroup>
+        <Field>
+          <FieldLabel>Questions from</FieldLabel>
+          <ToggleGroup
+            variant="outline"
+            spacing={0}
+            value={[from]}
+            onValueChange={(v: string[]) => {
+              const next = v[0] as From | undefined
+              if (!next) return
+              setFrom(next)
+              // A pasted exam is usually the advancement test.
+              if (next === "exam") setKind("test")
+            }}
+            aria-label="Questions from"
+          >
+            <ToggleGroupItem value="document">A class document</ToggleGroupItem>
+            <ToggleGroupItem value="topic">A topic</ToggleGroupItem>
+            <ToggleGroupItem value="exam">Paste an exam</ToggleGroupItem>
+          </ToggleGroup>
+        </Field>
         <Field>
           <FieldLabel htmlFor="q-title">Title</FieldLabel>
           <Input
             id="q-title"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Channels and BOC levels"
-            required
+            placeholder={(from === "exam" ? exam.title : null) ?? "Channels and BOC levels"}
           />
         </Field>
         <Field>
@@ -101,34 +161,52 @@ export function NewQuizForm({ documents, aiReady }: { documents: QuizDocumentOpt
               : "Only members you assign take it, once each. Passing the exam (80% by default) makes a beginner Intermediate."}
           </FieldDescription>
         </Field>
-        <Field>
-          <FieldLabel>Class document</FieldLabel>
-          {documents.length > 0 && (
-            <Select items={items} value={existing} onValueChange={(v: string | null) => setExisting(v ?? "upload")}>
-              <SelectTrigger className="w-full" aria-label="Class document">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {items.map((item) => (
-                  <SelectItem key={item.value} value={item.value}>
-                    {item.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          {existing === "upload" && (
-            <UploadField
-              folder="quiz-sources"
-              accept=".pdf,.docx,.txt,.md,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
-              value={upload}
-              onChange={setUpload}
-              label="Choose a PDF, Word or text file"
+        {from === "document" && (
+          <Field>
+            <FieldLabel>Class document</FieldLabel>
+            {documents.length > 0 && (
+              <Select items={items} value={existing} onValueChange={(v: string | null) => setExisting(v ?? "upload")}>
+                <SelectTrigger className="w-full" aria-label="Class document">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {items.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            {existing === "upload" && (
+              <UploadField
+                folder="quiz-sources"
+                accept=".pdf,.docx,.txt,.md,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
+                value={upload}
+                onChange={setUpload}
+                label="Choose a PDF, Word or text file"
+              />
+            )}
+            <FieldDescription>Notes, slides or handouts from class. PDFs up to 24 MB.</FieldDescription>
+          </Field>
+        )}
+        {from === "topic" && (
+          <Field>
+            <FieldLabel htmlFor="q-topic">Topic</FieldLabel>
+            <Textarea
+              id="q-topic"
+              rows={4}
+              value={topic}
+              onChange={(e) => setTopic(e.target.value)}
+              placeholder="The break of channel: what it is, why HG waits for the close below the line, and how the BOC levels fit in."
             />
-          )}
-          <FieldDescription>Notes, slides or handouts from class. PDFs up to 24 MB.</FieldDescription>
-        </Field>
-        {aiReady && source && (
+            <FieldDescription>
+              What the questions should cover, in your own words. The more of HG&apos;s rules you write here, the closer
+              the questions follow the class.
+            </FieldDescription>
+          </Field>
+        )}
+        {writes && (
           <Field>
             <FieldLabel>Questions for the AI to write</FieldLabel>
             <Select items={COUNTS} value={count} onValueChange={(v: string | null) => setCount(v ?? "20")}>
@@ -146,14 +224,107 @@ export function NewQuizForm({ documents, aiReady }: { documents: QuizDocumentOpt
             <FieldDescription>You can ask for more later, and edit or delete any of them.</FieldDescription>
           </Field>
         )}
+        {from === "exam" && (
+          <Field>
+            <FieldLabel htmlFor="q-exam">The exam</FieldLabel>
+            <Textarea
+              id="q-exam"
+              rows={12}
+              className="max-h-[32rem] min-h-48 font-mono text-sm"
+              value={examText}
+              onChange={(e) => {
+                setExamText(e.target.value)
+                setAnswers({})
+              }}
+              placeholder={EXAM_EXAMPLE}
+            />
+            <FieldDescription>
+              Paste the questions as written, from the Google Form, a document or an email. Mark each right answer with
+              * or an &quot;Answer:&quot; line, or click it in the preview below.
+            </FieldDescription>
+          </Field>
+        )}
       </FieldGroup>
+      {from === "exam" && examText.trim() !== "" && (
+        <ExamPreview
+          questions={exam.questions}
+          issues={exam.issues}
+          answers={examAnswers}
+          onAnswer={(question, answer) => setAnswers((a) => ({ ...a, [question]: answer }))}
+        />
+      )}
       <div>
-        <Button type="submit" disabled={pending || title.trim().length < 2}>
-          {pending ? <Spinner /> : aiReady && source ? <LuSparkles /> : null}
-          {aiReady && source ? "Create and write questions" : "Create quiz"}
+        <Button type="submit" disabled={pending || !ready}>
+          {pending ? <Spinner /> : writes ? <LuSparkles /> : null}
+          {from === "exam"
+            ? exam.questions.length > 0
+              ? `Import ${plural(exam.questions.length, "question")}`
+              : "Import"
+            : writes
+              ? "Create and write questions"
+              : "Create quiz"}
         </Button>
+        {from === "exam" && unanswered > 0 && (
+          <p className="mt-2 text-sm text-muted-foreground">
+            Pick the right answer for {plural(unanswered, "question")} to import the exam.
+          </p>
+        )}
       </div>
     </form>
+  )
+}
+
+/** The pasted exam as members will see it, with the right answers marked and clickable. */
+function ExamPreview({
+  questions,
+  issues,
+  answers,
+  onAnswer,
+}: {
+  questions: ExamQuestion[]
+  issues: ExamIssue[]
+  answers: (number | null)[]
+  onAnswer: (question: number, answer: number) => void
+}) {
+  return (
+    <section className="flex flex-col gap-3" aria-label="Preview" aria-live="polite">
+      <p className="text-sm font-medium">
+        {questions.length === 0 ? "No questions read yet" : `${plural(questions.length, "question")} read`}
+      </p>
+      {issues.length > 0 && (
+        <ul className="flex flex-col gap-1 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm">
+          {issues.map((issue) => (
+            <li key={`${String(issue.line)}-${issue.message}`}>
+              <span className="font-medium">Line {issue.line}:</span> {issue.message}
+            </li>
+          ))}
+        </ul>
+      )}
+      <ol className="flex flex-col gap-3">
+        {questions.map((q, i) => (
+          <li key={`${String(q.line)}-${q.prompt}`} className="rounded-lg border p-3">
+            <p className="text-sm font-medium">
+              {i + 1}. {q.prompt}
+            </p>
+            <RadioGroup
+              value={answers[i] === null || answers[i] === undefined ? null : String(answers[i])}
+              onValueChange={(v: unknown) => onAnswer(i, Number(v))}
+              className="mt-2 gap-1.5"
+              aria-label={`Right answer to question ${String(i + 1)}`}
+            >
+              {q.choices.map((choice, j) => (
+                <label key={`${String(j)}-${choice}`} className="flex items-start gap-2 text-sm">
+                  <RadioGroupItem value={String(j)} className="mt-0.5" />
+                  <span className={answers[i] === j ? "font-medium" : "text-muted-foreground"}>{choice}</span>
+                </label>
+              ))}
+            </RadioGroup>
+            {answers[i] === null && <p className="mt-2 text-xs text-warning">Click the right answer.</p>}
+            {q.explanation && <p className="mt-2 text-xs text-muted-foreground">{q.explanation}</p>}
+          </li>
+        ))}
+      </ol>
+    </section>
   )
 }
 

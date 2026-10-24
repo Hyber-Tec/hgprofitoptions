@@ -51,6 +51,7 @@ const ACTION_LABELS: Record<string, string> = {
   "brief.settings_updated": "Market brief times changed",
   "brief.ai_draft": "AI wrote a market brief draft",
   "presentation.sent": "Presentation sent to members",
+  "quiz.imported": "Exam imported",
   "recap.recording_saved": "Recording link saved",
   "recap.recording_sent": "Recording sent to members",
   "spike.posted": "Spikes posted",

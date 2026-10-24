@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { isoDateInZone } from "@/core/dates"
 import { formatDate, formatPercent, plural } from "@/core/format"
+import { quizOrigin } from "@/core/quiz"
 import { requireAdmin } from "@/lib/auth/guards"
 import { listMembers } from "@/lib/data/admin"
 import { getQuiz, listAssignmentsFor, listAttemptsFor } from "@/lib/data/quizzes"
@@ -41,7 +42,7 @@ export default async function AdminQuizPage({ params }: PageProps<"/admin/quizze
     <>
       <PageHeader
         title={quiz.title}
-        description={quiz.source ? `From ${quiz.source.name}` : "Questions written by hand"}
+        description={quizOrigin(quiz)}
         meta={
           <>
             <ToneBadge tone="neutral">{quiz.kind === "test" ? "Test" : "Practice"}</ToneBadge>
@@ -58,7 +59,7 @@ export default async function AdminQuizPage({ params }: PageProps<"/admin/quizze
           quizId={quiz.id}
           status={quiz.generation.status}
           message={quiz.generation.message}
-          canRetry={integrations.ai && quiz.source?.path != null}
+          canRetry={integrations.ai && (quiz.source?.path != null || quiz.topic !== null)}
         />
       )}
 
@@ -77,7 +78,7 @@ export default async function AdminQuizPage({ params }: PageProps<"/admin/quizze
             <QuestionsEditor
               quizId={quiz.id}
               questions={quiz.questions}
-              canWriteMore={integrations.ai && quiz.source?.path != null && !working}
+              canWriteMore={integrations.ai && (quiz.source?.path != null || quiz.topic !== null) && !working}
             />
           </CardContent>
         </Card>

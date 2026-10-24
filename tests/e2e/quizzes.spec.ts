@@ -92,3 +92,54 @@ test("passing the exam with 80% or more makes a beginner Intermediate", async ({
   await expect(levels.getByText("HG moves traders up to Advanced when they are ready.")).toBeVisible()
   await member.close()
 })
+
+test("HG imports the exam by pasting it, picking the one answer it did not mark", async ({ page }) => {
+  await signIn(page, ACCOUNTS.admin)
+  await expect(page).toHaveURL(/\/admin$/)
+  await page.goto("/admin/quizzes/new")
+  await page.getByRole("button", { name: "Paste an exam" }).click()
+  await page
+    .getByLabel("The exam")
+    .fill(
+      [
+        "Channels and BOC exam",
+        "1. What does BOC stand for? *",
+        "1 point",
+        "Break of channel",
+        "Bottom of candle",
+        "Answer: Break of channel",
+        "",
+        "2. When does HG act on a break of the channel line?",
+        "a) On the first touch",
+        "b) After the close below it",
+      ].join("\n"),
+    )
+  // The exam's title comes with it; the unmarked answer is picked in the preview.
+  await expect(page.getByLabel("Title")).toHaveAttribute("placeholder", "Channels and BOC exam")
+  const importButton = page.getByRole("button", { name: "Import 2 questions" })
+  await expect(importButton).toBeDisabled()
+  await page
+    .getByRole("radiogroup", { name: "Right answer to question 2" })
+    .getByText("After the close below it")
+    .click()
+  await importButton.click()
+  await expect(page).toHaveURL(/\/admin\/quizzes\/(?!new)[^/]+$/)
+  await expect(page.getByRole("heading", { level: 1, name: "Channels and BOC exam" })).toBeVisible()
+  await expect(page.getByText("From the pasted exam")).toBeVisible()
+  await expect(page.getByText("When does HG act on a break of the channel line?")).toBeVisible()
+})
+
+test("AI writes practice questions on a topic HG describes", async ({ page }) => {
+  await signIn(page, ACCOUNTS.admin)
+  await expect(page).toHaveURL(/\/admin$/)
+  await page.goto("/admin/quizzes/new")
+  await page.getByRole("button", { name: "A topic" }).click()
+  await page.getByLabel("Title").fill("Break of channel")
+  await page.getByLabel("Topic").fill("The break of channel: why HG waits for the close below the line before acting.")
+  await page.getByRole("combobox", { name: "Questions for the AI to write" }).click()
+  await page.getByRole("option", { name: "5 questions", exact: true }).click()
+  await page.getByRole("button", { name: "Create and write questions" }).click()
+  await expect(page).toHaveURL(/\/admin\/quizzes\/(?!new)[^/]+$/)
+  await expect(page.getByText("Question 5:")).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByText(/^On: The break of channel/)).toBeVisible()
+})

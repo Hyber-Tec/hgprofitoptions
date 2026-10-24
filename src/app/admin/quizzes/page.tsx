@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { LuPlus } from "react-icons/lu"
 import { formatDateTimeET } from "@/core/format"
+import { quizOrigin } from "@/core/quiz"
 import { requireAdmin } from "@/lib/auth/guards"
 import { listQuizzes } from "@/lib/data/quizzes"
 import { ToneBadge } from "@/components/portal/display"
@@ -62,7 +63,7 @@ export default async function AdminQuizzesPage() {
                     >
                       {q.title}
                     </Link>
-                    {q.source && <span className="block text-xs text-muted-foreground">From {q.source.name}</span>}
+                    <span className="block text-xs text-muted-foreground">{quizOrigin(q)}</span>
                   </TableCell>
                   <TableCell className="hidden text-sm sm:table-cell">
                     {q.kind === "test" ? "Test" : "Practice"}

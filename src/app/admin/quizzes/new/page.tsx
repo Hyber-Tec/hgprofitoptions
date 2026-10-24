@@ -23,7 +23,7 @@ export default async function NewQuizPage() {
     <>
       <PageHeader
         title="New quiz"
-        description="Pick the class document. AI reads it and writes the questions; you review them before members see anything."
+        description="Questions from a class document or a topic, written by AI, or an exam pasted as it is. You review them before members see anything."
       />
       <NewQuizForm documents={documents} aiReady={integrations.ai} />
     </>

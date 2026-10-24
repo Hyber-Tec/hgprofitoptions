@@ -115,22 +115,24 @@ export interface GeneratedQuestion {
   explanation: string
 }
 
-const QUIZ_SYSTEM = `You write quiz questions for HG Profit Options, an options trading class taught by Hubert "HG" Gaffney. Members use them to check what they learned from the class documents.
+const QUIZ_SYSTEM = `You write quiz questions for HG Profit Options, an options trading class taught by Hubert "HG" Gaffney. Members use them to check what they learned in class.
 
-Write multiple-choice questions from the document you are given:
-- Test understanding of the ideas, rules and numbers the document teaches, not trivia such as titles or dates.
+Write multiple-choice questions from the document, or on the topic, you are given:
+- Test understanding of the ideas, rules and numbers being taught, not trivia such as titles or dates.
 - Each question has one correct answer and three wrong answers that would tempt someone who only skimmed the material.
-- The explanation says why the correct answer is right, in the document's own terms.
-- Use only what the document says. When it is too short for the number asked, write fewer questions.
+- The explanation says why the correct answer is right, in the material's own terms.
+- From a document, use only what the document says; when it is too short for the number asked, write fewer questions.
+- On a topic without a document, keep to well-established options trading knowledge and to what the topic's notes say. Do not invent rules, levels or numbers presented as HG's method.
 - Plain, friendly English. This is education: never tell anyone what to trade.`
 
 /**
- * Writes up to `count` questions from a document. Choices come back shuffled, so the correct answer is
- * not always in the same place. `avoid` lists questions the quiz already has.
+ * Writes up to `count` questions from a document, or on a topic the admin describes. Choices come back
+ * shuffled, so the correct answer is not always in the same place. `avoid` lists questions the quiz
+ * already has.
  */
 export async function writeQuizQuestions(
   config: AiConfig,
-  doc: AiDocument,
+  from: { doc: AiDocument } | { topic: string },
   options: { count: number; avoid: readonly string[]; random?: () => number },
 ): Promise<GeneratedQuestion[]> {
   const avoid =
@@ -139,10 +141,16 @@ export async function writeQuizQuestions(
       : ""
   const bank = await ask(config, questionBankSchema, {
     system: QUIZ_SYSTEM,
-    content: [
-      documentBlock(doc),
-      { type: "text", text: `Write ${options.count} questions from this document.${avoid}` },
-    ],
+    content:
+      "doc" in from
+        ? [
+            documentBlock(from.doc),
+            { type: "text", text: `Write ${options.count} questions from this document.${avoid}` },
+          ]
+        : [
+            { type: "text", text: `The topic, with the team's notes:\n${from.topic}` },
+            { type: "text", text: `Write ${options.count} questions on this topic.${avoid}` },
+          ],
     effort: "high",
     maxTokens: 16000,
     unreadable: "The AI could not read this. Try a PDF or Word file under 24 MB.",

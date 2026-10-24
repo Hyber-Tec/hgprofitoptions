@@ -1,7 +1,8 @@
 /**
  * A stand-in for the AI API, for local development and the end-to-end tests only. It answers the three
- * requests the app makes (quiz questions from a document, a class summary from a transcript, a market
- * brief) with simple answers built from the text it was sent, so the flows can be tried without a paid key.
+ * requests the app makes (quiz questions from a document or on a topic, a class summary from a
+ * transcript, a market brief) with simple answers built from the text it was sent, so the flows can be
+ * tried without a paid key.
  *
  *   pnpm ai:fake          # http://127.0.0.1:7657; then set in .env.local:
  *                         #   AI_API_KEY=fake  AI_BASE_URL=http://127.0.0.1:7657
@@ -65,11 +66,13 @@ function alter(sentence: string, n: number): string {
 function quiz(request: Request): unknown {
   const content = request.messages?.at(-1)?.content
   const blocks = Array.isArray(content) ? content : []
-  const ask = blocks.find((b) => b.type === "text")?.text ?? ""
+  const ask = blocks.find((b) => b.type === "text" && /Write \d+ questions/.test(b.text ?? ""))?.text ?? ""
   const count = Number(/Write (\d+) questions/.exec(ask)?.[1] ?? 5)
   const doc = blocks.find((b) => b.type === "document")
-  const text = doc?.source?.type === "text" ? (doc.source.data ?? "") : ""
-  const title = doc?.title ?? "the document"
+  // Without a document, the questions are on a topic the admin described.
+  const topic = blocks.find((b) => b.type === "text" && b.text?.startsWith("The topic"))?.text?.replace(/^[^\n]*\n/, "")
+  const text = doc?.source?.type === "text" ? (doc.source.data ?? "") : (topic ?? "")
+  const title = doc?.title ?? (topic ? "the topic" : "the document")
   const facts = sentences(text)
   const questions = Array.from({ length: count }, (_, i) => {
     const fact = facts[i % Math.max(facts.length, 1)]
