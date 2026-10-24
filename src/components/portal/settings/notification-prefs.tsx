@@ -21,6 +21,7 @@ export interface PrefsValues {
   membershipReminders: boolean
   chat: boolean
   classRecaps: boolean
+  classReminders: boolean
 }
 
 export function NotificationPrefs({ initial, emailAvailable }: { initial: PrefsValues; emailAvailable: boolean }) {
@@ -179,6 +180,18 @@ export function NotificationPrefs({ initial, emailAvailable }: { initial: PrefsV
             </span>
           </span>
           <Switch checked={prefs.classRecaps} onCheckedChange={(v) => setPrefs((p) => ({ ...p, classRecaps: v }))} />
+        </label>
+        <label className="flex items-start justify-between gap-4">
+          <span>
+            <span className="block text-sm font-medium">Class reminders</span>
+            <span className="block text-sm text-muted-foreground">
+              Before each class meant for you, with the Zoom link{emailAvailable ? ", by notification and email" : ""}.
+            </span>
+          </span>
+          <Switch
+            checked={prefs.classReminders}
+            onCheckedChange={(v) => setPrefs((p) => ({ ...p, classReminders: v }))}
+          />
         </label>
       </section>
 

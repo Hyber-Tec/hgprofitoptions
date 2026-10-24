@@ -2,9 +2,18 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { LuCalendarCheck, LuCalendarPlus, LuClock, LuVideo } from "react-icons/lu"
 import { SiWhatsapp, SiZoom } from "react-icons/si"
-import { todayInMarketZone, zonedStartOfDay } from "@/core/dates"
+import { todayInMarketZone, zonedDateTime } from "@/core/dates"
 import { formatDate } from "@/core/format"
-import { WEEKDAYS, formatDayIn, formatTimeIn, isMarketOpen, nextOccurrence, zoneAbbreviation } from "@/core/schedule"
+import {
+  AUDIENCE_LABELS,
+  WEEKDAYS,
+  describeWeek,
+  formatDayIn,
+  formatTimeIn,
+  isMarketOpen,
+  upcomingSessions,
+  zoneAbbreviation,
+} from "@/core/schedule"
 import { classMeetingNumber } from "@/core/zoom"
 import { requireActiveMember } from "@/lib/auth/guards"
 import { getSiteSettings } from "@/lib/data/public"
@@ -24,18 +33,19 @@ export default async function ClassroomPage() {
   const inSite = integrations.zoomEmbed && classMeetingNumber(settings) !== null
   const tz = viewer.member.timezone
   const showLocal = tz !== "America/New_York"
-  const sessions = site.classSchedule.map((s) => ({ ...s, next: nextOccurrence(s) }))
+  const sessions = upcomingSessions(site.classSchedule)
+  const week = describeWeek(site.classSchedule)
   // Regular market hours today, shown in ET and the member's own time.
   const today = todayInMarketZone()
-  const open = new Date(zonedStartOfDay(today).getTime() + (9 * 60 + 30) * 60_000)
-  const close = new Date(zonedStartOfDay(today).getTime() + 16 * 60 * 60_000)
+  const open = zonedDateTime(today, "09:30")
+  const close = zonedDateTime(today, "16:00")
   const bookHref = settings.oneOnOneUrl ?? site.bookingUrl
 
   return (
     <>
       <PageHeader
         title="Classroom"
-        description="Live classes every week and their recaps, a monthly one-on-one with HG and the member WhatsApp group."
+        description={`The classroom is open 24/7${week ? `, with ${week}` : ""}. Recaps, your one-on-one with HG and the member WhatsApp group are here too.`}
         actions={
           <ButtonAnchor variant="outline" size="sm" href="/members/classroom/calendar.ics">
             <LuCalendarPlus />
@@ -46,12 +56,17 @@ export default async function ClassroomPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="flex flex-col gap-6 lg:col-span-2">
           {sessions.map((s) => (
-            <Card key={`${s.day}-${s.start}`}>
+            <Card key={`${String(s.day)}-${s.start}`}>
               <CardHeader>
                 <CardDescription>
                   Every {WEEKDAYS[s.day]} · next on {formatDayIn(s.next.start, "America/New_York")}
                 </CardDescription>
                 <CardTitle className="text-lg">{s.title}</CardTitle>
+                <CardAction>
+                  <ToneBadge tone={s.audience === "beginners" ? "neutral" : "muted"}>
+                    {AUDIENCE_LABELS[s.audience]}
+                  </ToneBadge>
+                </CardAction>
               </CardHeader>
               <CardContent className="flex flex-col gap-2">
                 <p className="flex items-start gap-2 text-sm tabular-nums">
@@ -74,7 +89,7 @@ export default async function ClassroomPage() {
                     )}
                   </span>
                 </p>
-                <p className="text-sm text-muted-foreground">{s.audience}</p>
+                {s.note && <p className="text-sm text-muted-foreground">{s.note}</p>}
               </CardContent>
               {(inSite || settings.zoomUrl) && (
                 <CardFooter className="flex flex-wrap gap-2 border-t pt-4">
@@ -146,8 +161,10 @@ export default async function ClassroomPage() {
         <div className="flex flex-col gap-6">
           <Card>
             <CardHeader>
-              <CardTitle>Monthly one-on-one</CardTitle>
-              <CardDescription>A private session with HG each month to review your trades and plan.</CardDescription>
+              <CardTitle>Your one-on-one with HG</CardTitle>
+              <CardDescription>
+                Every portfolio is different. Work with HG each month on a trading plan that is personal to yours.
+              </CardDescription>
             </CardHeader>
             <CardFooter>
               <ButtonAnchor href={bookHref} target="_blank" rel="noopener noreferrer">

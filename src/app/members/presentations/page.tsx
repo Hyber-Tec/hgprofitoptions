@@ -17,7 +17,7 @@ export default async function PresentationsPage() {
     <>
       <PageHeader
         title="Presentations"
-        description="Slides and recordings from the Saturday classes, newest first. Downloads carry your name."
+        description="Slides and recordings from the live classes, newest first. Downloads carry your name."
       />
       {presentations.length === 0 ? (
         <Empty className="border border-dashed py-16">

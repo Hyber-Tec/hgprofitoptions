@@ -1,5 +1,5 @@
 /**
- * Member notifications other than alerts: new strike targets, class recaps and membership reminders.
+ * Member notifications other than alerts: new strike targets, class recaps, class and membership reminders.
  * Shared by Cloud Functions (scheduled and triggered) and, in local development, the web server.
  */
 import { Timestamp, type Firestore } from "firebase-admin/firestore"
@@ -8,9 +8,18 @@ import { addDays, daysBetween, todayInMarketZone } from "@/core/dates"
 import type { IsoDate } from "@/core/domain/types"
 import { formatDate } from "@/core/format"
 import { hasAccess, membershipStatus } from "@/core/membership/quarters"
+import { formatDayIn, formatTimeIn, nextOccurrence, zoneAbbreviation, type ClassSession } from "@/core/schedule"
 import { layout, sendEmail, sendEmailBatch, type EmailConfig } from "./email"
 import { readPeriods, toMembershipPeriods } from "./members"
-import { COLLECTIONS, memberSchema, parseDoc, type Member } from "./model"
+import {
+  COLLECTIONS,
+  DEFAULT_SITE_SETTINGS,
+  memberSchema,
+  memberSettingsSchema,
+  parseDoc,
+  siteSettingsSchema,
+  type Member,
+} from "./model"
 import { sendToMembers } from "./push"
 
 async function activeMembers(
@@ -139,6 +148,112 @@ export async function sendMembershipReminders(
     sent++
   }
   return sent
+}
+
+const ET = "America/New_York"
+
+/** "today at 7:00 PM ET", "tomorrow at 9:30 AM ET" or "Tue, Oct 27 at 9:30 AM ET". */
+function whenText(start: Date, now: Date): string {
+  const day = formatDayIn(start, ET)
+  const time = `${formatTimeIn(start, ET)} ET`
+  if (day === formatDayIn(now, ET)) return `today at ${time}`
+  if (day === formatDayIn(new Date(now.getTime() + 86_400_000), ET)) return `tomorrow at ${time}`
+  return `${day} at ${time}`
+}
+
+/** The reminder's id for one occurrence of a class: the same class at the same time is reminded once. */
+const reminderId = (date: IsoDate, session: ClassSession) =>
+  `${date}-${session.start.replace(":", "")}-${session.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`.slice(0, 120)
+
+/**
+ * A reminder before each class with the Zoom link, by notification and (when set up) by email, to the
+ * members the class is for who keep class reminders on. Runs every few minutes; a document per class
+ * occurrence makes sure each one is sent once. Returns the classes reminded and to how many members.
+ */
+export async function sendClassReminders(
+  db: Firestore,
+  messaging: Messaging,
+  email: EmailConfig | null,
+  siteUrl: string,
+  now: Date = new Date(),
+): Promise<{ title: string; date: IsoDate; members: number }[]> {
+  const [siteSnap, membersSnap] = await Promise.all([
+    db.collection(COLLECTIONS.settings).doc("site").get(),
+    db.collection(COLLECTIONS.settings).doc("members").get(),
+  ])
+  const site = siteSnap.exists
+    ? (parseDoc(siteSettingsSchema, "site", siteSnap.data()) ?? DEFAULT_SITE_SETTINGS)
+    : DEFAULT_SITE_SETTINGS
+  const lead = site.classReminderMinutes
+  if (lead === null) return []
+  const zoomUrl = parseDoc(memberSettingsSchema, "members", membersSnap.data() ?? {})?.zoomUrl ?? null
+  const due = site.classSchedule
+    .map((session) => ({ session, next: nextOccurrence(session, now) }))
+    .filter(({ next }) => {
+      const until = next.start.getTime() - now.getTime()
+      return until > 0 && until <= lead * 60_000
+    })
+  if (due.length === 0) return []
+
+  const today = todayInMarketZone(now)
+  const members = (await activeMembers(db, today)).filter(
+    ({ member, status }) => hasAccess(status) && member.prefs.classReminders,
+  )
+  const classroomUrl = `${siteUrl.replace(/\/+$/, "")}/members/classroom`
+  const reminded: { title: string; date: IsoDate; members: number }[] = []
+  for (const { session, next } of due) {
+    try {
+      await db
+        .collection(COLLECTIONS.classReminders)
+        .doc(reminderId(next.date, session))
+        .create({ date: next.date, title: session.title, sentAt: Timestamp.now() })
+    } catch {
+      continue // Already reminded (or being reminded by another run).
+    }
+    const recipients = members
+      .filter(
+        ({ member }) => session.audience === "everyone" || (member.role === "member" && member.level === "beginner"),
+      )
+      .map(({ member }) => member)
+    const when = whenText(next.start, now)
+    const title = `${session.title} ${when}`
+    await sendToMembers(
+      db,
+      messaging,
+      recipients.map((m) => m.uid),
+      {
+        title,
+        body: zoomUrl ? "Tap to open the classroom and join on Zoom." : "Tap to open the classroom.",
+        url: "/members/classroom",
+        tag: `class-${reminderId(next.date, session)}`,
+      },
+    )
+    if (email) {
+      await sendEmailBatch(
+        email,
+        recipients.map((m) => {
+          const local =
+            m.timezone === ET
+              ? ""
+              : ` That is ${formatTimeIn(next.start, m.timezone)} ${zoneAbbreviation(next.start, m.timezone)} your time.`
+          const { html, text } = layout({
+            heading: `${session.title} starts ${when}`,
+            paragraphs: [
+              `${session.note ? `${session.note}. ` : ""}It runs until ${formatTimeIn(next.end, ET)} ET.${local}`,
+              zoomUrl
+                ? "Join on Zoom with the button below, or from the Classroom page."
+                : "Join from the Classroom page.",
+            ],
+            cta: { label: zoomUrl ? "Join on Zoom" : "Open the classroom", href: zoomUrl ?? classroomUrl },
+            footer: "You get this because class reminders are on. Turn them off in Settings, Notifications.",
+          })
+          return { to: m.email, subject: title, html, text }
+        }),
+      )
+    }
+    reminded.push({ title: session.title, date: next.date, members: recipients.length })
+  }
+  return reminded
 }
 
 /** Members whose membership ended yesterday, for the admin digest. */

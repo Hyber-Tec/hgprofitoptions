@@ -16,7 +16,7 @@ import {
 } from "react-icons/lu"
 import { isIsoDate } from "@/core/dates"
 import type { IsoDate } from "@/core/domain/types"
-import { classTitle } from "@/core/schedule"
+import { classTitle, type ClassSession } from "@/core/schedule"
 import {
   createRecap,
   deleteRecap,
@@ -51,10 +51,18 @@ const TRANSCRIPT_TYPES =
   ".vtt,.srt,.txt,.docx,.pdf,text/vtt,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
 /** A recap from a transcript file: Zoom's (.vtt) or any text, Word or PDF copy of what was said. */
-export function NewRecapForm({ aiReady, defaultDate }: { aiReady: boolean; defaultDate: IsoDate }) {
+export function NewRecapForm({
+  aiReady,
+  defaultDate,
+  schedule,
+}: {
+  aiReady: boolean
+  defaultDate: IsoDate
+  schedule: ClassSession[]
+}) {
   const router = useRouter()
   const [date, setDate] = useState<string>(defaultDate)
-  const [title, setTitle] = useState(classTitle(defaultDate))
+  const [title, setTitle] = useState(classTitle(defaultDate, schedule))
   const [titleEdited, setTitleEdited] = useState(false)
   const [file, setFile] = useState<UploadedFile | null>(null)
   const [pending, startTransition] = useTransition()
@@ -97,7 +105,7 @@ export function NewRecapForm({ aiReady, defaultDate }: { aiReady: boolean; defau
               value={date}
               onChange={(e) => {
                 setDate(e.target.value)
-                if (!titleEdited && isIsoDate(e.target.value)) setTitle(classTitle(e.target.value))
+                if (!titleEdited && isIsoDate(e.target.value)) setTitle(classTitle(e.target.value, schedule))
               }}
               required
             />

@@ -11,7 +11,7 @@ export default async function AdminPresentationsPage() {
   const items = await listPresentations({ includeDrafts: true })
   return (
     <>
-      <PageHeader title="Presentations" description="Slides and recordings from the Saturday classes." />
+      <PageHeader title="Presentations" description="Slides and recordings from the live classes." />
       <PresentationsManager
         items={items.map((p) => ({
           id: p.id,

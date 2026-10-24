@@ -1000,22 +1000,23 @@ function simplePdf(title: string, lines: readonly string[]): Buffer {
 }
 
 async function seedContent(db: Firestore, bucket: Bucket, today: IsoDate): Promise<void> {
-  const saturdays: IsoDate[] = []
-  for (let d = addDays(today, -1); saturdays.length < 4; d = addDays(d, -1))
-    if (new Date(`${d}T12:00:00Z`).getUTCDay() === 6) saturdays.push(d)
+  // The Sunday group class's slides, for the last four Sundays.
+  const sundays: IsoDate[] = []
+  for (let d = addDays(today, -1); sundays.length < 4; d = addDays(d, -1))
+    if (new Date(`${d}T12:00:00Z`).getUTCDay() === 0) sundays.push(d)
   const topics = [
     "Channel breaks and the BOC bounce",
     "Reading the weekly strike targets",
     "Position sizing for small accounts",
     "Earnings season playbook",
   ]
-  for (const [i, day] of saturdays.entries()) {
+  for (const [i, day] of sundays.entries()) {
     const id = `demo-p${i + 1}`
     const path = `content/demo/presentations/${id}.pdf`
-    const title = topics[i] ?? "Saturday class"
+    const title = topics[i] ?? "Group class"
     await bucket
       .file(path)
-      .save(simplePdf(title, ["Saturday class slides (demo)", "Channel lines, BOC levels and the weekly plan."]), {
+      .save(simplePdf(title, ["Group class slides (demo)", "Channel lines, BOC levels and the weekly plan."]), {
         contentType: "application/pdf",
       })
     await db
@@ -1024,7 +1025,7 @@ async function seedContent(db: Firestore, bucket: Bucket, today: IsoDate): Promi
       .set({
         title,
         sessionDate: day,
-        summary: "Slides and notes from the Saturday class.",
+        summary: "Slides and notes from the Sunday group class.",
         slidesPath: path,
         videoUrl: i === 0 ? null : "https://example.com/recording",
         published: true,
@@ -1128,8 +1129,8 @@ async function main(): Promise<void> {
     sellPoints: [],
     stop: null,
     id: "demo-i1",
-    title: "Saturday class starts at 7 PM ET this week",
-    body: "The beginner session is moved to 6:30 PM ET. Same Zoom link.",
+    title: "Sunday's group class starts at 7:30 PM ET this week",
+    body: "Thirty minutes later than usual, same Zoom link. Tuesday's beginner session is at the open as always.",
     parentId: null,
     status: "published",
     publishedAt: at(today, 8, 5),

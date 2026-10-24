@@ -2,12 +2,13 @@
 
 import { useState, useTransition } from "react"
 import { LuPlus, LuRefreshCw, LuSave, LuTrash2 } from "react-icons/lu"
-import { WEEKDAYS } from "@/core/schedule"
+import { AUDIENCE_LABELS, CLASS_AUDIENCES, WEEKDAYS, type ClassAudience, type ClassSession } from "@/core/schedule"
 import { formatMeetingId, zoomMeetingNumber } from "@/core/zoom"
 import {
   recomputeStanding,
   setHouseConnection,
   updateHgVisibility,
+  updateClassSchedule,
   updateMemberSettings,
   updateSiteSettings,
 } from "@/lib/actions/admin/settings"
@@ -29,26 +30,20 @@ function done(result: Result, success: string): boolean {
   return result.ok
 }
 
-interface ClassRow {
-  day: number
-  start: string
-  end: string
-  title: string
-  audience: string
-}
-
 const DAY_ITEMS = WEEKDAYS.map((d, i) => ({ value: String(i), label: d }))
+const AUDIENCE_ITEMS = CLASS_AUDIENCES.map((a) => ({ value: a, label: AUDIENCE_LABELS[a] }))
+const REMINDER_ITEMS = [
+  { value: "15", label: "15 minutes before" },
+  { value: "30", label: "30 minutes before" },
+  { value: "60", label: "1 hour before" },
+  { value: "120", label: "2 hours before" },
+  { value: "1440", label: "1 day before" },
+]
 
 export function SiteSettingsForm({
   initial,
 }: {
-  initial: {
-    bookingUrl: string
-    instagramUrl: string | null
-    youtubeUrl: string | null
-    xUrl: string | null
-    classSchedule: ClassRow[]
-  }
+  initial: { bookingUrl: string; instagramUrl: string | null; youtubeUrl: string | null; xUrl: string | null }
 }) {
   const [form, setForm] = useState({
     bookingUrl: initial.bookingUrl,
@@ -56,10 +51,7 @@ export function SiteSettingsForm({
     youtubeUrl: initial.youtubeUrl ?? "",
     xUrl: initial.xUrl ?? "",
   })
-  const [classes, setClasses] = useState<ClassRow[]>(initial.classSchedule)
   const [pending, startTransition] = useTransition()
-  const setClass = (i: number, patch: Partial<ClassRow>) =>
-    setClasses((list) => list.map((c, j) => (j === i ? { ...c, ...patch } : c)))
   return (
     <FieldGroup>
       <Field>
@@ -90,20 +82,48 @@ export function SiteSettingsForm({
           </Field>
         ))}
       </div>
-      <Field>
-        <FieldLabel>Class schedule (New York time)</FieldLabel>
-        <div className="flex flex-col gap-2">
-          {classes.map((c, i) => (
-            <div
-              key={i}
-              className="grid grid-cols-[1fr_1fr_auto] items-center gap-2 rounded-lg border p-3 sm:grid-cols-[9rem_8.5rem_8.5rem_1fr] xl:grid-cols-[9rem_8.5rem_8.5rem_1fr_1fr_auto]"
-            >
+      <div>
+        <Button
+          disabled={pending}
+          onClick={() => startTransition(async () => void done(await updateSiteSettings(form), "Site settings saved"))}
+        >
+          {pending ? <Spinner /> : <LuSave />}
+          Save site settings
+        </Button>
+      </div>
+    </FieldGroup>
+  )
+}
+
+/** The weekly classes, and when members are reminded of them. */
+export function ClassScheduleForm({
+  initial,
+}: {
+  initial: { classSchedule: ClassSession[]; classReminderMinutes: number | null }
+}) {
+  const [classes, setClasses] = useState<ClassSession[]>(initial.classSchedule)
+  const [reminders, setReminders] = useState(initial.classReminderMinutes !== null)
+  const [minutes, setMinutes] = useState(String(initial.classReminderMinutes ?? 60))
+  const [pending, startTransition] = useTransition()
+  const setClass = (i: number, patch: Partial<ClassSession>) =>
+    setClasses((list) => list.map((c, j) => (j === i ? { ...c, ...patch } : c)))
+  return (
+    <FieldGroup>
+      <div className="flex flex-col gap-3">
+        {classes.map((c, i) => (
+          <fieldset
+            key={i}
+            aria-label={c.title || `Class ${String(i + 1)}`}
+            className="grid grid-cols-2 gap-3 rounded-lg border p-3 lg:grid-cols-[repeat(4,minmax(0,1fr))_auto]"
+          >
+            <Field>
+              <FieldLabel htmlFor={`c-day-${String(i)}`}>Day</FieldLabel>
               <Select
                 items={DAY_ITEMS}
                 value={String(c.day)}
                 onValueChange={(v: string | null) => v && setClass(i, { day: Number(v) })}
               >
-                <SelectTrigger size="sm" className="w-full max-sm:col-span-2" aria-label="Day">
+                <SelectTrigger id={`c-day-${String(i)}`} className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -114,73 +134,144 @@ export function SiteSettingsForm({
                   ))}
                 </SelectContent>
               </Select>
-              <div className="grid grid-cols-2 gap-2 max-sm:order-1 max-sm:col-span-3 sm:contents">
-                <Input
-                  type="time"
-                  className="h-8"
-                  value={c.start}
-                  onChange={(e) => setClass(i, { start: e.target.value })}
-                  aria-label="Starts"
-                />
-                <Input
-                  type="time"
-                  className="h-8"
-                  value={c.end}
-                  onChange={(e) => setClass(i, { end: e.target.value })}
-                  aria-label="Ends"
-                />
-              </div>
+            </Field>
+            <Field className="max-lg:order-2">
+              <FieldLabel htmlFor={`c-start-${String(i)}`}>Starts</FieldLabel>
               <Input
-                className="h-8 max-sm:order-2 max-sm:col-span-3 sm:max-xl:order-2 sm:max-xl:col-span-2"
-                value={c.title}
-                onChange={(e) => setClass(i, { title: e.target.value })}
-                placeholder="Beginner session"
-                aria-label="Title"
+                id={`c-start-${String(i)}`}
+                type="time"
+                value={c.start}
+                onChange={(e) => setClass(i, { start: e.target.value })}
               />
+            </Field>
+            <Field className="max-lg:order-2">
+              <FieldLabel htmlFor={`c-end-${String(i)}`}>Ends</FieldLabel>
               <Input
-                className="h-8 max-sm:order-3 max-sm:col-span-3 sm:max-xl:order-2 sm:max-xl:col-span-2"
+                id={`c-end-${String(i)}`}
+                type="time"
+                value={c.end}
+                onChange={(e) => setClass(i, { end: e.target.value })}
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor={`c-audience-${String(i)}`}>Who it is for</FieldLabel>
+              <Select
+                items={AUDIENCE_ITEMS}
                 value={c.audience}
-                onChange={(e) => setClass(i, { audience: e.target.value })}
-                placeholder="Who it is for"
-                aria-label="Audience"
-              />
+                onValueChange={(v: string | null) => v && setClass(i, { audience: v as ClassAudience })}
+              >
+                <SelectTrigger id={`c-audience-${String(i)}`} className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {AUDIENCE_ITEMS.map((a) => (
+                    <SelectItem key={a.value} value={a.value}>
+                      {a.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+            <div className="col-span-2 flex justify-end max-lg:order-4 lg:col-span-1 lg:pt-6">
               <Button
                 variant="ghost"
-                size="icon-sm"
-                className="sm:max-xl:justify-self-end"
-                aria-label="Remove class"
+                size="sm"
+                aria-label={`Remove ${c.title || "this class"}`}
                 onClick={() => setClasses((list) => list.filter((_, j) => j !== i))}
               >
                 <LuTrash2 />
+                <span className="lg:sr-only">Remove</span>
               </Button>
             </div>
-          ))}
-          <div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                setClasses((list) => [...list, { day: 6, start: "19:00", end: "20:00", title: "", audience: "" }])
-              }
-            >
-              <LuPlus />
-              Add a class
-            </Button>
-          </div>
+            <Field className="col-span-2 max-lg:order-3">
+              <FieldLabel htmlFor={`c-title-${String(i)}`}>Title</FieldLabel>
+              <Input
+                id={`c-title-${String(i)}`}
+                value={c.title}
+                onChange={(e) => setClass(i, { title: e.target.value })}
+                placeholder="Group class"
+              />
+            </Field>
+            <Field className="col-span-2 max-lg:order-3">
+              <FieldLabel htmlFor={`c-note-${String(i)}`}>Note for members</FieldLabel>
+              <Input
+                id={`c-note-${String(i)}`}
+                value={c.note}
+                onChange={(e) => setClass(i, { note: e.target.value })}
+                placeholder="Sets the tone for the trading week ahead"
+              />
+            </Field>
+          </fieldset>
+        ))}
+        {classes.length === 0 && (
+          <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+            No classes yet. Members see &quot;The class schedule will be posted here.&quot;
+          </p>
+        )}
+        <div>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={classes.length >= 10}
+            onClick={() =>
+              setClasses((list) => [
+                ...list,
+                { day: 0, start: "19:00", end: "20:30", title: "", audience: "everyone", note: "" },
+              ])
+            }
+          >
+            <LuPlus />
+            Add a class
+          </Button>
         </div>
-      </Field>
+      </div>
+      <div className="flex flex-col gap-3 rounded-lg border p-3">
+        <label className="flex items-start justify-between gap-4">
+          <span>
+            <span className="block text-sm font-medium">Remind members before each class</span>
+            <span className="block text-sm text-muted-foreground">
+              A notification and an email with the Zoom link, to the members each class is for.
+            </span>
+          </span>
+          <Switch checked={reminders} onCheckedChange={setReminders} aria-label="Remind members before each class" />
+        </label>
+        {reminders && (
+          <Select items={REMINDER_ITEMS} value={minutes} onValueChange={(v: string | null) => v && setMinutes(v)}>
+            <SelectTrigger className="w-full sm:w-52" aria-label="When to remind">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {REMINDER_ITEMS.map((r) => (
+                <SelectItem key={r.value} value={r.value}>
+                  {r.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      </div>
+      <FieldDescription className="-mt-3">
+        Times are New York time; members also see them in their own time zone. Classes during market hours skip market
+        holidays.
+      </FieldDescription>
       <div>
         <Button
           disabled={pending}
           onClick={() =>
             startTransition(
               async () =>
-                void done(await updateSiteSettings({ ...form, classSchedule: classes }), "Site settings saved"),
+                void done(
+                  await updateClassSchedule({
+                    classSchedule: classes,
+                    classReminderMinutes: reminders ? Number(minutes) : null,
+                  }),
+                  "Class schedule saved",
+                ),
             )
           }
         >
           {pending ? <Spinner /> : <LuSave />}
-          Save site settings
+          Save class schedule
         </Button>
       </div>
     </FieldGroup>

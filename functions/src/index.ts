@@ -21,12 +21,17 @@ import { deliverAlert, deliverStragglers, publishDueAlerts } from "@/server/aler
 import { syncAllBrokerages, type BrokerageConfig } from "@/server/brokerage/sync"
 import { runClassSummary } from "@/server/classes"
 import type { EmailConfig } from "@/server/email"
-import { pruneJobRuns, runJob, skipped, succeeded } from "@/server/jobs"
+import { pruneJobRuns, recordJob, runJob, skipped, succeeded } from "@/server/jobs"
 import { finalizeWeek, ingestDailyBars } from "@/server/market/jobs"
 import type { MarketDataConfig } from "@/server/market/provider"
 import { refreshAllAccess } from "@/server/members"
 import { COLLECTIONS } from "@/server/model"
-import { emailAdminsExpired, notifyTargetsOnce, sendMembershipReminders } from "@/server/notifications"
+import {
+  emailAdminsExpired,
+  notifyTargetsOnce,
+  sendClassReminders,
+  sendMembershipReminders,
+} from "@/server/notifications"
 import { runQuizGeneration } from "@/server/quizzes"
 import { computeStanding } from "@/server/standing"
 import type { ZoomApiConfig } from "@/server/zoom"
@@ -211,6 +216,20 @@ export const membershipReminders = onSchedule(
       const reminded = await sendMembershipReminders(db(), getMessaging(), emailConfig(), siteUrl())
       return succeeded(`${reminded} ${reminded === 1 ? "member" : "members"} reminded`)
     })
+  },
+)
+
+/** Every 5 minutes: the reminder, with the Zoom link, for a class that starts soon. */
+export const classReminders = onSchedule(
+  { schedule: "every 5 minutes", timeZone: NEW_YORK, timeoutSeconds: 300, secrets: [RESEND_API_KEY] },
+  async () => {
+    const sent = await sendClassReminders(db(), getMessaging(), emailConfig(), siteUrl())
+    if (sent.length > 0)
+      await recordJob(
+        db(),
+        "class-reminders",
+        succeeded(sent.map((c) => `${c.title} on ${c.date}: ${c.members} reminded`).join("; ")),
+      )
   },
 )
 

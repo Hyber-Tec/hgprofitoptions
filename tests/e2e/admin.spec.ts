@@ -31,7 +31,7 @@ test("an alert HG publishes reaches members' feeds", async ({ page, browser }) =
   await page.getByRole("button", { name: "Info", exact: true }).click()
   const title = `Class moves to 7:30 PM (${Date.now()})`
   await page.getByLabel("Title").fill(title)
-  await page.getByLabel("Why, and what to watch").fill("Saturday's class starts 30 minutes later this week.")
+  await page.getByLabel("Why, and what to watch").fill("Sunday's group class starts 30 minutes later this week.")
   await page.getByRole("button", { name: "Publish now" }).click()
   await expect(page).toHaveURL(/\/admin\/alerts\/(?!new)[^/]+$/)
 

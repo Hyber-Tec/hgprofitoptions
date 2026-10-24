@@ -48,6 +48,7 @@ const ACTION_LABELS: Record<string, string> = {
   "etfs.updated": "Leveraged ETF guide updated",
   "market.index_values": "Index values entered",
   "settings.site_updated": "Site settings updated",
+  "settings.schedule_updated": "Class schedule updated",
   "settings.members_updated": "Member settings updated",
   "settings.hg_visibility_updated": "HG portfolio visibility changed",
   "hg.house_added": "House account added",

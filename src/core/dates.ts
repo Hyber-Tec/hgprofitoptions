@@ -74,8 +74,17 @@ export function todayInMarketZone(now: Date = new Date()): IsoDate {
 
 /** The instant at 00:00 local time on `date` in `timeZone`. */
 export function zonedStartOfDay(date: IsoDate, timeZone: string = MARKET_TZ): Date {
+  return zonedDateTime(date, "00:00", timeZone)
+}
+
+/**
+ * The instant of a wall-clock time ("19:00") on `date` in `timeZone`. Built from the local time itself, so
+ * it stays right on the days the clocks change (midnight plus 19 hours would be an hour off).
+ */
+export function zonedDateTime(date: IsoDate, hhmm: string, timeZone: string = MARKET_TZ): Date {
   const { year, month, day } = parts(date)
-  return new Date(new TZDate(year, month - 1, day, 0, 0, 0, 0, timeZone).getTime())
+  const [hour = 0, minute = 0] = hhmm.split(":").map(Number)
+  return new Date(new TZDate(year, month - 1, day, hour, minute, 0, 0, timeZone).getTime())
 }
 
 /**

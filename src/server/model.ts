@@ -6,6 +6,7 @@
 import { z } from "zod"
 import { isIsoDate } from "@/core/dates"
 import { TRADER_LEVELS } from "@/core/levels"
+import { CLASS_AUDIENCES } from "@/core/schedule"
 
 export const COLLECTIONS = {
   members: "members",
@@ -30,6 +31,8 @@ export const COLLECTIONS = {
   quizAttempts: "quizAttempts",
   quizAssignments: "quizAssignments",
   classRecaps: "classRecaps",
+  /** classReminders/{date-time-session}: one per class occurrence, so its reminder goes out once. */
+  classReminders: "classReminders",
   invoices: "invoices",
   /** counters/invoices: the last invoice number used each year ({ "2026": 7 }). */
   counters: "counters",
@@ -90,6 +93,8 @@ export const notificationPrefsSchema = z.object({
   chat: z.boolean().default(true),
   /** The AI recap of a class is ready. */
   classRecaps: z.boolean().default(true),
+  /** A reminder with the Zoom link before each class meant for this member. */
+  classReminders: z.boolean().default(true),
 })
 export type NotificationPrefs = z.infer<typeof notificationPrefsSchema>
 export const DEFAULT_PREFS: NotificationPrefs = notificationPrefsSchema.parse({})
@@ -780,22 +785,35 @@ export const faqSchema = z.object({
 })
 export type FaqDoc = z.infer<typeof faqSchema> & { id: string }
 
+/**
+ * One weekly class. Rows saved before audiences had names kept free text there ("Mandatory for
+ * beginners"); that text becomes the note and the audience is read from it.
+ */
+const classSessionSchema = z.preprocess(
+  (raw) => {
+    if (typeof raw !== "object" || raw === null || !("audience" in raw)) return raw
+    const { audience } = raw
+    if (typeof audience !== "string" || (CLASS_AUDIENCES as readonly string[]).includes(audience)) return raw
+    return { note: audience, ...raw, audience: /beginner/i.test(audience) ? "beginners" : "everyone" }
+  },
+  z.object({
+    day: z.number().int().min(0).max(6),
+    start: z.string(),
+    end: z.string(),
+    title: z.string(),
+    audience: z.enum(CLASS_AUDIENCES),
+    note: z.string().default(""),
+  }),
+)
+
 export const siteSettingsSchema = z.object({
   bookingUrl: z.url(),
   instagramUrl: z.url().nullable().default(null),
   youtubeUrl: z.url().nullable().default(null),
   xUrl: z.url().nullable().default(null),
-  classSchedule: z
-    .array(
-      z.object({
-        day: z.number().int().min(0).max(6),
-        start: z.string(),
-        end: z.string(),
-        title: z.string(),
-        audience: z.string(),
-      }),
-    )
-    .default([]),
+  classSchedule: z.array(classSessionSchema).default([]),
+  /** Members get a reminder with the Zoom link this many minutes before each class; null turns them off. */
+  classReminderMinutes: z.number().int().min(5).max(1440).nullable().default(60),
 })
 export type SiteSettings = z.infer<typeof siteSettingsSchema>
 
@@ -911,9 +929,32 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   youtubeUrl: "https://www.youtube.com/@hgprofitoptions",
   xUrl: "https://x.com/hgprofitoptions",
   classSchedule: [
-    { day: 6, start: "18:00", end: "19:00", title: "Beginner session", audience: "Mandatory for beginners" },
-    { day: 6, start: "19:00", end: "20:30", title: "All traders", audience: "Everyone" },
+    {
+      day: 0,
+      start: "19:00",
+      end: "20:30",
+      title: "Group class",
+      audience: "everyone",
+      note: "Sets the tone for the trading week ahead",
+    },
+    {
+      day: 2,
+      start: "09:30",
+      end: "10:30",
+      title: "Beginner session",
+      audience: "beginners",
+      note: "Live at the market open, reading the data and setups with HG",
+    },
+    {
+      day: 4,
+      start: "09:30",
+      end: "10:30",
+      title: "Beginner session",
+      audience: "beginners",
+      note: "Live at the market open, reading the data and setups with HG",
+    },
   ],
+  classReminderMinutes: 60,
 }
 
 export const adminNotesSchema = z.object({

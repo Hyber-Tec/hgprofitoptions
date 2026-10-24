@@ -5,6 +5,7 @@ import { classMeetingNumber } from "@/core/zoom"
 import { COLLECTIONS } from "@/server/model"
 import { transcriptFromEvent, urlValidationResponse, verifyZoomWebhook } from "@/server/zoom"
 import { queueRecap } from "@/lib/classes"
+import { getSiteSettings } from "@/lib/data/public"
 import { getMemberSettings } from "@/lib/data/settings"
 import { zoomWebhookSecret } from "@/lib/env.server"
 import { adminDb } from "@/lib/firebase/admin"
@@ -45,13 +46,14 @@ export async function POST(request: Request) {
   const id = recapId(transcript.meetingUuid)
   const ref = adminDb().collection(COLLECTIONS.classRecaps).doc(id)
   const date = transcript.startTime ? isoDateInZone(transcript.startTime) : todayInMarketZone()
+  const { classSchedule } = await getSiteSettings()
   const queued = await adminDb().runTransaction(async (tx) => {
     const snap = await tx.get(ref)
     // A repeated event never replaces a recap that is written or on its way; a failed one starts over.
     if (snap.exists && snap.get("transcript.status") !== "failed") return false
     const now = Timestamp.now()
     tx.set(ref, {
-      title: classTitle(date),
+      title: classTitle(date, classSchedule),
       date,
       zoomMeetingUuid: transcript.meetingUuid,
       transcript: {

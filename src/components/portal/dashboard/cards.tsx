@@ -9,7 +9,7 @@ import { formatDate, formatLevel, formatPercent, formatShortDate } from "@/core/
 import { describePeriodRange, quarterOf } from "@/core/membership/quarters"
 import { membershipSummary } from "@/core/membership/summary"
 import { diffTargets } from "@/core/parsers/strike-targets"
-import { formatDayIn, formatTimeIn, nextOccurrence, zoneAbbreviation } from "@/core/schedule"
+import { AUDIENCE_LABELS, formatDayIn, formatTimeIn, upcomingSessions, zoneAbbreviation } from "@/core/schedule"
 import type { Viewer } from "@/lib/auth/guards"
 import { listFeedAlerts, readReceipts } from "@/lib/data/alerts"
 import { listPresentations, listResources } from "@/lib/data/content"
@@ -446,20 +446,20 @@ export async function EarningsCard() {
 
 export async function ClassroomCard({ timezone }: { timezone: string }) {
   const [site, settings] = await Promise.all([getSiteSettings(), getMemberSettings()])
-  const sessions = site.classSchedule.map((s) => ({ ...s, next: nextOccurrence(s) }))
+  const sessions = upcomingSessions(site.classSchedule)
   const localDiffers = timezone !== "America/New_York"
   return (
     <Card>
       <CardHeader>
         <CardTitle>Classroom</CardTitle>
-        <CardDescription>Live on Zoom every week</CardDescription>
+        <CardDescription>Open 24/7, with live classes on Zoom every week</CardDescription>
         <CardAction>
           <ViewAll href="/members/classroom">Schedule</ViewAll>
         </CardAction>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         {sessions.map((s) => (
-          <div key={`${s.day}-${s.start}`} className="flex flex-col gap-0.5 rounded-lg border px-3 py-2.5">
+          <div key={`${String(s.day)}-${s.start}`} className="flex flex-col gap-0.5 rounded-lg border px-3 py-2.5">
             <div className="flex items-center justify-between gap-2">
               <p className="text-sm font-medium">{s.title}</p>
               <span className="text-xs text-muted-foreground">{formatDayIn(s.next.start, "America/New_York")}</span>
@@ -473,9 +473,15 @@ export async function ClassroomCard({ timezone }: { timezone: string }) {
                 {zoneAbbreviation(s.next.start, timezone)} (your time)
               </p>
             )}
-            <p className="text-xs text-muted-foreground">{s.audience}</p>
+            <p className="text-xs text-muted-foreground">
+              {AUDIENCE_LABELS[s.audience]}
+              {s.note && ` · ${s.note}`}
+            </p>
           </div>
         ))}
+        {sessions.length === 0 && (
+          <p className="text-sm text-muted-foreground">The class schedule will be posted here.</p>
+        )}
       </CardContent>
       <CardFooter className="flex flex-wrap gap-2 border-t pt-4">
         {settings.zoomUrl && (

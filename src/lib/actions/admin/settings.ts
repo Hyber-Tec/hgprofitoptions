@@ -4,6 +4,7 @@ import { refresh } from "next/cache"
 import { z } from "zod"
 import { todayInMarketZone } from "@/core/dates"
 import type { ActionResult } from "@/core/domain/types"
+import { CLASS_AUDIENCES } from "@/core/schedule"
 import { normalizeMeetingId } from "@/core/zoom"
 import { writeAudit } from "@/server/members"
 import { COLLECTIONS, MEMBER_SUBCOLLECTIONS } from "@/server/model"
@@ -32,18 +33,6 @@ const siteInput = z.object({
   instagramUrl: url,
   youtubeUrl: url,
   xUrl: url,
-  classSchedule: z
-    .array(
-      z.object({
-        day: z.number().int().min(0).max(6),
-        start: time,
-        end: time,
-        title: z.string().trim().min(1).max(60),
-        audience: z.string().trim().max(80),
-      }),
-    )
-    .max(10)
-    .refine((list) => list.every((s) => s.start < s.end), "Each class must end after it starts"),
 })
 
 export async function updateSiteSettings(input: z.input<typeof siteInput>): Promise<ActionResult> {
@@ -52,13 +41,51 @@ export async function updateSiteSettings(input: z.input<typeof siteInput>): Prom
   const parsed = siteInput.safeParse(input)
   if (!parsed.success)
     return { ok: false, code: "validation", message: parsed.error.issues[0]?.message ?? "Check the fields." }
-  await adminDb().collection(COLLECTIONS.settings).doc("site").set(parsed.data)
+  await adminDb().collection(COLLECTIONS.settings).doc("site").set(parsed.data, { merge: true })
   await writeAudit(adminDb(), {
     actorUid: viewer.uid,
     actorEmail: viewer.email,
     action: "settings.site_updated",
     targetType: "settings",
     targetId: "site",
+  })
+  invalidatePublicCache()
+  refresh()
+  return { ok: true, data: undefined }
+}
+
+const scheduleInput = z.object({
+  classSchedule: z
+    .array(
+      z.object({
+        day: z.number().int().min(0).max(6),
+        start: time,
+        end: time,
+        title: z.string().trim().min(1, "Give each class a title").max(60),
+        audience: z.enum(CLASS_AUDIENCES),
+        note: z.string().trim().max(100),
+      }),
+    )
+    .max(10)
+    .refine((list) => list.every((s) => s.start < s.end), "Each class must end after it starts"),
+  classReminderMinutes: z.number().int().min(5).max(1440).nullable(),
+})
+
+/** The weekly classes: the site's copy, the member area, calendar files and reminders all follow it. */
+export async function updateClassSchedule(input: z.input<typeof scheduleInput>): Promise<ActionResult> {
+  const viewer = await adminForAction()
+  if (!viewer) return forbidden
+  const parsed = scheduleInput.safeParse(input)
+  if (!parsed.success)
+    return { ok: false, code: "validation", message: parsed.error.issues[0]?.message ?? "Check the fields." }
+  await adminDb().collection(COLLECTIONS.settings).doc("site").set(parsed.data, { merge: true })
+  await writeAudit(adminDb(), {
+    actorUid: viewer.uid,
+    actorEmail: viewer.email,
+    action: "settings.schedule_updated",
+    targetType: "settings",
+    targetId: "site",
+    detail: { classes: parsed.data.classSchedule.length, reminderMinutes: parsed.data.classReminderMinutes },
   })
   invalidatePublicCache()
   refresh()
