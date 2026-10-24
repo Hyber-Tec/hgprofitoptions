@@ -8,7 +8,8 @@ test.beforeEach(async ({ page }) => {
 test("a strike target opens its live order book, options chain and stock page", async ({ page }) => {
   await page.goto("/members/targets")
   await page.locator('button[aria-haspopup="dialog"]:visible').first().click()
-  const panel = page.getByRole("dialog")
+  // The stock's panel (a live alert's toast can be open beside it).
+  const panel = page.getByRole("dialog").filter({ has: page.getByRole("region", { name: "Order book" }) })
   const symbol = (await panel.getByRole("heading").first().innerText()).split(/\s/)[0] ?? ""
   // Bid, ask and last for the shares.
   await expect(panel.getByRole("rowheader", { name: `${symbol} shares` })).toBeVisible()

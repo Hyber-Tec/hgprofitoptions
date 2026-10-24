@@ -9,7 +9,7 @@ test("the home page keeps the free call for the end, after everything else", asy
     }),
   ).toBeVisible()
   // The class day comes from the schedule: the Sunday group class by default.
-  await expect(page.getByText("Live class every Sunday")).toBeVisible()
+  await expect(page.locator("main p").filter({ hasText: /^Live class every Sunday/ })).toBeVisible()
   await expect(page.getByText(/starts every Sunday evening with a group class/)).toBeVisible()
   for (const name of [
     "Everything HG shares, in one place",
